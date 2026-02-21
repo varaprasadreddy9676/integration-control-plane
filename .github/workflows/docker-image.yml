@@ -51,8 +51,7 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta-backend.outputs.tags }}
           labels: ${{ steps.meta-backend.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha
+          no-cache: true
 
   build-and-push-frontend:
     runs-on: ubuntu-latest
