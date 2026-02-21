@@ -5,6 +5,9 @@ FROM node:18-alpine AS builder
 
 WORKDIR /app
 
+# Prevent out of memory errors during Vite build
+ENV NODE_OPTIONS="--max-old-space-size=4096"
+
 # Copy package files
 COPY package*.json ./
 
