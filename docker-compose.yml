@@ -23,10 +23,12 @@ services:
 
   # Backend API
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    container_name: integration-gateway-backend
+    image: ghcr.io/varaprasadreddy9676/integration-control-plane-backend:main
+    # To build locally instead: comment the 'image' line above and uncomment the 'build' block below
+    # build:
+    #   context: ./backend
+    #   dockerfile: Dockerfile
+    container_name: integration-control-plane-backend
     restart: unless-stopped
     ports:
       - "3545:3545"
@@ -52,14 +54,16 @@ services:
 
   # Frontend
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      args:
-        VITE_API_BASE_URL: http://localhost:3545/api/v1
-        VITE_APP_NAME: Integration Gateway
-        VITE_APP_VERSION: "2.0.0"
-    container_name: integration-gateway-frontend
+    image: ghcr.io/varaprasadreddy9676/integration-control-plane-frontend:main
+    # To build locally instead: comment the 'image' line above and uncomment the 'build' block below
+    # build:
+    #   context: ./frontend
+    #   dockerfile: Dockerfile
+    #   args:
+    #     VITE_API_BASE_URL: http://localhost:3545/api/v1
+    #     VITE_APP_NAME: Integration Gateway
+    #     VITE_APP_VERSION: "2.0.0"
+    container_name: integration-control-plane-frontend
     restart: unless-stopped
     ports:
       - "80:80"
