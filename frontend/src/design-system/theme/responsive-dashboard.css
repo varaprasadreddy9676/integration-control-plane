@@ -1,0 +1,441 @@
+/**
+ * Responsive Dashboard Fixes for Tablet Screens
+ * Targets iPads, Android tablets, and medium-sized devices
+ */
+
+/* ============================================
+   TABLET BREAKPOINTS (768px - 1024px)
+   ============================================ */
+
+/* Tablet Portrait (768px - 900px) */
+@media (min-width: 768px) and (max-width: 900px) {
+  /* Dashboard KPI Tiles - 2 columns on tablet portrait */
+  .dashboard-kpis {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-2);
+  }
+
+  /* Dashboard Content Grid - Force single column */
+  .dashboard-tab-grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-3);
+  }
+
+  /* Dashboard Actions - Stack vertically */
+  .dashboard-actions {
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: var(--space-2);
+  }
+
+  .dashboard-actions > * {
+    width: 100%;
+  }
+
+  /* Filter Row - Wrap filters */
+  .dashboard-filters,
+  .logs-filters {
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+
+  .dashboard-filters > *,
+  .logs-filters > * {
+    min-width: 160px;
+    flex: 1 1 calc(50% - var(--space-2));
+  }
+
+  /* Charts - Reduce height on tablets */
+  .recharts-wrapper {
+    max-height: 280px !important;
+  }
+
+  /* Card padding - Reduce for more space */
+  .ant-card-body {
+    padding: var(--space-3) !important;
+  }
+
+  /* Metric tiles - Reduce padding */
+  .dashboard-metric-tile {
+    padding: var(--space-3) !important;
+  }
+}
+
+/* Tablet Landscape (901px - 1024px) */
+@media (min-width: 901px) and (max-width: 1024px) {
+  /* Dashboard KPI Tiles - 2 or 3 columns based on space */
+  .dashboard-kpis {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--space-3);
+  }
+
+  /* Dashboard Content Grid - Flexible 1-2 columns */
+  .dashboard-tab-grid {
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: var(--space-3);
+  }
+
+  /* Filter Row - Better spacing */
+  .dashboard-filters,
+  .logs-filters {
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+
+  .dashboard-filters > *,
+  .logs-filters > * {
+    min-width: 140px;
+    flex: 1 1 auto;
+  }
+
+  /* Charts - Optimal height */
+  .recharts-wrapper {
+    max-height: 320px !important;
+  }
+}
+
+/* ============================================
+   TABLE RESPONSIVE FIXES
+   ============================================ */
+
+@media (max-width: 1024px) {
+  /* Modern Table - Better scroll on tablets */
+  .modern-table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Table actions - Stack on small tablets */
+  .ant-table-cell .ant-space {
+    flex-wrap: wrap;
+    gap: var(--space-1) !important;
+  }
+
+  /* Table column widths - More flexible */
+  .ant-table-cell {
+    min-width: 100px;
+    max-width: 300px;
+  }
+
+  /* Sticky column shadows for scroll indication */
+  .ant-table-cell-fix-left,
+  .ant-table-cell-fix-right {
+    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.08) !important;
+  }
+
+  /* Hide less important columns on tablets */
+  .ant-table-cell[data-hide-on-tablet="true"] {
+    display: none !important;
+  }
+}
+
+@media (max-width: 768px) {
+  /* Table - Full mobile view */
+  .ant-table-cell {
+    font-size: 13px;
+    padding: var(--space-2) var(--space-2) !important;
+  }
+
+  /* Hide more columns on mobile */
+  .ant-table-cell[data-hide-on-mobile="true"] {
+    display: none !important;
+  }
+
+  /* Table pagination - Compact */
+  .ant-pagination {
+    font-size: 12px;
+  }
+
+  .ant-pagination-item,
+  .ant-pagination-prev,
+  .ant-pagination-next {
+    min-width: 28px;
+    height: 28px;
+    line-height: 26px;
+  }
+}
+
+/* ============================================
+   CHART RESPONSIVE FIXES
+   ============================================ */
+
+@media (max-width: 1024px) {
+  /* Chart containers - Better spacing */
+  .recharts-responsive-container {
+    margin: 0 auto;
+  }
+
+  /* Chart legends - Wrap on tablets */
+  .recharts-legend-wrapper {
+    max-height: 100px;
+    overflow-y: auto;
+  }
+
+  .recharts-legend-item {
+    margin-right: var(--space-2) !important;
+    margin-bottom: var(--space-1) !important;
+  }
+
+  /* Chart tooltips - Better positioning */
+  .recharts-tooltip-wrapper {
+    z-index: 1000;
+  }
+
+  /* Pie charts - Reduce size on tablets */
+  .recharts-pie {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 768px) {
+  /* Charts - Mobile friendly */
+  .recharts-wrapper {
+    max-height: 240px !important;
+  }
+
+  /* Hide chart labels on mobile */
+  .recharts-text {
+    font-size: 10px;
+  }
+
+  /* Legends - Compact */
+  .recharts-legend-item-text {
+    font-size: 11px !important;
+  }
+}
+
+/* ============================================
+   FILTER BAR RESPONSIVE FIXES
+   ============================================ */
+
+@media (max-width: 1024px) {
+  /* Filter container */
+  .filter-bar-container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  /* Filter row - Wrap and stack */
+  .filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    width: 100%;
+  }
+
+  .filter-row > * {
+    flex: 1 1 calc(50% - var(--space-2));
+    min-width: 140px;
+  }
+
+  /* Date range picker - Full width on tablets */
+  .filter-row .ant-picker-range {
+    width: 100% !important;
+    min-width: 200px;
+  }
+
+  /* Search input - Full width */
+  .filter-row .ant-input-search {
+    width: 100% !important;
+    min-width: 200px;
+  }
+
+  /* Action buttons row */
+  .action-buttons-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    justify-content: flex-start;
+  }
+
+  .action-buttons-row > * {
+    flex: 0 1 auto;
+  }
+}
+
+@media (max-width: 768px) {
+  /* Filters - Full width on mobile */
+  .filter-row > * {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+
+  /* Buttons - Stack vertically */
+  .action-buttons-row {
+    flex-direction: column;
+  }
+
+  .action-buttons-row > * {
+    width: 100%;
+  }
+}
+
+/* ============================================
+   CARD & PANEL RESPONSIVE FIXES
+   ============================================ */
+
+@media (max-width: 1024px) {
+  /* Card headers - Better wrapping */
+  .ant-card-head-title {
+    overflow: visible;
+    white-space: normal;
+  }
+
+  /* Card extra actions - Wrap on tablets */
+  .ant-card-extra {
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+
+  /* Card body - Comfortable padding */
+  .ant-card-body {
+    padding: var(--space-3) !important;
+  }
+
+  /* Stats cards - Better layout */
+  .stats-card-grid {
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: var(--space-2);
+  }
+}
+
+@media (max-width: 768px) {
+  /* Cards - Minimal padding on mobile */
+  .ant-card {
+    border-radius: var(--space-2);
+  }
+
+  .ant-card-head {
+    padding: var(--space-2) var(--space-3);
+  }
+
+  .ant-card-body {
+    padding: var(--space-2) !important;
+  }
+
+  /* Card extra - Stack vertically */
+  .ant-card-extra {
+    width: 100%;
+    margin-top: var(--space-2);
+  }
+}
+
+/* ============================================
+   MODAL & DRAWER RESPONSIVE FIXES
+   ============================================ */
+
+@media (max-width: 1024px) {
+  /* Modals - Better width on tablets */
+  .ant-modal {
+    max-width: 90vw;
+    margin: var(--space-4) auto;
+  }
+
+  /* Modal body - Comfortable padding */
+  .ant-modal-body {
+    padding: var(--space-4);
+    max-height: 70vh;
+    overflow-y: auto;
+  }
+
+  /* Drawer - Full width on tablets */
+  .ant-drawer-content-wrapper {
+    width: 80% !important;
+    max-width: 600px;
+  }
+}
+
+@media (max-width: 768px) {
+  /* Modals - Full screen on mobile */
+  .ant-modal {
+    max-width: 100vw;
+    width: 100% !important;
+    margin: 0;
+    top: 0;
+  }
+
+  .ant-modal-content {
+    border-radius: 0;
+  }
+
+  .ant-modal-body {
+    padding: var(--space-3);
+  }
+
+  /* Drawer - Full width on mobile */
+  .ant-drawer-content-wrapper {
+    width: 100% !important;
+  }
+}
+
+/* ============================================
+   UTILITY CLASSES
+   ============================================ */
+
+/* Hide on tablet */
+@media (min-width: 768px) and (max-width: 1024px) {
+  .hide-on-tablet {
+    display: none !important;
+  }
+}
+
+/* Hide on mobile */
+@media (max-width: 768px) {
+  .hide-on-mobile {
+    display: none !important;
+  }
+}
+
+/* Show only on tablet */
+.show-on-tablet-only {
+  display: none !important;
+}
+
+@media (min-width: 768px) and (max-width: 1024px) {
+  .show-on-tablet-only {
+    display: block !important;
+  }
+}
+
+/* Show only on mobile */
+.show-on-mobile-only {
+  display: none !important;
+}
+
+@media (max-width: 768px) {
+  .show-on-mobile-only {
+    display: block !important;
+  }
+}
+
+/* Stack on tablet */
+@media (max-width: 1024px) {
+  .stack-on-tablet {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  .stack-on-tablet > * {
+    width: 100% !important;
+  }
+}
+
+/* Touch-friendly targets */
+@media (hover: none) and (pointer: coarse) {
+  /* Larger touch targets */
+  .ant-btn,
+  .ant-select-selector,
+  .ant-input,
+  .ant-picker,
+  .ant-switch {
+    min-height: 44px;
+  }
+
+  /* Better spacing for touch */
+  .ant-space-item {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+  }
+}

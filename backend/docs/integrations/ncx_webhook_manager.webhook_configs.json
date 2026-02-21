@@ -1,0 +1,118 @@
+[
+  {
+    "name": "NCX - Appointment Cancellation",
+    "type": "APPOINTMENT_CANCELLATION",
+    "eventType": "APPOINTMENT_CANCELLATION",
+    "direction": "OUTBOUND",
+    "tenantId": 812,
+    "entityName": "Tenant",
+    "scope": "INCLUDE_CHILDREN",
+    "excludedEntityRids": [],
+    "targetUrl": "https://gt2.askadmissionsone.in/webhook?examId=78&identifier=medics-hook",
+    "httpMethod": "POST",
+    "outgoingAuthType": "BEARER",
+    "outgoingAuthConfig": {
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleGFtSWQiOiI3OCIsImF1dGhDb2RlIjoibWVkaWNzLWhvb2siLCJpYXQiOjE3NjU4NzU5OTJ9.aorWVepYzllVgK3Mv677XWyON1KZrTZ_oeidOG7l4sQ"
+    },
+    "isActive": true,
+    "timeoutMs": 3000,
+    "retryCount": 3,
+    "transformationMode": "SCRIPT",
+    "transformation": {
+      "mode": "SCRIPT",
+      "mappings": [],
+      "staticFields": [],
+      "script": "const transformed = { source: 'medics', ...payload }; return transformed;"
+    },
+    "actions": null,
+    "deliveryMode": "IMMEDIATE",
+    "schedulingConfig": null
+  },
+  {
+    "name": "NCX - Appointment Confirmation",
+    "type": "APPOINTMENT_CONFIRMATION",
+    "eventType": "APPOINTMENT_CONFIRMATION",
+    "direction": "OUTBOUND",
+    "tenantId": 812,
+    "entityName": "Tenant",
+    "scope": "INCLUDE_CHILDREN",
+    "excludedEntityRids": [],
+    "targetUrl": "https://gt2.askadmissionsone.in/webhook?examId=78&identifier=medics-hook",
+    "httpMethod": "POST",
+    "outgoingAuthType": "BEARER",
+    "outgoingAuthConfig": {
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleGFtSWQiOiI3OCIsImF1dGhDb2RlIjoibWVkaWNzLWhvb2siLCJpYXQiOjE3NjU4NzU5OTJ9.aorWVepYzllVgK3Mv677XWyON1KZrTZ_oeidOG7l4sQ"
+    },
+    "isActive": true,
+    "timeoutMs": 3000,
+    "retryCount": 3,
+    "transformationMode": "SCRIPT",
+    "transformation": {
+      "mode": "SCRIPT",
+      "mappings": [],
+      "staticFields": [],
+      "script": "const transformed = { source: 'medics', ...payload }; return transformed;"
+    },
+    "actions": null,
+    "deliveryMode": "IMMEDIATE",
+    "schedulingConfig": null
+  },
+  {
+    "name": "NCX - Appointment Rescheduled",
+    "type": "APPOINTMENT_RESCHEDULED",
+    "eventType": "APPOINTMENT_RESCHEDULED",
+    "direction": "OUTBOUND",
+    "tenantId": 812,
+    "entityName": "Tenant",
+    "scope": "INCLUDE_CHILDREN",
+    "excludedEntityRids": [],
+    "targetUrl": "https://gt2.askadmissionsone.in/webhook?examId=78&identifier=medics-hook",
+    "httpMethod": "POST",
+    "outgoingAuthType": "BEARER",
+    "outgoingAuthConfig": {
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleGFtSWQiOiI3OCIsImF1dGhDb2RlIjoibWVkaWNzLWhvb2siLCJpYXQiOjE3NjU4NzU5OTJ9.aorWVepYzllVgK3Mv677XWyON1KZrTZ_oeidOG7l4sQ"
+    },
+    "isActive": true,
+    "timeoutMs": 3000,
+    "retryCount": 3,
+    "transformationMode": "SCRIPT",
+    "transformation": {
+      "mode": "SCRIPT",
+      "mappings": [],
+      "staticFields": [],
+      "script": "const transformed = { source: 'medics', ...payload }; return transformed;"
+    },
+    "actions": null,
+    "deliveryMode": "IMMEDIATE",
+    "schedulingConfig": null
+  },
+  {
+    "name": "NCX Dashboard - OP Visit Created",
+    "type": "OP_VISIT_CREATED",
+    "eventType": "OP_VISIT_CREATED",
+    "direction": "OUTBOUND",
+    "tenantId": 812,
+    "entityName": "Tenant",
+    "scope": "INCLUDE_CHILDREN",
+    "excludedEntityRids": [],
+    "targetUrl": "https://gt2.askadmissionsone.in/webhook?examId=78&identifier=medics-hook",
+    "httpMethod": "POST",
+    "outgoingAuthType": "BEARER",
+    "outgoingAuthConfig": {
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleGFtSWQiOiI3OCIsImF1dGhDb2RlIjoibWVkaWNzLWhvb2siLCJpYXQiOjE3NjU4NzU5OTJ9.aorWVepYzllVgK3Mv677XWyON1KZrTZ_oeidOG7l4sQ"
+    },
+    "isActive": true,
+    "timeoutMs": 3000,
+    "retryCount": 3,
+    "transformationMode": "SCRIPT",
+    "transformation": {
+      "mode": "SCRIPT",
+      "mappings": [],
+      "staticFields": [],
+      "script": "const transformed = { source: 'medics', ...payload }; return transformed;"
+    },
+    "actions": null,
+    "deliveryMode": "IMMEDIATE",
+    "schedulingConfig": null
+  }
+]

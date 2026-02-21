@@ -1,0 +1,32 @@
+# Backend Development Dockerfile with hot reloading
+FROM node:18-alpine
+
+# Install necessary system dependencies for puppeteer
+RUN apk add --no-cache \
+    chromium \
+    nss \
+    freetype \
+    harfbuzz \
+    ca-certificates \
+    ttf-freefont
+
+# Set Puppeteer to use installed chromium
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install ALL dependencies (including devDependencies)
+RUN npm install && npm cache clean --force
+
+# Copy application source (will be overridden by volume mount)
+COPY . .
+
+# Expose API and debugger ports
+EXPOSE 3545 9229
+
+# Start with nodemon for hot reloading and debugging enabled
+CMD ["node", "--inspect=0.0.0.0:9229", "node_modules/.bin/nodemon", "src/index.js"]

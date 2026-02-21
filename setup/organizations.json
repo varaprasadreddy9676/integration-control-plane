@@ -1,0 +1,24 @@
+[
+  {
+    "orgId": 100,
+    "name": "Example Healthcare Corp",
+    "code": "ORG-001",
+    "email": "contact@example-healthcare.com",
+    "phone": "+1-555-0100",
+    "address": "123 Healthcare Drive, Medical District, City, State 12345",
+    "region": "North America",
+    "timezone": "America/New_York",
+    "tags": ["hospital", "multi-specialty"]
+  },
+  {
+    "orgId": 200,
+    "name": "Sample Medical Group",
+    "code": "ORG-002",
+    "email": "info@sample-medical.com",
+    "phone": "+1-555-0200",
+    "address": "456 Medical Plaza, Healthcare Center, City, State 67890",
+    "region": "North America",
+    "timezone": "America/Los_Angeles",
+    "tags": ["clinic", "primary-care"]
+  }
+]

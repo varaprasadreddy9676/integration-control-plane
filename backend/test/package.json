@@ -1,0 +1,26 @@
+{
+  "name": "event-gateway-tests",
+  "version": "1.0.0",
+  "description": "Unit tests for event gateway",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
+  },
+  "devDependencies": {
+    "jest": "^29.0.0",
+    "supertest": "^6.3.0"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "collectCoverageFrom": [
+      "src/**/*.js",
+      "!src/config.js"
+    ],
+    "testMatch": [
+      "**/tests/**/*.test.js"
+    ],
+    "verbose": true
+  }
+}

@@ -1,0 +1,13 @@
+node_modules
+logs
+*.log
+*.pid
+*.nohup.out
+src/data/state.json
+config.json
+.env
+data/mongodb/
+data/mysql/
+*.bak
+*.backup
+check-*.js

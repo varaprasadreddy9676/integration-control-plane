@@ -1,0 +1,64 @@
+{
+  "app": {
+    "name": "Integration Gateway",
+    "shortName": "Gateway",
+    "description": "A bi-directional integration platform for connecting systems via webhooks and real-time APIs",
+    "version": "2.0.0"
+  },
+  "port": 4000,
+  "api": {
+    "basePrefix": "/api/v1"
+  },
+  "communicationServiceUrl": "https://your-domain.com/api/sendNotification",
+  "frontendUrl": "https://your-domain.com/event-gateway",
+  "db": {
+    "host": "",
+    "port": 3306,
+    "user": "",
+    "password": "",
+    "database": "",
+    "connectionLimit": 50,
+    "comment": "Optional. Configure only if a tenant uses MySQL as event source."
+  },
+  "mongodb": {
+    "uri": "mongodb://mongodb:27017/integration_gateway",
+    "database": "integration_gateway",
+    "options": {
+      "maxPoolSize": 100,
+      "minPoolSize": 10
+    }
+  },
+  "security": {
+    "enforceHttps": false,
+    "blockPrivateNetworks": false,
+    "apiKey": "your-secret-api-key-change-me",
+    "jwtSecret": "your-jwt-secret-change-me-use-long-random-string"
+  },
+  "worker": {
+    "enabled": true,
+    "batchSize": 50,
+    "intervalMs": 1000,
+    "maxConcurrentBatches": 5,
+    "processingTimeout": 300000
+  },
+  "memory": {
+    "heapThresholdMB": 5500,
+    "checkIntervalMs": 60000,
+    "gracefulShutdown": true
+  },
+  "logging": {
+    "level": "info",
+    "format": "json",
+    "file": {
+      "enabled": true,
+      "path": "logs/gateway.log",
+      "maxSize": "100m",
+      "maxFiles": 10
+    }
+  },
+  "httpClient": {
+    "timeout": 30000,
+    "maxRedirects": 5,
+    "validateStatus": null
+  }
+}

@@ -1,0 +1,54 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor/IDE
+.idea/
+.vscode/
+
+# Logs and temp runtime files
+*.log
+*.pid
+*.pid.lock
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Environment/local secrets
+.env
+.env.*
+!.env.example
+!.env.*.example
+backend/config.json
+
+# Certificates/keys (generate locally)
+backend/nginx/ssl/*.crt
+backend/nginx/ssl/*.csr
+backend/nginx/ssl/*.key
+backend/nginx/ssl/*.pem
+
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build artifacts
+dist/
+build/
+coverage/
+*.tsbuildinfo
+
+# Backup/temporary files
+*.bak
+*.bak2
+*.bak3
+*.backup
+*_temp.*
+
+# Local runtime data
+backend/data/mongodb/
+backend/data/mysql/
+backend/src/data/state.json
+backend/src/data/state.json.*
+backend/logs/*
+!backend/logs/.gitkeep
+integration-gateway-frontend/dist/

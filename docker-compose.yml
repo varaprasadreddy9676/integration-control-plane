@@ -1,0 +1,87 @@
+version: '3.8'
+
+services:
+  # MongoDB - Primary database
+  mongodb:
+    image: mongo:6
+    container_name: integration-gateway-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: integration_gateway
+    volumes:
+      - mongodb_data:/data/db
+      - mongodb_config:/data/configdb
+    networks:
+      - integration-gateway-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/integration_gateway --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: integration-gateway-backend
+    restart: unless-stopped
+    ports:
+      - "3545:3545"
+    environment:
+      NODE_ENV: production
+      # MongoDB connection will be read from config.json mounted as volume
+    volumes:
+      # Mount config file (create from config.example.json first)
+      - ./backend/config.json:/app/config.json:ro
+      # Optional: Mount logs directory
+      - backend_logs:/app/logs
+    networks:
+      - integration-gateway-network
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3545/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: http://localhost:3545/api/v1
+        VITE_APP_NAME: Integration Gateway
+        VITE_APP_VERSION: "2.0.0"
+    container_name: integration-gateway-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    networks:
+      - integration-gateway-network
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  mongodb_data:
+    driver: local
+  mongodb_config:
+    driver: local
+  backend_logs:
+    driver: local
+
+networks:
+  integration-gateway-network:
+    driver: bridge

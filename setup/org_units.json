@@ -1,0 +1,38 @@
+[
+  {
+    "orgId": 100,
+    "rid": 101,
+    "name": "Example Healthcare - Downtown Branch",
+    "code": "UNIT-101",
+    "email": "downtown@example-healthcare.com",
+    "phone": "+1-555-0101",
+    "address": "123 Healthcare Drive, Downtown, City, State 12345",
+    "region": "North America",
+    "timezone": "America/New_York",
+    "tags": ["branch", "24-7"]
+  },
+  {
+    "orgId": 100,
+    "rid": 102,
+    "name": "Example Healthcare - Uptown Clinic",
+    "code": "UNIT-102",
+    "email": "uptown@example-healthcare.com",
+    "phone": "+1-555-0102",
+    "address": "789 Medical Avenue, Uptown, City, State 12346",
+    "region": "North America",
+    "timezone": "America/New_York",
+    "tags": ["clinic", "outpatient"]
+  },
+  {
+    "orgId": 200,
+    "rid": 201,
+    "name": "Sample Medical - Main Office",
+    "code": "UNIT-201",
+    "email": "main@sample-medical.com",
+    "phone": "+1-555-0201",
+    "address": "456 Medical Plaza, Main District, City, State 67890",
+    "region": "North America",
+    "timezone": "America/Los_Angeles",
+    "tags": ["headquarters", "admin"]
+  }
+]

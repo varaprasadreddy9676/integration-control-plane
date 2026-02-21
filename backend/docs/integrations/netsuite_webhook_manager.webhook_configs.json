@@ -1,0 +1,37 @@
+[
+  {
+    "name": "NetSuite OP Visit Created",
+    "description": "Send OP visit data to NetSuite RESTlet when patient visit is created",
+    "type": "OP_VISIT_CREATED",
+    "eventType": "OP_VISIT_CREATED",
+    "direction": "OUTBOUND",
+    "tenantId": 84,
+    "entityName": "Tenant",
+    "scope": "INCLUDE_CHILDREN",
+    "excludedEntityRids": [],
+    "isActive": true,
+    "deliveryMode": "IMMEDIATE",
+    "targetUrl": "https://5688780.restlets.api.netsuite.com/app/site/hosting/restlet.nl?script=1458&deploy=1",
+    "httpMethod": "POST",
+    "outgoingAuthType": "OAUTH1",
+    "outgoingAuthConfig": {
+      "consumerKey": "f03d4e24f74f72f683a7e3193629f40c855933590e3751fd606f8208bfad5c3e",
+      "consumerSecret": "685db793193687b1bc6ea351bdcecb75ac54e21ca00d203380f82e592e6c49d2",
+      "token": "76825f8b8f3fe0fd1fa51efbd2638fc955937cc0cacc33301ac46578cd487e49",
+      "tokenSecret": "a520e3c0007b7b38bc7840492d6727cb047fd849d848c052c9a79b8d2bb0d5ce",
+      "realm": "5688780",
+      "signatureMethod": "HMAC-SHA256"
+    },
+    "transformationMode": "SCRIPT",
+    "transformation": {
+      "mode": "SCRIPT",
+      "mappings": [],
+      "staticFields": [],
+      "script": "const patient = payload.patient || {};\nconst visit = payload.visit || {};\n\nconst mrNumber = typeof patient.mrn === 'object' && patient.mrn !== null ? patient.mrn.documentNumber : patient.mrn;\nconst leadNo = visit.leadNo || visit.visitLeadNo || visit.leadNumber || payload.leadNo || null;\nif (!leadNo) throw new Error('Missing lead_no');\nif (!patient.fullName) throw new Error('Missing patient.fullName');\nif (!mrNumber) throw new Error('Missing patient MRN');\n\nfunction formatDateToDDMMYYYY(dateStr) {\n  if (!dateStr) return null;\n  if (/^\\d{2}\\/\\d{2}\\/\\d{4}$/.test(dateStr)) return dateStr;\n  if (/^\\d{4}-\\d{2}-\\d{2}$/.test(dateStr)) {\n    const [yyyy, mm, dd] = dateStr.split('-');\n    return `${dd}/${mm}/${yyyy}`;\n  }\n  return null;\n}\n\nconst details = {\n  lead_status: '7',\n  mr_number: mrNumber,\n  medics_patient_name: patient.fullName\n};\nif (patient.email && patient.email.trim() !== '') details.email_id = patient.email;\nif (patient.phone) details.mobile_no = patient.phone;\nconst visitDate = formatDateToDDMMYYYY(visit.date);\nif (visitDate) details.visit_date = visitDate;\nif (visit.typeName) details.visit_type = visit.typeName;\nconst remarks = visit.leadRemarks || visit.visitLeadRemarks || '';\nif (remarks.trim() !== '') details.remarks = remarks;\n\nreturn { lead_no: leadNo, details };"
+    },
+    "timeoutMs": 15000,
+    "retryCount": 3,
+    "actions": null,
+    "schedulingConfig": null
+  }
+]

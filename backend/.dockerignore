@@ -1,0 +1,65 @@
+# Node modules (will be installed in container)
+node_modules
+test/node_modules
+
+# Git
+.git
+.gitignore
+
+# Documentation
+*.md
+docs/
+
+# Test files
+test/
+*.test.js
+*.spec.js
+
+# Development files
+.env
+.env.*
+config.json
+config.example.json
+.vscode/
+.idea/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+dist/
+build/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Database files
+*.sql
+*.db
+*.sqlite
+
+# Backup files
+*.bak
+*.bak2
+*.bak3
+*.bak4
+
+# PM2
+ecosystem.config.js
+
+# Docker
+Dockerfile
+.dockerignore
+docker-compose*.yml
+
+# CI/CD
+.github
+.gitlab-ci.yml

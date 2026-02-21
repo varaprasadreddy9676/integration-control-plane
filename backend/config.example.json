@@ -1,0 +1,120 @@
+{
+  "app": {
+    "name": "Integration Gateway",
+    "shortName": "Gateway",
+    "description": "A bi-directional integration platform for connecting systems via webhooks and real-time APIs",
+    "version": "2.0.0"
+  },
+  "port": 3545,
+  "api": {
+    "basePrefix": "/api/v1"
+  },
+  "communicationServiceUrl": "https://your-domain.com/api/sendNotification",
+  "frontendUrl": "https://your-domain.com/event-gateway",
+  "db": {
+    "host": "",
+    "port": 3306,
+    "user": "",
+    "password": "",
+    "database": "",
+    "connectionLimit": 10,
+    "comment": "Optional. Only required when using MySQL as an event source."
+  },
+  "mongodb": {
+    "uri": "mongodb://localhost:27017/integration_gateway",
+    "database": "integration_gateway",
+    "options": {
+      "maxPoolSize": 100,
+      "minPoolSize": 10
+    }
+  },
+  "security": {
+    "enforceHttps": false,
+    "blockPrivateNetworks": false,
+    "apiKey": "your-secret-api-key-change-me",
+    "jwtSecret": "your-jwt-secret-change-me-use-long-random-string",
+    "jwtExpiresIn": "12h"
+  },
+  "eventSource": {
+    "type": "",
+    "isSequential": true,
+    "comment": "Optional global default source type. Leave empty to use only per-org event source configuration."
+  },
+  "eventAudit": {
+    "enabled": true,
+    "retentionDays": 30,
+    "storeFullPayload": true,
+    "storeSummaryPayload": true,
+    "maxPayloadSize": 10000000,
+    "allowedSummaryFields": [
+      "patientRid",
+      "appointmentId",
+      "entityRid",
+      "billId",
+      "eventType",
+      "timestamp"
+    ],
+    "trackSourceMetadata": true,
+    "enableGapDetection": true,
+    "watchdogEnabled": true,
+    "watchdogIntervalMs": 300000,
+    "stuckThresholdMs": 300000,
+    "comment": "Event audit trail for comprehensive tracking. storeFullPayload: false (default) for PHI/PII protection. Retention: 90 days (configurable for compliance). Watchdog marks events stuck in PROCESSING > 5 minutes as STUCK."
+  },
+  "kafka": {
+    "brokers": ["localhost:9092"],
+    "topic": "events",
+    "groupId": "integration-gateway-group",
+    "clientId": "integration-gateway",
+    "fromBeginning": false,
+    "sessionTimeout": 30000,
+    "heartbeatInterval": 3000,
+    "maxBytesPerPartition": 26214400,
+    "autoCommit": false,
+    "comment": "Kafka configuration for event source"
+  },
+  "worker": {
+    "enabled": true,
+    "intervalMs": 5000,
+    "multiActionDelayMs": 10000,
+    "batchSize": 5,
+    "timeoutMs": 10000,
+    "maxEventAgeDays": 1,
+    "allowedParentsFromWebhooks": true,
+    "bootstrapCheckpoint": true,
+    "dbOperationTimeoutMs": 30000,
+    "retryIntervalMs": 60000,
+    "retryBatchSize": 3,
+    "maxRetryProcessingTimeMs": 120000,
+    "comment": "retryIntervalMs: Interval for retry processor (default: 60000ms = 1 minute)"
+  },
+  "scheduler": {
+    "enabled": true,
+    "intervalMs": 60000,
+    "batchSize": 10,
+    "dbOperationTimeoutMs": 30000
+  },
+  "ai": {
+    "enabled": false,
+    "provider": "openai",
+    "dailyLimitPerEntity": 100,
+    "comment": "AI assistant configuration. Supported providers: 'openai' (gpt-4o-mini), 'zai' (Z.ai GLM), 'kimi' (Moonshot AI), or 'claude' (Anthropic).",
+    "openai": {
+      "apiKey": "your-openai-api-key",
+      "model": "gpt-4o-mini",
+      "maxTokens": 2048,
+      "comment": "GPT-4o-mini is the cheapest OpenAI model (~$0.15 per 1M input tokens, $0.60 per 1M output tokens)"
+    },
+    "zai": {
+      "apiKey": "your-zai-api-key",
+      "model": "glm-4.7",
+      "maxTokens": 4096
+    },
+    "kimi": {
+      "apiKey": "your-kimi-api-key",
+      "model": "moonshot-v1-8k",
+      "maxTokens": 4096,
+      "comment": "Moonshot AI (Kimi) - OpenAI-compatible API. Models: moonshot-v1-8k, moonshot-v1-32k, moonshot-v1-128k"
+    }
+  }
+}

@@ -1,0 +1,74 @@
+version: '3.8'
+
+# Development docker-compose with hot reloading and development tools
+services:
+  # MongoDB - Primary database
+  mongodb:
+    image: mongo:6
+    container_name: integration-gateway-mongodb-dev
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: integration_gateway
+    volumes:
+      - mongodb_data_dev:/data/db
+    networks:
+      - integration-gateway-dev-network
+
+  # Backend API with nodemon for hot reloading
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: integration-gateway-backend-dev
+    restart: unless-stopped
+    ports:
+      - "3545:3545"
+      - "9229:9229"  # Node.js debugger port
+    environment:
+      NODE_ENV: development
+      DEBUG: "app:*"
+    volumes:
+      # Mount source code for hot reloading
+      - ./backend:/app
+      - /app/node_modules
+      # Mount config
+      - ./backend/config.json:/app/config.json:ro
+    networks:
+      - integration-gateway-dev-network
+    depends_on:
+      - mongodb
+    command: npm run dev
+
+  # Frontend with Vite dev server for hot reloading
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: integration-gateway-frontend-dev
+    restart: unless-stopped
+    ports:
+      - "5173:5173"  # Vite dev server port
+    environment:
+      NODE_ENV: development
+      VITE_API_BASE_URL: http://localhost:3545/api/v1
+    volumes:
+      # Mount source code for hot reloading
+      - ./frontend:/app
+      - /app/node_modules
+      # Mount .env file
+      - ./frontend/.env:/app/.env:ro
+    networks:
+      - integration-gateway-dev-network
+    depends_on:
+      - backend
+    command: npm run dev -- --host 0.0.0.0
+
+volumes:
+  mongodb_data_dev:
+    driver: local
+
+networks:
+  integration-gateway-dev-network:
+    driver: bridge
