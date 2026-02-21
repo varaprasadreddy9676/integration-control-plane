@@ -727,7 +727,7 @@
       {
         "path": "visit.medicsAppointmentId",
         "type": "number",
-        "description": "Medics appointment ID",
+        "description": "Appointment ID",
         "example": 12345
       },
       {
@@ -1172,7 +1172,7 @@
       {
         "path": "visit.medicsAppointmentId",
         "type": "number",
-        "description": "Medics appointment ID",
+        "description": "Appointment ID",
         "example": 12345
       },
       {

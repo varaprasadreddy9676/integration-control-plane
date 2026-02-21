@@ -1,4 +1,4 @@
-# Production Dockerfile for Medics Event Gateway
+# Production Dockerfile for Integration Control Plane - Backend
 # Multi-stage build for optimized image size
 
 # Stage 1: Build dependencies
