@@ -70,7 +70,7 @@ export const MonacoEditorInput = ({
           acceptSuggestionOnCommitCharacter: true,
           acceptSuggestionOnEnter: 'on',
           tabCompletion: 'on',
-          wordBasedSuggestions: true,
+          wordBasedSuggestions: 'currentDocument',
           suggest: {
             showKeywords: true,
             showSnippets: true,

@@ -79,15 +79,15 @@ interface StaticField {
 
 const makeTagTone =
   (token: any, spacing: any, colors: any) =>
-  (base: string) => ({
-    borderRadius: token.borderRadiusLG,
-    borderColor: withAlpha(base, 0.4),
-    background: withAlpha(base, 0.14),
-    color: base,
-    fontWeight: 700,
-    paddingInline: spacing['2.5'],
-    paddingBlock: spacing['0.5']
-  });
+    (base: string) => ({
+      borderRadius: token.borderRadiusLG,
+      borderColor: withAlpha(base, 0.4),
+      background: withAlpha(base, 0.14),
+      color: base,
+      fontWeight: 700,
+      paddingInline: spacing['2.5'],
+      paddingBlock: spacing['0.5']
+    });
 
 const getRequiredHint = (targetField?: string) => {
   switch (targetField) {
@@ -341,11 +341,11 @@ const FieldMapperRow = ({
           style={{ minWidth: 150 }}
           value={row.transform}
           onChange={(val) => onChange({ transform: val as TransformKind })}
-            options={[
-              { value: 'none', label: 'None' },
-              { value: 'trim', label: 'Trim string' },
-              { value: 'upper', label: 'Uppercase' },
-              { value: 'lower', label: 'Lowercase' },
+          options={[
+            { value: 'none', label: 'None' },
+            { value: 'trim', label: 'Trim string' },
+            { value: 'upper', label: 'Uppercase' },
+            { value: 'lower', label: 'Lowercase' },
             { value: 'date', label: 'Format date (ISO)' },
             { value: 'default', label: 'Default if empty' },
             { value: 'lookup', label: 'Lookup code mapping' }
@@ -1169,7 +1169,7 @@ const JavascriptTab = ({
                       borderRadius: token.borderRadius
                     }}
                   >
-{`const result = {
+                    {`const result = {
   event_type: context.eventType,
   patient_id: payload.patientRID,
   patient_name: payload.patientName
@@ -1271,7 +1271,7 @@ return result;`}
                   marginTop: 8,
                   marginBottom: 8
                 }}>
-{`// Simple lookup
+                  {`// Simple lookup
 externalServiceCode: lookup(payload.serviceCode, 'SERVICE_CODE'),
 
 // With fallback
@@ -1336,7 +1336,7 @@ items: payload.items?.map(item => ({
               acceptSuggestionOnCommitCharacter: true,
               acceptSuggestionOnEnter: 'on',
               tabCompletion: 'on',
-              wordBasedSuggestions: true,
+              wordBasedSuggestions: 'currentDocument',
               suggest: {
                 showKeywords: true,
                 showSnippets: true,
@@ -1825,9 +1825,9 @@ export const TransformationSection = ({
 
   // Use controlled props if provided, otherwise fall back to defaults
   const mappings = propMappings !== undefined ? propMappings : defaultMappings;
-  const setMappings = onMappingsChange || (() => {});
+  const setMappings = onMappingsChange || (() => { });
   const staticFields = propStaticFields !== undefined ? propStaticFields : defaultStaticFields;
-  const setStaticFields = onStaticFieldsChange || (() => {});
+  const setStaticFields = onStaticFieldsChange || (() => { });
 
   const [autoRun, setAutoRun] = useState(true);
   const [missingRequiredCount, setMissingRequiredCount] = useState(0);

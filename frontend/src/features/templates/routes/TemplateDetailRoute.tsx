@@ -417,7 +417,7 @@ export const TemplateDetailRoute = () => {
                           marginTop: 8,
                           marginBottom: 8
                         }}>
-{`// Simple lookup
+                          {`// Simple lookup
 externalServiceCode: lookup(payload.serviceCode, 'SERVICE_CODE'),
 
 // With fallback
@@ -481,7 +481,7 @@ items: payload.items?.map(item => ({
                       acceptSuggestionOnCommitCharacter: true,
                       acceptSuggestionOnEnter: 'on',
                       tabCompletion: 'on',
-                      wordBasedSuggestions: true,
+                      wordBasedSuggestions: 'currentDocument',
                       suggest: {
                         showKeywords: true,
                         showSnippets: true,
