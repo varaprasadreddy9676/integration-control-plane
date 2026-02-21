@@ -1,5 +1,5 @@
 {
-  "name": "integration-gateway-console",
+  "name": "integration-control-plane-frontend",
   "version": "0.1.0",
   "private": true,
   "type": "module",

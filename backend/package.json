@@ -1,5 +1,5 @@
 {
-  "name": "integration-gateway-backend",
+  "name": "integration-control-plane-backend",
   "version": "1.0.0",
   "description": "Integration Gateway - Backend API service for delivering events to external systems",
   "main": "src/index.js",
