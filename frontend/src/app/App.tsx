@@ -117,7 +117,8 @@ export const App = () => {
   useEffect(() => {
     if (!tokenParam) return;
     // Only inject if this token is different from what's already stored
-    if (token === tokenParam) return;
+    const existingToken = localStorage.getItem('integration_gateway_token');
+    if (existingToken === tokenParam) return;
 
     try {
       // Decode JWT payload (middle segment) — no signature verification needed here,
