@@ -103,6 +103,61 @@ export const App = () => {
   const { mode, toggleMode } = useThemeMode();
   const queryClient = useQueryClient();
 
+  // -------- PORTAL EMBED LOGIC --------
+  const searchParams = new URLSearchParams(location.search);
+  const embeddedParam = searchParams.get('embedded') === 'true';
+  const tokenParam = searchParams.get('token');
+  const [isEmbedded] = useState(() => {
+    // Check URL param or if loaded inside an actual iframe
+    return embeddedParam || window.self !== window.top;
+  });
+
+  // If a magic link token is in the URL, decode it and hydrate the auth context
+  // in-place — no page reload, no redirect (which would break Vite's base path).
+  useEffect(() => {
+    if (!tokenParam) return;
+    // Only inject if this token is different from what's already stored
+    if (token === tokenParam) return;
+
+    try {
+      // Decode JWT payload (middle segment) — no signature verification needed here,
+      // the backend will validate it on every API call.
+      const base64Payload = tokenParam.split('.')[1];
+      const payload = JSON.parse(atob(base64Payload)) as {
+        sub: string;
+        email: string;
+        role: string;
+        orgId?: number;
+        isPortalSession?: boolean;
+      };
+
+      // Write token + synthetic user into localStorage so auth-context picks them up
+      localStorage.setItem('integration_gateway_token', tokenParam);
+      localStorage.setItem(
+        'integration_gateway_user',
+        JSON.stringify({
+          id: payload.sub,
+          email: payload.email,
+          role: payload.role,
+          orgId: payload.orgId ?? null,
+          isPortalSession: payload.isPortalSession ?? false
+        })
+      );
+
+      // Persist orgId so tenant-context resolves the right org
+      if (payload.orgId) {
+        localStorage.setItem('integration_gateway_org_id', String(payload.orgId));
+      }
+
+      // Fire the custom event so auth-context and tenant-context re-read localStorage
+      window.dispatchEvent(new Event('auth-storage'));
+    } catch (err) {
+      console.warn('[Portal] Failed to decode magic link token', err);
+    }
+  }, [tokenParam, token]);
+  // ------------------------------------
+
+
   // Automatic page view and navigation tracking
   usePageViewTracking();
 
@@ -463,8 +518,10 @@ export const App = () => {
         <ToastHost />
         <AIChatDrawer />
 
-        {/* Desktop Sidebar */}
-        {!isMobile && (
+        <AIChatDrawer />
+
+        {/* Desktop Sidebar - Hidden in embedded mode */}
+        {!isMobile && !isEmbedded && (
           <Layout.Sider
             collapsed={collapsed}
             collapsedWidth={68}
@@ -484,8 +541,8 @@ export const App = () => {
           </Layout.Sider>
         )}
 
-        {/* Mobile Drawer */}
-        {isMobile && (
+        {/* Mobile Drawer - Hidden in embedded mode */}
+        {isMobile && !isEmbedded && (
           <Drawer
             placement="left"
             open={!collapsed}
@@ -506,7 +563,7 @@ export const App = () => {
           </Drawer>
         )}
         <Layout style={{ background: 'transparent', minHeight: '100vh' }}>
-          {<Layout.Header
+          {!isEmbedded && <Layout.Header
             style={{
               background: mode === 'dark'
                 ? 'rgba(11, 18, 32, 0.98)'
@@ -707,9 +764,9 @@ export const App = () => {
           </Layout.Header>}
           <Layout.Content
             style={{
-              padding: isMobile ? spacing[4] : spacing[5],
-              minHeight: 'calc(100vh - 64px)',
-              background: cssVar.bg.base
+              padding: isEmbedded ? 0 : (isMobile ? spacing[4] : spacing[5]),
+              minHeight: isEmbedded ? '100vh' : 'calc(100vh - 64px)',
+              background: isEmbedded ? 'transparent' : cssVar.bg.base
             }}
           >
             <div className="content-shell">
@@ -753,7 +810,7 @@ export const App = () => {
                     </>
                   )}
                   <Route path="/events" element={<EventAuditRoute />} />
-              <Route path="/events/catalog" element={<EventCatalogRoute />} />
+                  <Route path="/events/catalog" element={<EventCatalogRoute />} />
                   <Route path="/lookups" element={<LookupsRoute />} />
                   <Route path="/lookups/stats" element={<LookupStatsRoute />} />
                   <Route path="/lookups/:id" element={<LookupDetailRoute />} />

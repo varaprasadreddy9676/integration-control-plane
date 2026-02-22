@@ -179,4 +179,72 @@ router.post('/impersonate', auth, asyncHandler(async (req, res) => {
   });
 }));
 
+// POST /api/v1/auth/portal-session
+// Generates a short-lived, org-scoped magic link token for the embeddable portal.
+// This endpoint must be called via an admin API key, NOT a user JWT.
+router.post('/portal-session', auth, asyncHandler(async (req, res) => {
+  // 1. Must use API Key auth (not a user session)
+  if (req.authType !== 'apiKey') {
+    throw new UnauthorizedError('API Key authentication required to generate portal sessions');
+  }
+
+  // 2. Body validation
+  const { orgId, expiresInHours = 2, role = 'VIEWER' } = req.body || {};
+  
+  if (!orgId || !Number.isFinite(Number(orgId))) {
+    throw new ValidationError('orgId is required to generate a portal session');
+  }
+
+  // Restrict the roles that can be granted via portal session
+  const allowedRoles = ['VIEWER', 'INTEGRATION_EDITOR'];
+  if (!allowedRoles.includes(role)) {
+    throw new ValidationError(`Invalid role. Must be one of: ${allowedRoles.join(', ')}`);
+  }
+
+  // 3. Generate a highly restricted token
+  // We use a pseudo-user ID and flag it as a portal session
+  const targetOrgId = Number(orgId);
+  const jwtSecret = config.security?.jwtSecret;
+  
+  if (!jwtSecret) {
+    throw new Error('JWT secret is not configured');
+  }
+
+  const tokenPayload = {
+    sub: `portal_session_${targetOrgId}`,
+    email: `portal-user@org-${targetOrgId}.local`,
+    role: role,
+    orgId: targetOrgId,
+    isPortalSession: true
+  };
+
+  const expiresInStr = `${Math.min(Number(expiresInHours), 24)}h`; // Max 24 hours
+  
+  const accessToken = jwt.sign(tokenPayload, jwtSecret, { expiresIn: expiresInStr });
+
+  log('info', 'Portal session generated', {
+    orgId: targetOrgId,
+    role,
+    expiresInHours,
+    callerApiKeyId: req.user?.id
+  });
+
+  // 4. Return the token and a ready-to-use URL
+  // IMPORTANT: portalUrl uses config.frontendUrl (set FRONTEND_URL env var) so it
+  // points at the frontend host, not the backend API host. In production both are
+  // typically served from the same nginx, so the origin will match automatically.
+  const frontendBase = config.frontendUrl || config.publicUrl || 'http://localhost:5174/event-gateway';
+  const portalUrl = `${frontendBase}/integrations?token=${accessToken}&embedded=true`;
+
+  res.json({
+    accessToken,
+    portalUrl,
+    expiresIn: expiresInStr,
+    session: {
+      orgId: targetOrgId,
+      role
+    }
+  });
+}));
+
 module.exports = router;
