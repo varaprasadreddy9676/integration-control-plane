@@ -19,7 +19,7 @@ const { createExecutionLogger } = require('../utils/execution-logger');
 const { checkRateLimit } = require('../middleware/rate-limiter');
 const adapterRegistry = require('../services/communication/adapter-registry');
 
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const STREAM_HEADER_BLOCKLIST = new Set([
   'connection',
@@ -29,7 +29,7 @@ const STREAM_HEADER_BLOCKLIST = new Set([
   'te',
   'trailer',
   'transfer-encoding',
-  'upgrade'
+  'upgrade',
 ]);
 
 const filterStreamHeaders = (headers = {}) => {
@@ -43,38 +43,39 @@ const filterStreamHeaders = (headers = {}) => {
   return filtered;
 };
 
-const readStreamBody = (stream, limit = 5000) => new Promise((resolve) => {
-  if (!stream || typeof stream.on !== 'function') {
-    resolve(null);
-    return;
-  }
-
-  const chunks = [];
-  let total = 0;
-
-  stream.on('data', (chunk) => {
-    if (!chunk || total >= limit) return;
-    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-    const remaining = limit - total;
-    if (buffer.length > remaining) {
-      chunks.push(buffer.slice(0, remaining));
-      total = limit;
-    } else {
-      chunks.push(buffer);
-      total += buffer.length;
+const readStreamBody = (stream, limit = 5000) =>
+  new Promise((resolve) => {
+    if (!stream || typeof stream.on !== 'function') {
+      resolve(null);
+      return;
     }
-  });
 
-  stream.on('end', () => {
-    resolve(Buffer.concat(chunks).toString('utf8'));
-  });
+    const chunks = [];
+    let total = 0;
 
-  stream.on('error', () => resolve('[stream read error]'));
-});
+    stream.on('data', (chunk) => {
+      if (!chunk || total >= limit) return;
+      const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      const remaining = limit - total;
+      if (buffer.length > remaining) {
+        chunks.push(buffer.slice(0, remaining));
+        total = limit;
+      } else {
+        chunks.push(buffer);
+        total += buffer.length;
+      }
+    });
+
+    stream.on('end', () => {
+      resolve(Buffer.concat(chunks).toString('utf8'));
+    });
+
+    stream.on('error', () => resolve('[stream read error]'));
+  });
 
 const computeRetryDelayMs = (attempt, baseMs = 1000, capMs = 5000) => {
   const jitter = Math.floor(Math.random() * 250);
-  const delay = Math.min(baseMs * Math.pow(2, Math.max(0, attempt - 1)), capMs);
+  const delay = Math.min(baseMs * 2 ** Math.max(0, attempt - 1), capMs);
   return delay + jitter;
 };
 
@@ -145,11 +146,7 @@ function validateInboundPayload(payload) {
 
 function buildOrgScopeQuery(orgId) {
   return {
-    $or: [
-      { orgId },
-      { entityRid: orgId },
-      { entityParentRid: orgId }
-    ]
+    $or: [{ orgId }, { entityRid: orgId }, { entityParentRid: orgId }],
   };
 }
 
@@ -161,10 +158,11 @@ function buildOrgScopeQuery(orgId) {
 router.get('/', async (req, res) => {
   try {
     const db = await mongodb.getDbSafe();
-    const integrations = await db.collection('integration_configs')
+    const integrations = await db
+      .collection('integration_configs')
       .find({
         ...buildOrgScopeQuery(req.orgId),
-        direction: 'INBOUND'
+        direction: 'INBOUND',
       })
       .sort({ createdAt: -1 })
       .toArray();
@@ -174,7 +172,7 @@ router.get('/', async (req, res) => {
     log('error', 'Failed to fetch inbound integrations', { error: error.message });
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch inbound integrations'
+      error: 'Failed to fetch inbound integrations',
     });
   }
 });
@@ -188,13 +186,13 @@ router.get('/:id([0-9a-fA-F]{24})', async (req, res) => {
     const integration = await db.collection('integration_configs').findOne({
       _id: new ObjectId(id),
       ...buildOrgScopeQuery(req.orgId),
-      direction: 'INBOUND'
+      direction: 'INBOUND',
     });
 
     if (!integration) {
       return res.status(404).json({
         success: false,
-        error: 'Inbound integration not found'
+        error: 'Inbound integration not found',
       });
     }
 
@@ -203,7 +201,7 @@ router.get('/:id([0-9a-fA-F]{24})', async (req, res) => {
     log('error', 'Failed to fetch inbound integration', { error: error.message, id: req.params.id });
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch inbound integration'
+      error: 'Failed to fetch inbound integration',
     });
   }
 });
@@ -228,14 +226,14 @@ router.post('/', async (req, res) => {
       retryCount = 3,
       contentType = 'application/json',
       isActive = true,
-      actions = null // NEW: Support actions array for COMMUNICATION integrations
+      actions = null, // NEW: Support actions array for COMMUNICATION integrations
     } = req.body;
 
     const validationError = validateInboundPayload(req.body);
     if (validationError) {
       return res.status(400).json({
         success: false,
-        error: validationError
+        error: validationError,
       });
     }
 
@@ -244,13 +242,13 @@ router.post('/', async (req, res) => {
     const existing = await db.collection('integration_configs').findOne({
       ...buildOrgScopeQuery(req.orgId),
       type: type,
-      direction: 'INBOUND'
+      direction: 'INBOUND',
     });
 
     if (existing) {
       return res.status(409).json({
         success: false,
-        error: `Inbound integration with type '${type}' already exists for this tenant`
+        error: `Inbound integration with type '${type}' already exists for this tenant`,
       });
     }
 
@@ -276,7 +274,7 @@ router.post('/', async (req, res) => {
       actions: actions || null, // NEW: Support actions array
       createdAt: new Date(),
       updatedAt: new Date(),
-      createdBy: req.user?.username || 'system'
+      createdBy: req.user?.username || 'system',
     };
 
     const result = await db.collection('integration_configs').insertOne(integrationConfig);
@@ -285,19 +283,19 @@ router.post('/', async (req, res) => {
       id: result.insertedId.toString(),
       name,
       type,
-      orgId: req.orgId
+      orgId: req.orgId,
     });
 
     res.status(201).json({
       success: true,
       id: result.insertedId.toString(),
-      message: 'Inbound integration created successfully'
+      message: 'Inbound integration created successfully',
     });
   } catch (error) {
     log('error', 'Failed to create inbound integration', { error: error.message });
     res.status(500).json({
       success: false,
-      error: 'Failed to create inbound integration'
+      error: 'Failed to create inbound integration',
     });
   }
 });
@@ -311,7 +309,7 @@ router.put('/:id([0-9a-fA-F]{24})', async (req, res) => {
     if (validationError) {
       return res.status(400).json({
         success: false,
-        error: validationError
+        error: validationError,
       });
     }
 
@@ -324,7 +322,7 @@ router.put('/:id([0-9a-fA-F]{24})', async (req, res) => {
       {
         _id: new ObjectId(id),
         ...buildOrgScopeQuery(req.orgId),
-        direction: 'INBOUND'
+        direction: 'INBOUND',
       },
       { $set: updateData }
     );
@@ -332,24 +330,24 @@ router.put('/:id([0-9a-fA-F]{24})', async (req, res) => {
     if (result.matchedCount === 0) {
       return res.status(404).json({
         success: false,
-        error: 'Inbound integration not found'
+        error: 'Inbound integration not found',
       });
     }
 
     log('info', 'Inbound integration updated', {
       id,
-      orgId: req.orgId
+      orgId: req.orgId,
     });
 
     res.json({
       success: true,
-      message: 'Inbound integration updated successfully'
+      message: 'Inbound integration updated successfully',
     });
   } catch (error) {
     log('error', 'Failed to update inbound integration', { error: error.message, id: req.params.id });
     res.status(500).json({
       success: false,
-      error: 'Failed to update inbound integration'
+      error: 'Failed to update inbound integration',
     });
   }
 });
@@ -363,30 +361,30 @@ router.delete('/:id([0-9a-fA-F]{24})', async (req, res) => {
     const result = await db.collection('integration_configs').deleteOne({
       _id: new ObjectId(id),
       ...buildOrgScopeQuery(req.orgId),
-      direction: 'INBOUND'
+      direction: 'INBOUND',
     });
 
     if (result.deletedCount === 0) {
       return res.status(404).json({
         success: false,
-        error: 'Inbound integration not found'
+        error: 'Inbound integration not found',
       });
     }
 
     log('info', 'Inbound integration deleted', {
       id,
-      orgId: req.orgId
+      orgId: req.orgId,
     });
 
     res.json({
       success: true,
-      message: 'Inbound integration deleted successfully'
+      message: 'Inbound integration deleted successfully',
     });
   } catch (error) {
     log('error', 'Failed to delete inbound integration', { error: error.message, id: req.params.id });
     res.status(500).json({
       success: false,
-      error: 'Failed to delete inbound integration'
+      error: 'Failed to delete inbound integration',
     });
   }
 });
@@ -401,13 +399,13 @@ router.post('/:id([0-9a-fA-F]{24})/test', async (req, res) => {
     const integration = await db.collection('integration_configs').findOne({
       _id: new ObjectId(id),
       ...buildOrgScopeQuery(req.orgId),
-      direction: 'INBOUND'
+      direction: 'INBOUND',
     });
 
     if (!integration) {
       return res.status(404).json({
         success: false,
-        error: 'Inbound integration not found'
+        error: 'Inbound integration not found',
       });
     }
 
@@ -416,9 +414,8 @@ router.post('/:id([0-9a-fA-F]{24})/test', async (req, res) => {
 
     // Build request transformation
     let transformedPayload = testPayload;
-    const hasTransformScript = integration.requestTransformation &&
-                               integration.requestTransformation.script &&
-                               integration.requestTransformation.script.trim().length > 0;
+    const hasTransformScript =
+      integration.requestTransformation?.script && integration.requestTransformation.script.trim().length > 0;
 
     if (hasTransformScript) {
       try {
@@ -427,7 +424,7 @@ router.post('/:id([0-9a-fA-F]{24})/test', async (req, res) => {
           testPayload,
           {
             eventType: integration.type,
-            orgId: integration.orgId || req.orgId
+            orgId: integration.orgId || req.orgId,
           }
         );
         // Only use transformed result if it's not undefined/null
@@ -438,7 +435,7 @@ router.post('/:id([0-9a-fA-F]{24})/test', async (req, res) => {
         return res.status(400).json({
           success: false,
           error: 'Request transformation failed',
-          details: error.message
+          details: error.message,
         });
       }
     }
@@ -464,16 +461,11 @@ router.post('/:id([0-9a-fA-F]{24})/test', async (req, res) => {
           provider,
           transformedPayload,
           hasTo: !!transformedPayload?.to,
-          payloadKeys: Object.keys(transformedPayload || {})
+          payloadKeys: Object.keys(transformedPayload || {}),
         });
 
         // Send via adapter registry
-        const result = await adapterRegistry.send(
-          channel,
-          provider,
-          transformedPayload,
-          providerConfig
-        );
+        const result = await adapterRegistry.send(channel, provider, transformedPayload, providerConfig);
 
         const responseTime = Date.now() - startTime;
 
@@ -483,7 +475,7 @@ router.post('/:id([0-9a-fA-F]{24})/test', async (req, res) => {
           responseTime: `${responseTime}ms`,
           response: result,
           message: `Test ${channel} sent successfully via ${provider}`,
-          messageId: result.messageId
+          messageId: result.messageId,
         });
       } catch (error) {
         const responseTime = Date.now() - startTime;
@@ -491,7 +483,7 @@ router.post('/:id([0-9a-fA-F]{24})/test', async (req, res) => {
           success: false,
           error: 'Communication send failed',
           details: error.message,
-          responseTime: `${responseTime}ms`
+          responseTime: `${responseTime}ms`,
         });
       }
     }
@@ -500,16 +492,12 @@ router.post('/:id([0-9a-fA-F]{24})/test', async (req, res) => {
     // Build auth headers
     let authHeaders = {};
     try {
-      authHeaders = await buildAuthHeaders(
-        integration,
-        integration.httpMethod || 'POST',
-        integration.targetUrl
-      );
+      authHeaders = await buildAuthHeaders(integration, integration.httpMethod || 'POST', integration.targetUrl);
     } catch (error) {
       return res.status(400).json({
         success: false,
         error: 'Authentication failed',
-        details: error.message
+        details: error.message,
       });
     }
 
@@ -522,14 +510,14 @@ router.post('/:id([0-9a-fA-F]{24})/test', async (req, res) => {
         headers: { ...authHeaders, 'Content-Type': 'application/json' },
         data: transformedPayload,
         timeout: integration.timeout || 10000,
-        validateStatus: null
+        validateStatus: null,
       });
 
       const responseTime = Date.now() - startTime;
 
       // Apply response transformation if configured
       let transformedResponse = response.data;
-      if (integration.responseTransformation && integration.responseTransformation.script) {
+      if (integration.responseTransformation?.script) {
         try {
           transformedResponse = await applyResponseTransform(
             { responseTransformation: integration.responseTransformation },
@@ -540,7 +528,7 @@ router.post('/:id([0-9a-fA-F]{24})/test', async (req, res) => {
           return res.status(400).json({
             success: false,
             error: 'Response transformation failed',
-            details: error.message
+            details: error.message,
           });
         }
       }
@@ -550,7 +538,7 @@ router.post('/:id([0-9a-fA-F]{24})/test', async (req, res) => {
         status: response.status,
         responseTime: `${responseTime}ms`,
         response: transformedResponse,
-        message: 'Test request sent successfully (with transformations applied)'
+        message: 'Test request sent successfully (with transformations applied)',
       });
     } catch (error) {
       const responseTime = Date.now() - startTime;
@@ -558,14 +546,14 @@ router.post('/:id([0-9a-fA-F]{24})/test', async (req, res) => {
         success: false,
         error: 'Test request failed',
         details: error.message,
-        responseTime: `${responseTime}ms`
+        responseTime: `${responseTime}ms`,
       });
     }
   } catch (error) {
     log('error', 'Failed to test inbound integration', { error: error.message, id: req.params.id });
     res.status(500).json({
       success: false,
-      error: 'Failed to test inbound integration'
+      error: 'Failed to test inbound integration',
     });
   }
 });
@@ -576,16 +564,16 @@ router.post('/:id([0-9a-fA-F]{24})/refresh-token', async (req, res) => {
     const { id } = req.params;
     const { clearCachedToken } = require('../processor/auth-helper');
 
-  const db = await mongodb.getDbSafe();
-  const integration = await db.collection('integration_configs').findOne({
-    _id: new ObjectId(id),
-    ...buildOrgScopeQuery(req.orgId)
-  });
+    const db = await mongodb.getDbSafe();
+    const integration = await db.collection('integration_configs').findOne({
+      _id: new ObjectId(id),
+      ...buildOrgScopeQuery(req.orgId),
+    });
 
     if (!integration) {
       return res.status(404).json({
         success: false,
-        error: 'Integration not found'
+        error: 'Integration not found',
       });
     }
 
@@ -594,7 +582,7 @@ router.post('/:id([0-9a-fA-F]{24})/refresh-token', async (req, res) => {
       return res.status(400).json({
         success: false,
         error: 'Token refresh only supported for OAUTH2 and CUSTOM auth types',
-        authType: integration.outgoingAuthType
+        authType: integration.outgoingAuthType,
       });
     }
 
@@ -604,24 +592,24 @@ router.post('/:id([0-9a-fA-F]{24})/refresh-token', async (req, res) => {
     log('info', 'Manually refreshed integration token', {
       integrationId: id,
       authType: integration.outgoingAuthType,
-      requestedBy: req.user?.email
+      requestedBy: req.user?.email,
     });
 
     res.json({
       success: true,
       message: 'Token cache cleared. Next API call will fetch a fresh token.',
-      authType: integration.outgoingAuthType
+      authType: integration.outgoingAuthType,
     });
   } catch (error) {
     log('error', 'Failed to refresh token', {
       integrationId: req.params.id,
       error: error.message,
-      stack: error.stack
+      stack: error.stack,
     });
     res.status(500).json({
       success: false,
       error: 'Failed to refresh token',
-      details: error.message
+      details: error.message,
     });
   }
 });
@@ -641,42 +629,47 @@ const handleInboundRuntime = async (req, res) => {
   log('info', 'Inbound integration request received', {
     type,
     orgId,
-    correlationId
+    correlationId,
   });
 
   try {
     if (!Number.isFinite(resolvedOrgId) || resolvedOrgId <= 0) {
       return res.status(400).json({
         error: 'INVALID_TENANT',
-        message: 'Missing or invalid orgId'
+        message: 'Missing or invalid orgId',
       });
     }
 
     // 1. Find integration config
     const db = await mongodb.getDbSafe();
-    const config = await db.collection('integration_configs').findOne(Object.assign({
-      type: type,
-      direction: 'INBOUND',
-      isActive: true
-    }, buildOrgScopeQuery(resolvedOrgId)));
+    const config = await db.collection('integration_configs').findOne(
+      Object.assign(
+        {
+          type: type,
+          direction: 'INBOUND',
+          isActive: true,
+        },
+        buildOrgScopeQuery(resolvedOrgId)
+      )
+    );
 
     if (!config) {
       log('warn', 'Integration not found', {
         type,
         orgId,
-        correlationId
+        correlationId,
       });
 
       return res.status(404).json({
         error: 'INTEGRATION_NOT_FOUND',
-        message: `No active integration found for type '${type}' and orgId ${orgId}`
+        message: `No active integration found for type '${type}' and orgId ${orgId}`,
       });
     }
 
     log('debug', 'Integration config found', {
       configId: config._id.toString(),
       name: config.name,
-      targetUrl: config.targetUrl
+      targetUrl: config.targetUrl,
     });
 
     executionLogger = createExecutionLogger({
@@ -691,11 +684,11 @@ const handleInboundRuntime = async (req, res) => {
         url: req.originalUrl,
         method: req.method,
         headers: req.headers || {},
-        body: requestBody || {}
-      }
+        body: requestBody || {},
+      },
     });
 
-    await executionLogger.start().catch(err => {
+    await executionLogger.start().catch((err) => {
       log('warn', 'Failed to start execution logger', { error: err.message, correlationId });
     });
 
@@ -703,56 +696,62 @@ const handleInboundRuntime = async (req, res) => {
     if (config.inboundAuthType && config.inboundAuthType !== 'NONE') {
       const isAuthorized = validateInboundAuth(config, req.headers);
       if (!isAuthorized) {
-        await executionLogger.addStep('inbound_auth', {
-          status: 'failed',
-          durationMs: 0,
-          error: { message: 'Authentication failed' }
-        }).catch(() => {});
+        await executionLogger
+          .addStep('inbound_auth', {
+            status: 'failed',
+            durationMs: 0,
+            error: { message: 'Authentication failed' },
+          })
+          .catch(() => {});
 
         await logIntegration(config, 'FAILED', {
           request: { body: requestBody, query: queryParams, headers: maskSensitiveData(req.headers) },
           response: { status: 401 },
           error: {
             error: 'AUTHENTICATION_FAILED',
-            message: 'Invalid or missing authentication credentials'
+            message: 'Invalid or missing authentication credentials',
           },
-          correlationId
+          correlationId,
         });
 
         const authError = new Error('Authentication failed');
         authError.code = 'AUTHENTICATION_FAILED';
-        await executionLogger.fail(authError, {
-          createDLQ: false,
-          statusCode: 401
-        }).catch(() => {});
+        await executionLogger
+          .fail(authError, {
+            createDLQ: false,
+            statusCode: 401,
+          })
+          .catch(() => {});
 
         log('warn', 'Inbound authentication failed', {
           type,
           orgId,
           authType: config.inboundAuthType,
-          correlationId
+          correlationId,
         });
 
         return res.status(401).json({
           error: 'AUTHENTICATION_FAILED',
-          message: 'Invalid or missing authentication credentials for this integration'
+          message: 'Invalid or missing authentication credentials for this integration',
         });
       }
 
-      await executionLogger.addStep('inbound_auth', {
-        status: 'success',
-        durationMs: 0,
-        metadata: { authType: config.inboundAuthType }
-      }).catch(() => {});
+      await executionLogger
+        .addStep('inbound_auth', {
+          status: 'success',
+          durationMs: 0,
+          metadata: { authType: config.inboundAuthType },
+        })
+        .catch(() => {});
 
       log('debug', 'Inbound authentication successful', {
         correlationId,
-        authType: config.inboundAuthType
+        authType: config.inboundAuthType,
       });
     }
 
     // 2.5 Rate limit check (if configured) - MUST run before COMMUNICATION branch
-    if (config.rateLimits && config.rateLimits.enabled) {
+    if (config.rateLimits?.enabled) {
       const rateStart = Date.now();
       try {
         const rateResult = await checkRateLimit(config._id.toString(), resolvedOrgId, config.rateLimits);
@@ -763,21 +762,23 @@ const handleInboundRuntime = async (req, res) => {
         res.set({
           'X-RateLimit-Limit': maxRequests,
           'X-RateLimit-Remaining': rateResult.remaining,
-          'X-RateLimit-Reset': rateResult.resetAt ? Math.floor(rateResult.resetAt.getTime() / 1000) : ''
+          'X-RateLimit-Reset': rateResult.resetAt ? Math.floor(rateResult.resetAt.getTime() / 1000) : '',
         });
 
         if (!rateResult.allowed) {
-          await executionLogger.addStep('rate_limit', {
-            status: 'failed',
-            durationMs,
-            metadata: {
-              remaining: rateResult.remaining,
-              resetAt: rateResult.resetAt,
-              maxRequests,
-              windowSeconds
-            },
-            error: { message: 'Rate limit exceeded' }
-          }).catch(() => {});
+          await executionLogger
+            .addStep('rate_limit', {
+              status: 'failed',
+              durationMs,
+              metadata: {
+                remaining: rateResult.remaining,
+                resetAt: rateResult.resetAt,
+                maxRequests,
+                windowSeconds,
+              },
+              error: { message: 'Rate limit exceeded' },
+            })
+            .catch(() => {});
 
           if (rateResult.retryAfter) {
             res.set('Retry-After', rateResult.retryAfter);
@@ -789,49 +790,54 @@ const handleInboundRuntime = async (req, res) => {
             error: {
               error: 'RATE_LIMIT_EXCEEDED',
               message: 'Rate limit exceeded',
-              retryAfter: rateResult.retryAfter
+              retryAfter: rateResult.retryAfter,
             },
-            correlationId
+            correlationId,
           });
 
           const rateError = new Error('Rate limit exceeded');
           rateError.code = 'RATE_LIMIT_EXCEEDED';
-          await executionLogger.fail(rateError, {
-            createDLQ: false,
-            statusCode: 429
-          }).catch(() => {});
+          await executionLogger
+            .fail(rateError, {
+              createDLQ: false,
+              statusCode: 429,
+            })
+            .catch(() => {});
 
           return res.status(429).json({
             error: 'RATE_LIMIT_EXCEEDED',
             message: 'Too many requests for this integration. Please try again later.',
             retryAfter: rateResult.retryAfter,
-            resetAt: rateResult.resetAt
+            resetAt: rateResult.resetAt,
           });
         }
 
-        await executionLogger.addStep('rate_limit', {
-          status: 'success',
-          durationMs,
-          metadata: {
-            remaining: rateResult.remaining,
-            resetAt: rateResult.resetAt,
-            maxRequests,
-            windowSeconds
-          }
-        }).catch(() => {});
+        await executionLogger
+          .addStep('rate_limit', {
+            status: 'success',
+            durationMs,
+            metadata: {
+              remaining: rateResult.remaining,
+              resetAt: rateResult.resetAt,
+              maxRequests,
+              windowSeconds,
+            },
+          })
+          .catch(() => {});
       } catch (error) {
         log('warn', 'Rate limit check failed', { error: error.message, correlationId });
       }
     }
 
     // 2.75 Check if this integration has COMMUNICATION actions (async delivery)
-    const hasCommunicationAction = config.actions && Array.isArray(config.actions) && config.actions.some(a => a.kind === 'COMMUNICATION');
+    const hasCommunicationAction =
+      config.actions && Array.isArray(config.actions) && config.actions.some((a) => a.kind === 'COMMUNICATION');
 
     if (hasCommunicationAction) {
       log('info', 'INBOUND COMMUNICATION integration - creating async job', {
         type,
         orgId,
-        correlationId
+        correlationId,
       });
 
       // Transform request payload
@@ -840,11 +846,11 @@ const handleInboundRuntime = async (req, res) => {
       const transformStart = Date.now();
 
       try {
-        if (config.requestTransformation && config.requestTransformation.script) {
+        if (config.requestTransformation?.script) {
           const requestContext = {
             body: requestBody,
             query: queryParams,
-            headers: req.headers
+            headers: req.headers,
           };
 
           transformedRequest = await applyTransform(
@@ -853,37 +859,43 @@ const handleInboundRuntime = async (req, res) => {
             {
               eventType: type,
               orgId: resolvedOrgId,
-              ...requestContext
+              ...requestContext,
             }
           );
 
-          await executionLogger.addStep('request_transformation', {
-            status: 'success',
-            durationMs: Date.now() - transformStart
-          }).catch(() => {});
+          await executionLogger
+            .addStep('request_transformation', {
+              status: 'success',
+              durationMs: Date.now() - transformStart,
+            })
+            .catch(() => {});
         }
       } catch (error) {
         log('error', 'Request transformation failed', {
           correlationId,
-          error: error.message
+          error: error.message,
         });
 
-        await executionLogger.addStep('request_transformation', {
-          status: 'failed',
-          durationMs: Date.now() - transformStart,
-          error: { message: error.message }
-        }).catch(() => {});
+        await executionLogger
+          .addStep('request_transformation', {
+            status: 'failed',
+            durationMs: Date.now() - transformStart,
+            error: { message: error.message },
+          })
+          .catch(() => {});
 
         const transformError = new Error(`Request transformation failed: ${error.message}`);
         transformError.code = 'TRANSFORMATION_ERROR';
-        await executionLogger.fail(transformError, {
-          createDLQ: false,
-          statusCode: 500
-        }).catch(() => {});
+        await executionLogger
+          .fail(transformError, {
+            createDLQ: false,
+            statusCode: 500,
+          })
+          .catch(() => {});
 
         return res.status(500).json({
           error: 'TRANSFORMATION_ERROR',
-          message: `Request transformation failed: ${error.message}`
+          message: `Request transformation failed: ${error.message}`,
         });
       }
 
@@ -894,7 +906,7 @@ const handleInboundRuntime = async (req, res) => {
           integrationConfigId: config._id,
           orgId: resolvedOrgId,
           eventType: type,
-          direction: 'COMMUNICATION',  // Use COMMUNICATION direction for filtering
+          direction: 'COMMUNICATION', // Use COMMUNICATION direction for filtering
           triggerType: 'MANUAL',
           payload: transformedRequest,
           originalPayload: basePayload,
@@ -902,19 +914,21 @@ const handleInboundRuntime = async (req, res) => {
           createdAt: new Date(),
           status: 'PENDING',
           retryCount: 0,
-          maxRetries: config.retryCount || 3
+          maxRetries: config.retryCount || 3,
         };
 
         const result = await db.collection('pending_deliveries').insertOne(pendingDelivery);
 
-        await executionLogger.addStep('job_creation', {
-          status: 'success',
-          durationMs: 0,
-          metadata: {
-            jobId: result.insertedId.toString(),
-            traceId: correlationId
-          }
-        }).catch(() => {});
+        await executionLogger
+          .addStep('job_creation', {
+            status: 'success',
+            durationMs: 0,
+            metadata: {
+              jobId: result.insertedId.toString(),
+              traceId: correlationId,
+            },
+          })
+          .catch(() => {});
 
         await executionLogger.updateStatus('queued').catch(() => {});
 
@@ -922,7 +936,7 @@ const handleInboundRuntime = async (req, res) => {
           jobId: result.insertedId.toString(),
           traceId: correlationId,
           type,
-          orgId
+          orgId,
         });
 
         return res.status(202).json({
@@ -930,24 +944,26 @@ const handleInboundRuntime = async (req, res) => {
           status: 'queued',
           traceId: correlationId,
           jobId: result.insertedId.toString(),
-          message: 'Communication job created successfully. Check execution logs for status.'
+          message: 'Communication job created successfully. Check execution logs for status.',
         });
       } catch (error) {
         log('error', 'Failed to create COMMUNICATION job', {
           correlationId,
-          error: error.message
+          error: error.message,
         });
 
         const jobError = new Error(`Failed to create job: ${error.message}`);
         jobError.code = 'JOB_CREATION_ERROR';
-        await executionLogger.fail(jobError, {
-          createDLQ: false,
-          statusCode: 500
-        }).catch(() => {});
+        await executionLogger
+          .fail(jobError, {
+            createDLQ: false,
+            statusCode: 500,
+          })
+          .catch(() => {});
 
         return res.status(500).json({
           error: 'JOB_CREATION_ERROR',
-          message: `Failed to create communication job: ${error.message}`
+          message: `Failed to create communication job: ${error.message}`,
         });
       }
     }
@@ -957,71 +973,82 @@ const handleInboundRuntime = async (req, res) => {
     const requestContext = {
       body: requestBody,
       query: queryParams,
-      headers: req.headers
+      headers: req.headers,
     };
 
     const basePayload = req.method === 'GET' ? queryParams : requestBody;
     let transformedRequest = basePayload;
     const transformStart = Date.now();
     try {
-      if (config.requestTransformation && config.requestTransformation.script) {
+      if (config.requestTransformation?.script) {
         transformedRequest = await applyTransform(
           { transformation: config.requestTransformation, transformationMode: 'SCRIPT' },
-          basePayload,  // Transform body for non-GET, query for GET
+          basePayload, // Transform body for non-GET, query for GET
           {
             eventType: type,
             orgId: resolvedOrgId,
-            ...requestContext  // SCRIPT transforms can access query/headers via context
+            ...requestContext, // SCRIPT transforms can access query/headers via context
           }
         );
 
         log('debug', 'Request transformation successful', {
           correlationId,
           hasTransformation: true,
-          mode: 'SCRIPT'
+          mode: 'SCRIPT',
         });
 
-        await executionLogger.addStep('request_transformation', {
-          status: 'success',
-          durationMs: Date.now() - transformStart
-        }).catch(() => {});
+        await executionLogger
+          .addStep('request_transformation', {
+            status: 'success',
+            durationMs: Date.now() - transformStart,
+          })
+          .catch(() => {});
       }
     } catch (error) {
       log('error', 'Request transformation failed', {
         correlationId,
-        error: error.message
+        error: error.message,
       });
 
-      await executionLogger.addStep('request_transformation', {
-        status: 'failed',
-        durationMs: Date.now() - transformStart,
-        error: { message: error.message }
-      }).catch(() => {});
+      await executionLogger
+        .addStep('request_transformation', {
+          status: 'failed',
+          durationMs: Date.now() - transformStart,
+          error: { message: error.message },
+        })
+        .catch(() => {});
 
       await logIntegration(config, 'FAILED', {
-        request: { body: requestBody, query: queryParams, headers: maskSensitiveData(outboundHeaders || req.headers), transformed: transformedRequest },
+        request: {
+          body: requestBody,
+          query: queryParams,
+          headers: maskSensitiveData(outboundHeaders || req.headers),
+          transformed: transformedRequest,
+        },
         response: { status: 500 },
         error: {
           error: 'TRANSFORMATION_ERROR',
-          message: error.message
+          message: error.message,
         },
-        correlationId
+        correlationId,
       });
 
       const transformError = new Error(`Request transformation failed: ${error.message}`);
       transformError.code = 'TRANSFORMATION_ERROR';
-      await executionLogger.fail(transformError, {
-        createDLQ: false,
-        statusCode: 500
-      }).catch(() => {});
+      await executionLogger
+        .fail(transformError, {
+          createDLQ: false,
+          statusCode: 500,
+        })
+        .catch(() => {});
 
       return res.status(500).json({
         error: 'TRANSFORMATION_ERROR',
         message: `Request transformation failed: ${error.message}`,
         details: {
           script: 'requestTransformation',
-          error: error.message
-        }
+          error: error.message,
+        },
       });
     }
 
@@ -1029,58 +1056,65 @@ const handleInboundRuntime = async (req, res) => {
     let authHeaders;
     let outboundHeaders;
     try {
-      authHeaders = await buildAuthHeaders(
-        config,
-        config.httpMethod || 'POST',
-        config.targetUrl
-      );
+      authHeaders = await buildAuthHeaders(config, config.httpMethod || 'POST', config.targetUrl);
       outboundHeaders = {
         ...authHeaders,
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
       };
 
       log('debug', 'Auth headers built', {
         correlationId,
-        authType: config.outgoingAuthType
+        authType: config.outgoingAuthType,
       });
 
-      await executionLogger.addStep('outbound_auth', {
-        status: 'success',
-        durationMs: 0,
-        metadata: { authType: config.outgoingAuthType }
-      }).catch(() => {});
+      await executionLogger
+        .addStep('outbound_auth', {
+          status: 'success',
+          durationMs: 0,
+          metadata: { authType: config.outgoingAuthType },
+        })
+        .catch(() => {});
     } catch (error) {
       log('error', 'Failed to build auth headers', {
         correlationId,
-        error: error.message
+        error: error.message,
       });
 
-      await executionLogger.addStep('outbound_auth', {
-        status: 'failed',
-        durationMs: 0,
-        error: { message: error.message }
-      }).catch(() => {});
+      await executionLogger
+        .addStep('outbound_auth', {
+          status: 'failed',
+          durationMs: 0,
+          error: { message: error.message },
+        })
+        .catch(() => {});
 
       await logIntegration(config, 'FAILED', {
-        request: { body: requestBody, query: queryParams, headers: maskSensitiveData(outboundHeaders || req.headers), transformed: transformedRequest },
+        request: {
+          body: requestBody,
+          query: queryParams,
+          headers: maskSensitiveData(outboundHeaders || req.headers),
+          transformed: transformedRequest,
+        },
         response: { status: 500 },
         error: {
           error: 'AUTHENTICATION_ERROR',
-          message: error.message
+          message: error.message,
         },
-        correlationId
+        correlationId,
       });
 
       const authError = new Error(`Failed to build authentication: ${error.message}`);
       authError.code = 'AUTHENTICATION_ERROR';
-      await executionLogger.fail(authError, {
-        createDLQ: false,
-        statusCode: 500
-      }).catch(() => {});
+      await executionLogger
+        .fail(authError, {
+          createDLQ: false,
+          statusCode: 500,
+        })
+        .catch(() => {});
 
       return res.status(500).json({
         error: 'AUTHENTICATION_ERROR',
-        message: `Failed to build authentication: ${error.message}`
+        message: `Failed to build authentication: ${error.message}`,
       });
     }
 
@@ -1098,7 +1132,7 @@ const handleInboundRuntime = async (req, res) => {
     if (isStreamingEnabled && config.responseTransformation && config.responseTransformation.script) {
       log('warn', 'Streaming enabled with response transformation configured - transformation will be skipped', {
         correlationId,
-        configId: config._id.toString()
+        configId: config._id.toString(),
       });
     }
 
@@ -1108,7 +1142,7 @@ const handleInboundRuntime = async (req, res) => {
         log('info', 'Starting streaming response', {
           correlationId,
           method: config.httpMethod || 'POST',
-          url: config.targetUrl
+          url: config.targetUrl,
         });
 
         const httpStart = Date.now();
@@ -1122,21 +1156,23 @@ const handleInboundRuntime = async (req, res) => {
           data: config.httpMethod !== 'GET' ? transformedRequest : undefined,
           timeout: config.timeoutMs || 30000,
           responseType: 'stream', // Enable streaming
-          validateStatus: null
+          validateStatus: null,
         });
 
         const httpDuration = Date.now() - httpStart;
 
-        await executionLogger.addStep('http_request', {
-          status: streamResponse.status < 400 ? 'success' : 'failed',
-          durationMs: httpDuration,
-          metadata: {
-            statusCode: streamResponse.status,
-            method: config.httpMethod || 'POST',
-            url: config.targetUrl,
-            streaming: true
-          }
-        }).catch(() => {});
+        await executionLogger
+          .addStep('http_request', {
+            status: streamResponse.status < 400 ? 'success' : 'failed',
+            durationMs: httpDuration,
+            metadata: {
+              statusCode: streamResponse.status,
+              method: config.httpMethod || 'POST',
+              url: config.targetUrl,
+              streaming: true,
+            },
+          })
+          .catch(() => {});
 
         // Check for upstream errors
         if (streamResponse.status >= 400) {
@@ -1144,28 +1180,35 @@ const handleInboundRuntime = async (req, res) => {
           const errorBody = await readStreamBody(streamResponse.data, 5000);
 
           await logIntegration(config, 'FAILED', {
-            request: { body: requestBody, query: queryParams, headers: maskSensitiveData(outboundHeaders || req.headers), transformed: transformedRequest },
+            request: {
+              body: requestBody,
+              query: queryParams,
+              headers: maskSensitiveData(outboundHeaders || req.headers),
+              transformed: transformedRequest,
+            },
             upstream: {
               url: config.targetUrl,
               method: config.httpMethod || 'POST',
               status: streamResponse.status,
               responseTime: httpDuration,
-              response: errorBody
+              response: errorBody,
             },
             error: {
               error: 'UPSTREAM_ERROR',
-              message: 'External API returned error'
+              message: 'External API returned error',
             },
-            correlationId
+            correlationId,
           });
 
           const upstreamError = new Error('External API returned error');
           upstreamError.code = 'UPSTREAM_ERROR';
           upstreamError.statusCode = streamResponse.status;
-          await executionLogger.fail(upstreamError, {
-            createDLQ: false,
-            statusCode: streamResponse.status
-          }).catch(() => {});
+          await executionLogger
+            .fail(upstreamError, {
+              createDLQ: false,
+              statusCode: streamResponse.status,
+            })
+            .catch(() => {});
 
           return res.status(502).json({
             error: 'UPSTREAM_ERROR',
@@ -1173,9 +1216,9 @@ const handleInboundRuntime = async (req, res) => {
             details: {
               upstream: {
                 status: streamResponse.status,
-                body: errorBody
-              }
-            }
+                body: errorBody,
+              },
+            },
           });
         }
 
@@ -1193,392 +1236,431 @@ const handleInboundRuntime = async (req, res) => {
           log('info', 'Streaming response completed', {
             correlationId,
             status: streamResponse.status,
-            responseTime
+            responseTime,
           });
 
-          await executionLogger.addStep('response_streaming', {
-            status: 'success',
-            durationMs: responseTime,
-            metadata: { streamed: true }
-          }).catch(() => {});
+          await executionLogger
+            .addStep('response_streaming', {
+              status: 'success',
+              durationMs: responseTime,
+              metadata: { streamed: true },
+            })
+            .catch(() => {});
 
           await logIntegration(config, 'SUCCESS', {
             request: {
               body: maskSensitiveData(requestBody),
               query: queryParams,
               headers: maskSensitiveData(outboundHeaders || req.headers),
-              transformed: maskSensitiveData(transformedRequest)
+              transformed: maskSensitiveData(transformedRequest),
             },
             upstream: {
               url: config.targetUrl,
               method: config.httpMethod || 'POST',
               status: streamResponse.status,
               responseTime,
-              response: '[STREAMED - not logged]'
+              response: '[STREAMED - not logged]',
             },
             response: {
               status: streamResponse.status,
-              body: '[STREAMED - not logged]'
+              body: '[STREAMED - not logged]',
             },
-            correlationId
+            correlationId,
           });
 
-          await executionLogger.success({
-            response: {
-              statusCode: streamResponse.status,
-              headers: filterStreamHeaders(streamResponse.headers),
-              body: '[STREAMED]'
-            }
-          }).catch(() => {});
+          await executionLogger
+            .success({
+              response: {
+                statusCode: streamResponse.status,
+                headers: filterStreamHeaders(streamResponse.headers),
+                body: '[STREAMED]',
+              },
+            })
+            .catch(() => {});
         });
 
         // Handle stream errors
         streamResponse.data.on('error', async (error) => {
           log('error', 'Streaming error', {
             correlationId,
-            error: error.message
+            error: error.message,
           });
 
-          await executionLogger.addStep('response_streaming', {
-            status: 'failed',
-            durationMs: Date.now() - startTime,
-            error: { message: error.message }
-          }).catch(() => {});
+          await executionLogger
+            .addStep('response_streaming', {
+              status: 'failed',
+              durationMs: Date.now() - startTime,
+              error: { message: error.message },
+            })
+            .catch(() => {});
 
           await logIntegration(config, 'FAILED', {
-            request: { body: requestBody, query: queryParams, headers: maskSensitiveData(outboundHeaders || req.headers), transformed: transformedRequest },
+            request: {
+              body: requestBody,
+              query: queryParams,
+              headers: maskSensitiveData(outboundHeaders || req.headers),
+              transformed: transformedRequest,
+            },
             upstream: {
               url: config.targetUrl,
               method: config.httpMethod || 'POST',
               status: streamResponse.status,
-              responseTime: Date.now() - startTime
+              responseTime: Date.now() - startTime,
             },
             error: {
               error: 'STREAMING_ERROR',
-              message: error.message
+              message: error.message,
             },
-            correlationId
+            correlationId,
           });
 
           const streamError = new Error(`Streaming failed: ${error.message}`);
           streamError.code = 'STREAMING_ERROR';
-          await executionLogger.fail(streamError, {
-            createDLQ: false,
-            statusCode: 500
-          }).catch(() => {});
+          await executionLogger
+            .fail(streamError, {
+              createDLQ: false,
+              statusCode: 500,
+            })
+            .catch(() => {});
 
           if (!res.headersSent) {
             res.status(500).json({
               error: 'STREAMING_ERROR',
-              message: `Failed to stream response: ${error.message}`
+              message: `Failed to stream response: ${error.message}`,
             });
           }
         });
 
         // Exit early - streaming is handled asynchronously
         return;
-
       } catch (error) {
         log('error', 'Failed to initiate streaming', {
           correlationId,
-          error: error.message
+          error: error.message,
         });
 
-        await executionLogger.addStep('http_request', {
-          status: 'failed',
-          durationMs: Date.now() - startTime,
-          error: { message: error.message, code: error.code }
-        }).catch(() => {});
+        await executionLogger
+          .addStep('http_request', {
+            status: 'failed',
+            durationMs: Date.now() - startTime,
+            error: { message: error.message, code: error.code },
+          })
+          .catch(() => {});
 
         await logIntegration(config, 'FAILED', {
-          request: { body: requestBody, query: queryParams, headers: maskSensitiveData(outboundHeaders || req.headers), transformed: transformedRequest },
+          request: {
+            body: requestBody,
+            query: queryParams,
+            headers: maskSensitiveData(outboundHeaders || req.headers),
+            transformed: transformedRequest,
+          },
           error: {
             error: 'STREAMING_SETUP_ERROR',
-            message: error.message
+            message: error.message,
           },
-          correlationId
+          correlationId,
         });
 
         const setupError = new Error(`Failed to setup streaming: ${error.message}`);
         setupError.code = 'STREAMING_SETUP_ERROR';
-        await executionLogger.fail(setupError, {
-          createDLQ: false,
-          statusCode: 500
-        }).catch(() => {});
+        await executionLogger
+          .fail(setupError, {
+            createDLQ: false,
+            statusCode: 500,
+          })
+          .catch(() => {});
 
         return res.status(500).json({
           error: 'STREAMING_SETUP_ERROR',
-          message: `Failed to setup streaming: ${error.message}`
+          message: `Failed to setup streaming: ${error.message}`,
         });
       }
     }
 
     // === BUFFERED PATH: Original behavior with transformations ===
     try {
-
-    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-      const httpStart = Date.now();
-      attemptsUsed = attempt;
-      try {
-        log('debug', 'Calling external API', {
-          correlationId,
-          method: config.httpMethod || 'POST',
-          url: config.targetUrl,
-          timeout: config.timeoutMs || 30000,
-          attempt,
-          maxAttempts
-        });
-
-        upstreamResponse = await axios({
-          method: config.httpMethod || 'POST',
-          url: config.targetUrl,
-          headers: { ...authHeaders, 'Content-Type': 'application/json' },
-          params: config.httpMethod === 'GET' ? transformedRequest : undefined,
-          data: config.httpMethod !== 'GET' ? transformedRequest : undefined,
-          timeout: config.timeoutMs || 30000,
-          validateStatus: null // Don't throw on non-2xx status
-        });
-
-        const responseTime = Date.now() - startTime;
-        const httpDuration = Date.now() - httpStart;
-
-        log('info', 'External API responded', {
-          correlationId,
-          status: upstreamResponse.status,
-          responseTime,
-          attempt,
-          maxAttempts
-        });
-
-        await executionLogger.addStep('http_request', {
-          status: upstreamResponse.status < 400 ? 'success' : 'failed',
-          durationMs: httpDuration,
-          metadata: {
-            statusCode: upstreamResponse.status,
+      for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        const httpStart = Date.now();
+        attemptsUsed = attempt;
+        try {
+          log('debug', 'Calling external API', {
+            correlationId,
             method: config.httpMethod || 'POST',
             url: config.targetUrl,
-            attempt,
-            maxAttempts
-          },
-          error: upstreamResponse.status < 400 ? null : { message: `HTTP ${upstreamResponse.status}` }
-        }).catch(() => {});
-
-        if (upstreamResponse.status >= 400 && isRetryableStatus(upstreamResponse.status) && attempt < maxAttempts) {
-          const delayMs = computeRetryDelayMs(attempt);
-          log('warn', 'Retrying inbound integration call', {
-            correlationId,
-            status: upstreamResponse.status,
+            timeout: config.timeoutMs || 30000,
             attempt,
             maxAttempts,
-            delayMs
           });
-          await sleep(delayMs);
-          continue;
-        }
 
-        break;
-      } catch (error) {
-        lastError = error;
-
-        await executionLogger.addStep('http_request', {
-          status: 'failed',
-          durationMs: Date.now() - httpStart,
-          metadata: {
+          upstreamResponse = await axios({
             method: config.httpMethod || 'POST',
             url: config.targetUrl,
-            attempt,
-            maxAttempts
-          },
-          error: { message: error.message, code: error.code }
-        }).catch(() => {});
+            headers: { ...authHeaders, 'Content-Type': 'application/json' },
+            params: config.httpMethod === 'GET' ? transformedRequest : undefined,
+            data: config.httpMethod !== 'GET' ? transformedRequest : undefined,
+            timeout: config.timeoutMs || 30000,
+            validateStatus: null, // Don't throw on non-2xx status
+          });
 
-        if (isRetryableError(error) && attempt < maxAttempts) {
-          const delayMs = computeRetryDelayMs(attempt);
-          log('warn', 'Retrying inbound integration call after error', {
+          const responseTime = Date.now() - startTime;
+          const httpDuration = Date.now() - httpStart;
+
+          log('info', 'External API responded', {
             correlationId,
-            code: error.code,
+            status: upstreamResponse.status,
+            responseTime,
             attempt,
             maxAttempts,
-            delayMs
           });
-          await sleep(delayMs);
-          continue;
-        }
 
-        throw error;
-      }
-    }
+          await executionLogger
+            .addStep('http_request', {
+              status: upstreamResponse.status < 400 ? 'success' : 'failed',
+              durationMs: httpDuration,
+              metadata: {
+                statusCode: upstreamResponse.status,
+                method: config.httpMethod || 'POST',
+                url: config.targetUrl,
+                attempt,
+                maxAttempts,
+              },
+              error: upstreamResponse.status < 400 ? null : { message: `HTTP ${upstreamResponse.status}` },
+            })
+            .catch(() => {});
 
-    if (!upstreamResponse && lastError) {
-      throw lastError;
-    }
-
-    const responseTime = Date.now() - startTime;
-
-    // 6. Check for upstream errors
-    if (upstreamResponse.status >= 400) {
-      const error = {
-        error: 'UPSTREAM_ERROR',
-        message: 'External API returned error',
-        details: {
-          upstream: {
-            status: upstreamResponse.status,
-            body: upstreamResponse.data
+          if (upstreamResponse.status >= 400 && isRetryableStatus(upstreamResponse.status) && attempt < maxAttempts) {
+            const delayMs = computeRetryDelayMs(attempt);
+            log('warn', 'Retrying inbound integration call', {
+              correlationId,
+              status: upstreamResponse.status,
+              attempt,
+              maxAttempts,
+              delayMs,
+            });
+            await sleep(delayMs);
+            continue;
           }
+
+          break;
+        } catch (error) {
+          lastError = error;
+
+          await executionLogger
+            .addStep('http_request', {
+              status: 'failed',
+              durationMs: Date.now() - httpStart,
+              metadata: {
+                method: config.httpMethod || 'POST',
+                url: config.targetUrl,
+                attempt,
+                maxAttempts,
+              },
+              error: { message: error.message, code: error.code },
+            })
+            .catch(() => {});
+
+          if (isRetryableError(error) && attempt < maxAttempts) {
+            const delayMs = computeRetryDelayMs(attempt);
+            log('warn', 'Retrying inbound integration call after error', {
+              correlationId,
+              code: error.code,
+              attempt,
+              maxAttempts,
+              delayMs,
+            });
+            await sleep(delayMs);
+            continue;
+          }
+
+          throw error;
         }
+      }
+
+      if (!upstreamResponse && lastError) {
+        throw lastError;
+      }
+
+      const responseTime = Date.now() - startTime;
+
+      // 6. Check for upstream errors
+      if (upstreamResponse.status >= 400) {
+        const error = {
+          error: 'UPSTREAM_ERROR',
+          message: 'External API returned error',
+          details: {
+            upstream: {
+              status: upstreamResponse.status,
+              body: upstreamResponse.data,
+            },
+          },
+        };
+
+        // Log failure
+        await logIntegration(config, 'FAILED', {
+          request: {
+            body: requestBody,
+            query: queryParams,
+            headers: maskSensitiveData(outboundHeaders || req.headers),
+            transformed: transformedRequest,
+          },
+          upstream: {
+            url: config.targetUrl,
+            method: config.httpMethod || 'POST',
+            status: upstreamResponse.status,
+            responseTime,
+            response: maskSensitiveData(upstreamResponse.data),
+          },
+          attempts: attemptsUsed,
+          error: error,
+          correlationId,
+        });
+
+        const upstreamError = new Error('External API returned error');
+        upstreamError.code = 'UPSTREAM_ERROR';
+        upstreamError.statusCode = upstreamResponse.status;
+        await executionLogger
+          .fail(upstreamError, {
+            createDLQ: false,
+            statusCode: upstreamResponse.status,
+            response: {
+              statusCode: upstreamResponse.status,
+              body: maskSensitiveData(upstreamResponse.data),
+            },
+          })
+          .catch(() => {});
+
+        return res.status(502).json(error);
+      }
+
+      // 7. Transform response (External API → client app)
+      // Pass full response context for transformations to access data, status, headers
+      const responseContext = {
+        data: upstreamResponse.data,
+        status: upstreamResponse.status,
+        headers: upstreamResponse.headers,
       };
 
-      // Log failure
-      await logIntegration(config, 'FAILED', {
-        request: { body: requestBody, query: queryParams, headers: maskSensitiveData(outboundHeaders || req.headers), transformed: transformedRequest },
-        upstream: {
-          url: config.targetUrl,
-          method: config.httpMethod || 'POST',
-          status: upstreamResponse.status,
-          responseTime,
-          response: maskSensitiveData(upstreamResponse.data)
-        },
-        attempts: attemptsUsed,
-        error: error,
-        correlationId
-      });
+      let transformedResponse = upstreamResponse.data;
+      try {
+        if (config.responseTransformation) {
+          transformedResponse = await applyResponseTransform(config, responseContext, {
+            orgId: resolvedOrgId,
+          });
 
-      const upstreamError = new Error('External API returned error');
-      upstreamError.code = 'UPSTREAM_ERROR';
-      upstreamError.statusCode = upstreamResponse.status;
-      await executionLogger.fail(upstreamError, {
-        createDLQ: false,
-        statusCode: upstreamResponse.status,
-        response: {
-          statusCode: upstreamResponse.status,
-          body: maskSensitiveData(upstreamResponse.data)
+          log('debug', 'Response transformation successful', {
+            correlationId,
+            hasTransformation: !!config.responseTransformation,
+            mode: config.responseTransformation.mode,
+          });
+
+          await executionLogger
+            .addStep('response_transformation', {
+              status: 'success',
+              durationMs: 0,
+            })
+            .catch(() => {});
         }
-      }).catch(() => {});
-
-      return res.status(502).json(error);
-    }
-
-    // 7. Transform response (External API → client app)
-    // Pass full response context for transformations to access data, status, headers
-    const responseContext = {
-      data: upstreamResponse.data,
-      status: upstreamResponse.status,
-      headers: upstreamResponse.headers
-    };
-
-    let transformedResponse = upstreamResponse.data;
-    try {
-      if (config.responseTransformation) {
-        transformedResponse = await applyResponseTransform(
-          config,
-          responseContext,
-          {
-            orgId: resolvedOrgId
-          }
-        );
-
-        log('debug', 'Response transformation successful', {
+      } catch (error) {
+        log('error', 'Response transformation failed', {
           correlationId,
-          hasTransformation: !!config.responseTransformation,
-          mode: config.responseTransformation.mode
+          error: error.message,
         });
 
-        await executionLogger.addStep('response_transformation', {
-          status: 'success',
-          durationMs: 0
-        }).catch(() => {});
+        await executionLogger
+          .addStep('response_transformation', {
+            status: 'failed',
+            durationMs: 0,
+            error: { message: error.message },
+          })
+          .catch(() => {});
+
+        // Log failure
+        await logIntegration(config, 'FAILED', {
+          request: {
+            body: requestBody,
+            query: queryParams,
+            headers: maskSensitiveData(outboundHeaders || req.headers),
+            transformed: transformedRequest,
+          },
+          upstream: {
+            url: config.targetUrl,
+            method: config.httpMethod || 'POST',
+            status: upstreamResponse.status,
+            responseTime,
+            response: maskSensitiveData(upstreamResponse.data),
+          },
+          error: {
+            error: 'TRANSFORMATION_ERROR',
+            message: error.message,
+          },
+          correlationId,
+        });
+
+        const transformError = new Error(`Response transformation failed: ${error.message}`);
+        transformError.code = 'TRANSFORMATION_ERROR';
+        await executionLogger
+          .fail(transformError, {
+            createDLQ: false,
+            statusCode: 500,
+            response: {
+              statusCode: upstreamResponse.status,
+              body: maskSensitiveData(upstreamResponse.data),
+            },
+          })
+          .catch(() => {});
+
+        return res.status(500).json({
+          error: 'TRANSFORMATION_ERROR',
+          message: `Response transformation failed: ${error.message}`,
+          details: {
+            script: 'responseTransformation',
+            error: error.message,
+          },
+        });
       }
-    } catch (error) {
-      log('error', 'Response transformation failed', {
-        correlationId,
-        error: error.message
-      });
 
-      await executionLogger.addStep('response_transformation', {
-        status: 'failed',
-        durationMs: 0,
-        error: { message: error.message }
-      }).catch(() => {});
-
-      // Log failure
-      await logIntegration(config, 'FAILED', {
-        request: { body: requestBody, query: queryParams, headers: maskSensitiveData(outboundHeaders || req.headers), transformed: transformedRequest },
+      // 8. Log success
+      await logIntegration(config, 'SUCCESS', {
+        request: {
+          body: maskSensitiveData(requestBody),
+          query: queryParams,
+          headers: maskSensitiveData(outboundHeaders || req.headers),
+          transformed: maskSensitiveData(transformedRequest),
+        },
         upstream: {
           url: config.targetUrl,
           method: config.httpMethod || 'POST',
           status: upstreamResponse.status,
           responseTime,
-          response: maskSensitiveData(upstreamResponse.data)
+          response: maskSensitiveData(upstreamResponse.data),
         },
-        error: {
-          error: 'TRANSFORMATION_ERROR',
-          message: error.message
-        },
-        correlationId
-      });
-
-      const transformError = new Error(`Response transformation failed: ${error.message}`);
-      transformError.code = 'TRANSFORMATION_ERROR';
-      await executionLogger.fail(transformError, {
-        createDLQ: false,
-        statusCode: 500,
+        attempts: attemptsUsed,
         response: {
-          statusCode: upstreamResponse.status,
-          body: maskSensitiveData(upstreamResponse.data)
-        }
-      }).catch(() => {});
-
-      return res.status(500).json({
-        error: 'TRANSFORMATION_ERROR',
-        message: `Response transformation failed: ${error.message}`,
-        details: {
-          script: 'responseTransformation',
-          error: error.message
-        }
+          status: 200,
+          body: maskSensitiveData(transformedResponse),
+        },
+        correlationId,
       });
-    }
 
-    // 8. Log success
-    await logIntegration(config, 'SUCCESS', {
-      request: {
-        body: maskSensitiveData(requestBody),
-        query: queryParams,
-        headers: maskSensitiveData(outboundHeaders || req.headers),
-        transformed: maskSensitiveData(transformedRequest)
-      },
-      upstream: {
-        url: config.targetUrl,
-        method: config.httpMethod || 'POST',
-        status: upstreamResponse.status,
+      log('info', 'Inbound integration completed successfully', {
+        correlationId,
+        type,
+        orgId: config.orgId || resolvedOrgId,
         responseTime,
-        response: maskSensitiveData(upstreamResponse.data)
-      },
-      attempts: attemptsUsed,
-      response: {
-        status: 200,
-        body: maskSensitiveData(transformedResponse)
-      },
-      correlationId
-    });
+      });
 
-    log('info', 'Inbound integration completed successfully', {
-      correlationId,
-      type,
-      orgId: config.orgId || resolvedOrgId,
-      responseTime
-    });
+      await executionLogger
+        .success({
+          response: {
+            statusCode: upstreamResponse.status,
+            headers: upstreamResponse.headers,
+            body: maskSensitiveData(transformedResponse),
+          },
+        })
+        .catch(() => {});
 
-    await executionLogger.success({
-      response: {
-        statusCode: upstreamResponse.status,
-        headers: upstreamResponse.headers,
-        body: maskSensitiveData(transformedResponse)
-      }
-    }).catch(() => {});
-
-    // 9. Return to the client app
-    res.json(transformedResponse);
-
+      // 9. Return to the client app
+      res.json(transformedResponse);
     } catch (error) {
       const responseTime = Date.now() - startTime;
 
@@ -1587,37 +1669,44 @@ const handleInboundRuntime = async (req, res) => {
         log('error', 'External API timeout', {
           correlationId,
           timeout: config.timeoutMs || 30000,
-          responseTime
+          responseTime,
         });
 
         await logIntegration(config, 'TIMEOUT', {
-          request: { body: requestBody, query: queryParams, headers: maskSensitiveData(outboundHeaders || req.headers), transformed: transformedRequest },
+          request: {
+            body: requestBody,
+            query: queryParams,
+            headers: maskSensitiveData(outboundHeaders || req.headers),
+            transformed: transformedRequest,
+          },
           response: { status: 504 },
           upstream: {
             url: config.targetUrl,
             method: config.httpMethod || 'POST',
-            responseTime
+            responseTime,
           },
           error: {
             error: 'UPSTREAM_TIMEOUT',
-            message: 'External API did not respond in time'
+            message: 'External API did not respond in time',
           },
-          correlationId
+          correlationId,
         });
 
         const timeoutError = new Error('External API did not respond in time');
         timeoutError.code = 'UPSTREAM_TIMEOUT';
-        await executionLogger.fail(timeoutError, {
-          createDLQ: false,
-          statusCode: 504
-        }).catch(() => {});
+        await executionLogger
+          .fail(timeoutError, {
+            createDLQ: false,
+            statusCode: 504,
+          })
+          .catch(() => {});
 
         return res.status(504).json({
           error: 'UPSTREAM_TIMEOUT',
           message: 'External API did not respond in time',
           details: {
-            timeout: config.timeoutMs || 30000
-          }
+            timeout: config.timeoutMs || 30000,
+          },
         });
       }
 
@@ -1626,63 +1715,71 @@ const handleInboundRuntime = async (req, res) => {
         log('error', 'External API connection failed', {
           correlationId,
           error: error.message,
-          code: error.code
+          code: error.code,
         });
 
         await logIntegration(config, 'FAILED', {
-          request: { body: requestBody, query: queryParams, headers: maskSensitiveData(outboundHeaders || req.headers), transformed: transformedRequest },
+          request: {
+            body: requestBody,
+            query: queryParams,
+            headers: maskSensitiveData(outboundHeaders || req.headers),
+            transformed: transformedRequest,
+          },
           response: { status: 502 },
           upstream: {
             url: config.targetUrl,
             method: config.httpMethod || 'POST',
-            responseTime
+            responseTime,
           },
           error: {
             error: 'UPSTREAM_ERROR',
-            message: error.message
+            message: error.message,
           },
-          correlationId
+          correlationId,
         });
 
         const upstreamError = new Error(error.message);
         upstreamError.code = 'UPSTREAM_ERROR';
-        await executionLogger.fail(upstreamError, {
-          createDLQ: false,
-          statusCode: 502
-        }).catch(() => {});
+        await executionLogger
+          .fail(upstreamError, {
+            createDLQ: false,
+            statusCode: 502,
+          })
+          .catch(() => {});
 
         return res.status(502).json({
           error: 'UPSTREAM_ERROR',
-          message: `Failed to connect to external API: ${error.message}`
+          message: `Failed to connect to external API: ${error.message}`,
         });
       }
 
       // Generic error
       throw error;
     }
-
   } catch (error) {
     log('error', 'Inbound integration failed', {
       correlationId,
       type,
       orgId,
       error: error.message,
-      stack: error.stack
+      stack: error.stack,
     });
 
     if (executionLogger) {
       const internalError = new Error(error.message || 'Internal server error');
       internalError.code = 'INTERNAL_ERROR';
-      await executionLogger.fail(internalError, {
-        createDLQ: false,
-        statusCode: 500
-      }).catch(() => {});
+      await executionLogger
+        .fail(internalError, {
+          createDLQ: false,
+          statusCode: 500,
+        })
+        .catch(() => {});
     }
 
     // Generic error
     res.status(500).json({
       error: 'INTERNAL_ERROR',
-      message: error.message || 'Internal server error'
+      message: error.message || 'Internal server error',
     });
   }
 };
@@ -1712,11 +1809,7 @@ function validateInboundAuth(integration, headers) {
     case 'BEARER': {
       const expectedToken = authConfig.token || authConfig.value;
       const providedAuth = headers.authorization || headers.Authorization;
-      return (
-        providedAuth &&
-        providedAuth.startsWith('Bearer ') &&
-        providedAuth.substring(7) === expectedToken
-      );
+      return providedAuth?.startsWith('Bearer ') && providedAuth.substring(7) === expectedToken;
     }
 
     case 'BASIC': {
@@ -1729,10 +1822,7 @@ function validateInboundAuth(integration, headers) {
       }
 
       try {
-        const credentials = Buffer.from(
-          providedAuth.substring(6),
-          'base64'
-        ).toString('utf-8');
+        const credentials = Buffer.from(providedAuth.substring(6), 'base64').toString('utf-8');
         const [username, password] = credentials.split(':');
         return username === expectedUsername && password === expectedPassword;
       } catch (error) {
@@ -1743,7 +1833,7 @@ function validateInboundAuth(integration, headers) {
 
     default:
       log('warn', 'Unknown inbound auth type', {
-        authType: integration.inboundAuthType
+        authType: integration.inboundAuthType,
       });
       return false;
   }
@@ -1768,9 +1858,8 @@ async function logIntegration(config, status, details) {
     }
 
     const normalizedStatus = status === 'TIMEOUT' ? 'FAILED' : status;
-    const responseStatus = details?.upstream?.status
-      || details?.response?.status
-      || (status === 'TIMEOUT' ? 504 : null);
+    const responseStatus =
+      details?.upstream?.status || details?.response?.status || (status === 'TIMEOUT' ? 504 : null);
 
     await data.recordLog(config.orgId, {
       __KEEP___KEEP_integrationConfig__Id__: config._id,
@@ -1792,12 +1881,12 @@ async function logIntegration(config, status, details) {
       correlationId: details?.correlationId || null,
       traceId: details?.correlationId || null,
       requestHeaders: details?.request?.headers || null,
-      shouldRetry: false
+      shouldRetry: false,
     });
   } catch (error) {
     log('error', 'Failed to log integration', {
       error: error.message,
-      configId: config._id.toString()
+      configId: config._id.toString(),
     });
   }
 }

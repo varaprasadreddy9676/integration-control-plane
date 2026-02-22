@@ -99,5 +99,5 @@ module.exports = {
   ConflictError,
   RateLimitError,
   InternalServerError,
-  ServiceUnavailableError
+  ServiceUnavailableError,
 };

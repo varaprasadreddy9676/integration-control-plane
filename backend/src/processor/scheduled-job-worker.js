@@ -53,7 +53,7 @@ class ScheduledJobWorker {
       const scheduledJobs = await collection
         .find({
           direction: 'SCHEDULED',
-          isActive: true
+          isActive: true,
         })
         .toArray();
 
@@ -85,20 +85,16 @@ class ScheduledJobWorker {
         if (!cron.validate(schedule.expression)) {
           log('error', 'Invalid cron expression', {
             jobId,
-            expression: schedule.expression
+            expression: schedule.expression,
           });
           return;
         }
 
         // Schedule with node-cron
-        const task = cron.schedule(
-          schedule.expression,
-          () => this.executeJob(jobConfig),
-          {
-            scheduled: true,
-            timezone: schedule.timezone || 'UTC'
-          }
-        );
+        const task = cron.schedule(schedule.expression, () => this.executeJob(jobConfig), {
+          scheduled: true,
+          timezone: schedule.timezone || 'UTC',
+        });
 
         this.scheduledTasks.set(jobId, task);
 
@@ -106,7 +102,7 @@ class ScheduledJobWorker {
           jobId,
           name: jobConfig.name,
           expression: schedule.expression,
-          timezone: schedule.timezone || 'UTC'
+          timezone: schedule.timezone || 'UTC',
         });
       } else if (schedule.type === 'INTERVAL') {
         // Schedule with setInterval
@@ -115,28 +111,25 @@ class ScheduledJobWorker {
         if (intervalMs < 60000) {
           log('error', 'Interval too short (minimum 1 minute)', {
             jobId,
-            intervalMs
+            intervalMs,
           });
           return;
         }
 
-        const intervalId = setInterval(
-          () => this.executeJob(jobConfig),
-          intervalMs
-        );
+        const intervalId = setInterval(() => this.executeJob(jobConfig), intervalMs);
 
         this.scheduledTasks.set(jobId, intervalId);
 
         log('info', 'Job scheduled with interval', {
           jobId,
           name: jobConfig.name,
-          intervalMs
+          intervalMs,
         });
       }
     } catch (error) {
       log('error', 'Failed to schedule job', {
         jobId,
-        error: error.message
+        error: error.message,
       });
     }
   }
@@ -173,7 +166,7 @@ class ScheduledJobWorker {
     log('info', 'Executing scheduled job', {
       jobId: jobConfig._id.toString(),
       name: jobConfig.name,
-      correlationId
+      correlationId,
     });
 
     // Create execution logger for scheduled jobs
@@ -193,22 +186,22 @@ class ScheduledJobWorker {
         url: jobConfig.targetUrl,
         method: jobConfig.httpMethod || 'POST',
         headers: {},
-        body: {}
-      }
+        body: {},
+      },
     });
 
     // Start execution logging
-    await executionLogger.start().catch(err => {
+    await executionLogger.start().catch((err) => {
       log('warn', 'Failed to start execution logger', { error: err.message, correlationId });
     });
 
-    let executionLog = {
+    const executionLog = {
       integrationId: jobConfig._id,
       integrationName: jobConfig.name,
       orgId: jobConfig.orgId,
       correlationId,
       startedAt: new Date(),
-      status: 'RUNNING'
+      status: 'RUNNING',
     };
 
     try {
@@ -221,24 +214,25 @@ class ScheduledJobWorker {
 
       // Store the actual data fetched (with size limit for logging)
       const dataFetchedForLog = JSON.stringify(queryResult);
-      executionLog.dataFetched = dataFetchedForLog.length > 50000
-        ? dataFetchedForLog.substring(0, 50000) + '...(truncated)'
-        : queryResult;
+      executionLog.dataFetched =
+        dataFetchedForLog.length > 50000 ? `${dataFetchedForLog.substring(0, 50000)}...(truncated)` : queryResult;
 
       // Log data source execution
-      await executionLogger.addStep('data_source_query', {
-        status: 'success',
-        durationMs: Date.now() - queryStart,
-        metadata: {
-          recordsFetched: executionLog.recordsFetched,
-          dataSourceType: jobConfig.dataSource?.type,
-          sampleData: Array.isArray(queryResult) ? queryResult.slice(0, 3) : queryResult
-        }
-      }).catch(() => {});
+      await executionLogger
+        .addStep('data_source_query', {
+          status: 'success',
+          durationMs: Date.now() - queryStart,
+          metadata: {
+            recordsFetched: executionLog.recordsFetched,
+            dataSourceType: jobConfig.dataSource?.type,
+            sampleData: Array.isArray(queryResult) ? queryResult.slice(0, 3) : queryResult,
+          },
+        })
+        .catch(() => {});
 
       log('info', 'Data source executed', {
         correlationId,
-        recordsFetched: executionLog.recordsFetched
+        recordsFetched: executionLog.recordsFetched,
       });
 
       // Step 2: Apply transformation (REUSE - existing transformer service)
@@ -249,8 +243,8 @@ class ScheduledJobWorker {
           jobId: jobConfig._id.toString(),
           jobName: jobConfig.name,
           executedAt: new Date().toISOString(),
-          recordCount: executionLog.recordsFetched
-        }
+          recordCount: executionLog.recordsFetched,
+        },
       };
 
       const transformedPayload = await applyTransform(jobConfig, eventPayload);
@@ -259,33 +253,33 @@ class ScheduledJobWorker {
 
       // Store the transformed payload (with size limit for logging)
       const transformedForLog = JSON.stringify(transformedPayload);
-      executionLog.transformedPayload = transformedForLog.length > 50000
-        ? transformedForLog.substring(0, 50000) + '...(truncated)'
-        : transformedPayload;
+      executionLog.transformedPayload =
+        transformedForLog.length > 50000
+          ? `${transformedForLog.substring(0, 50000)}...(truncated)`
+          : transformedPayload;
 
       // Log transformation
-      await executionLogger.addStep('transformation', {
-        status: 'success',
-        durationMs: Date.now() - transformStart,
-        metadata: {
-          payloadSize: transformedForLog.length
-        }
-      }).catch(() => {});
+      await executionLogger
+        .addStep('transformation', {
+          status: 'success',
+          durationMs: Date.now() - transformStart,
+          metadata: {
+            payloadSize: transformedForLog.length,
+          },
+        })
+        .catch(() => {});
 
       log('info', 'Transformation applied', { correlationId });
 
       // Step 3: Build authentication headers (REUSE - existing auth-helper)
-      const authHeaders = buildAuthHeaders(
-        jobConfig.outgoingAuthType,
-        jobConfig.outgoingAuthConfig
-      );
+      const authHeaders = buildAuthHeaders(jobConfig.outgoingAuthType, jobConfig.outgoingAuthConfig);
 
       // Step 4: Deliver integration (REUSE - existing delivery logic)
       const httpStart = Date.now();
       const requestHeaders = {
         'Content-Type': 'application/json',
         ...authHeaders,
-        ...(jobConfig.customHeaders || {})
+        ...(jobConfig.customHeaders || {}),
       };
 
       const deliveryResult = await this.deliverIntegration({
@@ -293,7 +287,7 @@ class ScheduledJobWorker {
         httpMethod: jobConfig.httpMethod || 'POST',
         headers: requestHeaders,
         payload: transformedPayload,
-        timeout: jobConfig.timeoutMs || 10000
+        timeout: jobConfig.timeoutMs || 10000,
       });
 
       executionLog.deliveredAt = new Date();
@@ -306,7 +300,7 @@ class ScheduledJobWorker {
         method: jobConfig.httpMethod || 'POST',
         url: jobConfig.targetUrl,
         headers: requestHeaders,
-        body: transformedPayload
+        body: transformedPayload,
       };
 
       // Generate curl command for easy debugging
@@ -316,38 +310,42 @@ class ScheduledJobWorker {
       executionLog.curlCommand = `curl -X ${jobConfig.httpMethod || 'POST'} ${curlHeaders} -d '${JSON.stringify(transformedPayload).replace(/'/g, "'\\''")}' "${jobConfig.targetUrl}"`;
 
       // Log HTTP request
-      await executionLogger.addStep('http_request', {
-        status: deliveryResult.status >= 200 && deliveryResult.status < 300 ? 'success' : 'failed',
-        durationMs: Date.now() - httpStart,
-        metadata: {
-          statusCode: deliveryResult.status,
-          method: jobConfig.httpMethod || 'POST',
-          url: jobConfig.targetUrl,
-          requestHeaders: requestHeaders,
-          responseHeaders: deliveryResult.headers || {}
-        }
-      }).catch(() => {});
+      await executionLogger
+        .addStep('http_request', {
+          status: deliveryResult.status >= 200 && deliveryResult.status < 300 ? 'success' : 'failed',
+          durationMs: Date.now() - httpStart,
+          metadata: {
+            statusCode: deliveryResult.status,
+            method: jobConfig.httpMethod || 'POST',
+            url: jobConfig.targetUrl,
+            requestHeaders: requestHeaders,
+            responseHeaders: deliveryResult.headers || {},
+          },
+        })
+        .catch(() => {});
 
       // Mark execution as successful with detailed execution data
-      await executionLogger.success({
-        response: {
-          statusCode: deliveryResult.status,
-          headers: deliveryResult.headers,
-          body: deliveryResult.data
-        },
-        metadata: {
-          recordsFetched: executionLog.recordsFetched,
-          dataFetched: executionLog.dataFetched,
-          transformedPayload: executionLog.transformedPayload,
-          httpRequest: executionLog.httpRequest,
-          curlCommand: executionLog.curlCommand
-        }
-      }).catch(() => {});
+      await executionLogger
+        .success({
+          response: {
+            statusCode: deliveryResult.status,
+            headers: deliveryResult.headers,
+            body: deliveryResult.data,
+          },
+          metadata: {
+            recordsFetched: executionLog.recordsFetched,
+            dataFetched: executionLog.dataFetched,
+            transformedPayload: executionLog.transformedPayload,
+            httpRequest: executionLog.httpRequest,
+            curlCommand: executionLog.curlCommand,
+          },
+        })
+        .catch(() => {});
 
       log('info', 'Job executed successfully', {
         correlationId,
         duration: Date.now() - startTime,
-        status: deliveryResult.status
+        status: deliveryResult.status,
       });
     } catch (error) {
       executionLog.status = 'FAILED';
@@ -356,24 +354,24 @@ class ScheduledJobWorker {
         stack: error.stack,
         code: error.code,
         details: error.details || {},
-        timestamp: new Date()
+        timestamp: new Date(),
       };
 
       // Store what we had so far for debugging
       if (executionLog.httpRequest) {
         executionLog.errorContext = {
           stage: 'http_delivery',
-          request: executionLog.httpRequest
+          request: executionLog.httpRequest,
         };
       } else if (executionLog.transformedPayload) {
         executionLog.errorContext = {
           stage: 'transformation',
-          transformedPayload: executionLog.transformedPayload
+          transformedPayload: executionLog.transformedPayload,
         };
       } else if (executionLog.dataFetched) {
         executionLog.errorContext = {
           stage: 'data_fetch',
-          dataFetched: executionLog.dataFetched
+          dataFetched: executionLog.dataFetched,
         };
       }
 
@@ -382,24 +380,26 @@ class ScheduledJobWorker {
       err.code = error.code || 'JOB_EXECUTION_ERROR';
       err.stack = error.stack;
       err.statusCode = error.statusCode || 500;
-      await executionLogger.fail(err, {
-        payload: executionLog,
-        statusCode: err.statusCode,
-        metadata: {
-          recordsFetched: executionLog.recordsFetched,
-          dataFetched: executionLog.dataFetched,
-          transformedPayload: executionLog.transformedPayload,
-          httpRequest: executionLog.httpRequest,
-          curlCommand: executionLog.curlCommand,
-          errorContext: executionLog.errorContext
-        }
-      }).catch(() => {});
+      await executionLogger
+        .fail(err, {
+          payload: executionLog,
+          statusCode: err.statusCode,
+          metadata: {
+            recordsFetched: executionLog.recordsFetched,
+            dataFetched: executionLog.dataFetched,
+            transformedPayload: executionLog.transformedPayload,
+            httpRequest: executionLog.httpRequest,
+            curlCommand: executionLog.curlCommand,
+            errorContext: executionLog.errorContext,
+          },
+        })
+        .catch(() => {});
 
       log('error', 'Job execution failed', {
         correlationId,
         error: error.message,
         errorStage: executionLog.errorContext?.stage,
-        duration: Date.now() - startTime
+        duration: Date.now() - startTime,
       });
     } finally {
       executionLog.completedAt = new Date();
@@ -422,20 +422,20 @@ class ScheduledJobWorker {
         headers,
         data: payload,
         timeout,
-        validateStatus: () => true // Don't throw on non-2xx
+        validateStatus: () => true, // Don't throw on non-2xx
       });
 
       return {
         status: response.status,
         headers: response.headers,
-        data: response.data
+        data: response.data,
       };
     } catch (error) {
       // If axios throws (network error, timeout, etc), capture details
       const errorDetails = {
         message: error.message,
         code: error.code,
-        stack: error.stack
+        stack: error.stack,
       };
 
       if (error.response) {
@@ -443,7 +443,7 @@ class ScheduledJobWorker {
         return {
           status: error.response.status,
           headers: error.response.headers,
-          data: error.response.data
+          data: error.response.data,
         };
       }
 
@@ -466,7 +466,7 @@ class ScheduledJobWorker {
     } catch (error) {
       log('error', 'Failed to save execution log', {
         error: error.message,
-        correlationId: executionLog.correlationId
+        correlationId: executionLog.correlationId,
       });
     }
   }
@@ -513,5 +513,5 @@ const getScheduledJobWorker = () => {
 
 module.exports = {
   getScheduledJobWorker,
-  ScheduledJobWorker
+  ScheduledJobWorker,
 };

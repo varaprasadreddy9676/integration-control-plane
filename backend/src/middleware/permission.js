@@ -20,17 +20,15 @@ const { log } = require('../logger');
  *   requirePermission(['integrations:view', 'integrations:edit'], { requireAll: true })
  */
 function requirePermission(requiredPermissions, options = {}) {
-  const permissions = Array.isArray(requiredPermissions)
-    ? requiredPermissions
-    : [requiredPermissions];
+  const permissions = Array.isArray(requiredPermissions) ? requiredPermissions : [requiredPermissions];
 
   const { requireAll = false } = options;
 
-  return (req, res, next) => {
+  return (req, _res, next) => {
     if (!req.user) {
       log('warn', 'Permission check failed: No user context', {
         path: req.path,
-        requiredPermissions: permissions
+        requiredPermissions: permissions,
       });
       return next(new UnauthorizedError('Authentication required'));
     }
@@ -40,14 +38,10 @@ function requirePermission(requiredPermissions, options = {}) {
 
     if (requireAll) {
       // User must have ALL permissions
-      hasAccess = permissions.every(permission =>
-        userHasPermission(req.user, permission)
-      );
+      hasAccess = permissions.every((permission) => userHasPermission(req.user, permission));
     } else {
       // User must have AT LEAST ONE permission
-      hasAccess = permissions.some(permission =>
-        userHasPermission(req.user, permission)
-      );
+      hasAccess = permissions.some((permission) => userHasPermission(req.user, permission));
     }
 
     if (!hasAccess) {
@@ -56,14 +50,16 @@ function requirePermission(requiredPermissions, options = {}) {
         userRole: req.user.role,
         requiredPermissions: permissions,
         requireAll,
-        path: req.path
+        path: req.path,
       });
 
-      return next(new ForbiddenError(
-        requireAll
-          ? 'You do not have all the required permissions'
-          : 'You do not have permission to access this resource'
-      ));
+      return next(
+        new ForbiddenError(
+          requireAll
+            ? 'You do not have all the required permissions'
+            : 'You do not have permission to access this resource'
+        )
+      );
     }
 
     // Access granted
@@ -74,7 +70,7 @@ function requirePermission(requiredPermissions, options = {}) {
 /**
  * Middleware to check if user is Super Admin
  */
-function requireSuperAdmin(req, res, next) {
+function requireSuperAdmin(req, _res, next) {
   if (!req.user) {
     return next(new UnauthorizedError('Authentication required'));
   }
@@ -83,7 +79,7 @@ function requireSuperAdmin(req, res, next) {
     log('warn', 'Super Admin required', {
       userId: req.user.id,
       userRole: req.user.role,
-      path: req.path
+      path: req.path,
     });
     return next(new ForbiddenError('Super Admin access required'));
   }
@@ -94,7 +90,7 @@ function requireSuperAdmin(req, res, next) {
 /**
  * Middleware to check if user is Admin (SUPER_ADMIN or ADMIN)
  */
-function requireAdmin(req, res, next) {
+function requireAdmin(req, _res, next) {
   if (!req.user) {
     return next(new UnauthorizedError('Authentication required'));
   }
@@ -103,7 +99,7 @@ function requireAdmin(req, res, next) {
     log('warn', 'Admin required', {
       userId: req.user.id,
       userRole: req.user.role,
-      path: req.path
+      path: req.path,
     });
     return next(new ForbiddenError('Admin access required'));
   }
@@ -117,7 +113,7 @@ function requireAdmin(req, res, next) {
  */
 const { getUserPermissions } = require('../rbac/permissions');
 
-function attachPermissions(req, res, next) {
+function attachPermissions(req, _res, next) {
   if (req.user) {
     req.userPermissions = getUserPermissions(req.user);
   }
@@ -128,5 +124,5 @@ module.exports = {
   requirePermission,
   requireSuperAdmin,
   requireAdmin,
-  attachPermissions
+  attachPermissions,
 };

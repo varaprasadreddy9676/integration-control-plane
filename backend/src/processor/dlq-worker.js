@@ -32,7 +32,7 @@ async function retryIntegration(dlqEntry) {
 
   // Get the integration configuration
   const integration = await db.collection('integration_configs').findOne({
-    _id: dlqEntry.integrationConfigId
+    _id: dlqEntry.integrationConfigId,
   });
 
   if (!integration || !integration.isActive) {
@@ -64,7 +64,7 @@ async function retryOutboundIntegration(dlqEntry, integration) {
     if (!executionLog) {
       log('error', 'Execution log not found for DLQ retry', {
         dlqId: dlqEntry.dlqId,
-        traceId: dlqEntry.traceId
+        traceId: dlqEntry.traceId,
       });
       return false;
     }
@@ -72,7 +72,7 @@ async function retryOutboundIntegration(dlqEntry, integration) {
     // Apply transformation
     const transformed = await applyTransform(integration, dlqEntry.payload, {
       eventType: executionLog.triggerType || 'REPLAY',
-      orgId: integration.orgId
+      orgId: integration.orgId,
     });
 
     // Build headers
@@ -90,7 +90,7 @@ async function retryOutboundIntegration(dlqEntry, integration) {
       method: integration.httpMethod || 'POST',
       headers,
       body: JSON.stringify(transformed),
-      signal: controller.signal
+      signal: controller.signal,
     });
 
     clearTimeout(timer);
@@ -109,13 +109,16 @@ async function retryOutboundIntegration(dlqEntry, integration) {
       attemptCount: dlqEntry.retryCount + 1,
       originalPayload: dlqEntry.payload,
       requestPayload: transformed,
-      responseBody: await resp.text().then(t => t.slice(0, 5000)).catch(() => ''),
+      responseBody: await resp
+        .text()
+        .then((t) => t.slice(0, 5000))
+        .catch(() => ''),
       errorMessage: statusOk ? null : `DLQ retry failed: HTTP ${resp.status}`,
       targetUrl: integration.targetUrl,
       httpMethod: integration.httpMethod || 'POST',
       correlationId: dlqEntry.traceId,
       traceId: dlqEntry.traceId,
-      requestHeaders: headers
+      requestHeaders: headers,
     });
 
     return statusOk;
@@ -124,7 +127,7 @@ async function retryOutboundIntegration(dlqEntry, integration) {
       dlqId: dlqEntry.dlqId,
       integrationId: dlqEntry.integrationConfigId.toString(),
       error: error.message,
-      stack: error.stack
+      stack: error.stack,
     });
     return false;
   }
@@ -134,7 +137,7 @@ async function retryOutboundIntegration(dlqEntry, integration) {
  * Retry inbound integration
  * Inbound integrations receive data from external sources
  */
-async function retryInboundIntegration(dlqEntry, integration) {
+async function retryInboundIntegration(dlqEntry, _integration) {
   try {
     // For INBOUND integrations, we would need to re-process the received data
     // This typically involves calling the internal data processing pipeline
@@ -142,14 +145,14 @@ async function retryInboundIntegration(dlqEntry, integration) {
 
     log('info', 'Retrying INBOUND integration from DLQ', {
       dlqId: dlqEntry.dlqId,
-      integrationId: dlqEntry.integrationConfigId.toString()
+      integrationId: dlqEntry.integrationConfigId.toString(),
     });
 
     // TODO: Implement inbound retry logic based on your inbound integration architecture
     // Example: Re-process the payload through your data transformation and storage pipeline
 
     log('warn', 'DLQ retry for INBOUND integrations not yet fully implemented', {
-      dlqId: dlqEntry.dlqId
+      dlqId: dlqEntry.dlqId,
     });
 
     return false;
@@ -157,7 +160,7 @@ async function retryInboundIntegration(dlqEntry, integration) {
     log('error', 'DLQ retry failed for inbound integration', {
       dlqId: dlqEntry.dlqId,
       integrationId: dlqEntry.integrationConfigId.toString(),
-      error: error.message
+      error: error.message,
     });
     return false;
   }
@@ -174,13 +177,13 @@ async function retryScheduledIntegration(dlqEntry, integration) {
 
     log('info', 'Retrying SCHEDULED integration from DLQ', {
       dlqId: dlqEntry.dlqId,
-      integrationId: dlqEntry.integrationConfigId.toString()
+      integrationId: dlqEntry.integrationConfigId.toString(),
     });
 
     // Apply transformation
     const transformed = await applyTransform(integration, dlqEntry.payload, {
       eventType: 'SCHEDULE',
-      orgId: integration.orgId
+      orgId: integration.orgId,
     });
 
     // Build headers
@@ -198,7 +201,7 @@ async function retryScheduledIntegration(dlqEntry, integration) {
       method: integration.httpMethod || 'POST',
       headers,
       body: JSON.stringify(transformed),
-      signal: controller.signal
+      signal: controller.signal,
     });
 
     clearTimeout(timer);
@@ -217,13 +220,16 @@ async function retryScheduledIntegration(dlqEntry, integration) {
       attemptCount: dlqEntry.retryCount + 1,
       originalPayload: dlqEntry.payload,
       requestPayload: transformed,
-      responseBody: await resp.text().then(t => t.slice(0, 5000)).catch(() => ''),
+      responseBody: await resp
+        .text()
+        .then((t) => t.slice(0, 5000))
+        .catch(() => ''),
       errorMessage: statusOk ? null : `DLQ retry failed: HTTP ${resp.status}`,
       targetUrl: integration.targetUrl,
       httpMethod: integration.httpMethod || 'POST',
       correlationId: dlqEntry.traceId,
       traceId: dlqEntry.traceId,
-      requestHeaders: headers
+      requestHeaders: headers,
     });
 
     return statusOk;
@@ -231,7 +237,7 @@ async function retryScheduledIntegration(dlqEntry, integration) {
     log('error', 'DLQ retry failed for scheduled integration', {
       dlqId: dlqEntry.dlqId,
       integrationId: dlqEntry.integrationConfigId.toString(),
-      error: error.message
+      error: error.message,
     });
     return false;
   }
@@ -267,7 +273,7 @@ async function processDLQRetries() {
       try {
         // Update status to retrying
         await dlqData.updateDLQEntry(entry.dlqId, entry.orgId, {
-          status: 'retrying'
+          status: 'retrying',
         });
 
         // Attempt retry
@@ -280,7 +286,7 @@ async function processDLQRetries() {
 
           log('info', 'DLQ entry resolved via auto-retry', {
             dlqId: entry.dlqId,
-            retryCount: entry.retryCount + 1
+            retryCount: entry.retryCount + 1,
           });
         } else {
           // Record failed retry (will schedule next retry or abandon)
@@ -295,7 +301,7 @@ async function processDLQRetries() {
       } catch (error) {
         log('error', 'DLQ retry processing error', {
           dlqId: entry.dlqId,
-          error: error.message
+          error: error.message,
         });
 
         // Record failed retry
@@ -305,7 +311,7 @@ async function processDLQRetries() {
         } catch (recordError) {
           log('error', 'Failed to record retry attempt', {
             dlqId: entry.dlqId,
-            error: recordError.message
+            error: recordError.message,
           });
         }
       }
@@ -315,12 +321,12 @@ async function processDLQRetries() {
       processed: entries.length,
       succeeded: successCount,
       failed: failedCount,
-      abandoned: abandonedCount
+      abandoned: abandonedCount,
     });
   } catch (error) {
     log('error', 'DLQ worker error', {
       error: error.message,
-      stack: error.stack
+      stack: error.stack,
     });
   } finally {
     isProcessing = false;
@@ -364,7 +370,7 @@ function stopDLQWorker() {
 function getDLQWorkerStatus() {
   return {
     running: !!workerTask,
-    processing: isProcessing
+    processing: isProcessing,
   };
 }
 
@@ -372,5 +378,5 @@ module.exports = {
   startDLQWorker,
   stopDLQWorker,
   getDLQWorkerStatus,
-  processDLQRetries
+  processDLQRetries,
 };

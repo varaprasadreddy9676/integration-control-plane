@@ -25,7 +25,7 @@ function closeLogStreams() {
   try {
     accessLogStream.end();
     appLogStream.end();
-  } catch (err) {
+  } catch (_err) {
     // Swallow close errors in test/teardown paths
   }
 }
@@ -35,7 +35,7 @@ function log(level, message, meta = {}) {
     timestamp: new Date().toISOString(),
     level,
     message,
-    meta
+    meta,
   };
 
   // Extract correlation ID or request ID if present in meta for better visibility
@@ -56,7 +56,7 @@ async function logError(err, context = {}) {
   // Log to app.log (24 hours)
   log('error', message, {
     ...context,
-    stack: err.stack
+    stack: err.stack,
   });
 
   // Also save to MongoDB (30 days) if available
@@ -71,7 +71,7 @@ async function logError(err, context = {}) {
         entityParentRid: context.entityParentRid || null,
         scope: context.scope || 'unknown',
         timestamp: new Date(),
-        createdAt: new Date()
+        createdAt: new Date(),
       });
     } catch (dbErr) {
       console.error('Failed to save backend error to MongoDB:', dbErr);
@@ -80,7 +80,7 @@ async function logError(err, context = {}) {
 }
 
 const requestLogger = morgan(':date[iso] :method :url :status :res[content-length] - :response-time ms', {
-  stream: accessLogStream
+  stream: accessLogStream,
 });
 
 module.exports = { log, logError, requestLogger, setDb, closeLogStreams };

@@ -7,7 +7,7 @@ const {
   buildOrgScopeQuery,
   addOrgScope,
   fallbackDisabledError,
-  mapAlertCenterLog
+  mapAlertCenterLog,
 } = require('./helpers');
 
 async function listAlertCenterLogs(orgId, filters = {}) {
@@ -32,7 +32,7 @@ async function listAlertCenterLogs(orgId, filters = {}) {
         query.$or = [
           { subject: { $regex: filters.search, $options: 'i' } },
           { errorMessage: { $regex: filters.search, $options: 'i' } },
-          { recipients: { $regex: filters.search, $options: 'i' } }
+          { recipients: { $regex: filters.search, $options: 'i' } },
         ];
       }
 
@@ -46,7 +46,8 @@ async function listAlertCenterLogs(orgId, filters = {}) {
         }
       }
 
-      const logs = await db.collection('alert_center_logs')
+      const logs = await db
+        .collection('alert_center_logs')
         .find(query)
         .sort({ createdAt: -1 })
         // Increased limit to avoid capping exports and status views
@@ -85,7 +86,7 @@ async function recordAlertCenterLog(orgId, logPayload) {
         payload: logPayload.payload || null,
         providerUrl: logPayload.providerUrl || null,
         providerResponse: logPayload.providerResponse || null,
-        createdAt: logPayload.createdAt || new Date()
+        createdAt: logPayload.createdAt || new Date(),
       };
 
       await db.collection('alert_center_logs').insertOne(logDoc);
@@ -100,5 +101,5 @@ async function recordAlertCenterLog(orgId, logPayload) {
 
 module.exports = {
   listAlertCenterLogs,
-  recordAlertCenterLog
+  recordAlertCenterLog,
 };

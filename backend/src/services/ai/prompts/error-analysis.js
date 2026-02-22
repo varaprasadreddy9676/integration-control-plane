@@ -142,19 +142,19 @@ function normalizeErrorAnalysis(raw) {
       explanation: 'The AI returned an unexpected response format.',
       suggestedFix: 'Please try again or check the error manually.',
       codeChange: null,
-      severity: 'medium'
+      severity: 'medium',
     };
   }
 
   const severity = VALID_SEVERITIES.has(raw.severity) ? raw.severity : 'medium';
 
   return {
-    rootCause:    raw.rootCause    || raw.root_cause   || raw.cause      || raw.summary    || 'Unknown cause',
-    explanation:  raw.explanation  || raw.description  || raw.details    || raw.analysis   || 'No explanation provided',
-    suggestedFix: raw.suggestedFix || raw.suggested_fix || raw.fix       || raw.solution   || 'No specific fix suggested',
-    codeChange:   raw.codeChange   || raw.code_change  || raw.fixedCode  || raw.fixed_code || null,
-    configPatch:  (raw.configPatch || raw.config_patch || {}),
-    severity
+    rootCause: raw.rootCause || raw.root_cause || raw.cause || raw.summary || 'Unknown cause',
+    explanation: raw.explanation || raw.description || raw.details || raw.analysis || 'No explanation provided',
+    suggestedFix: raw.suggestedFix || raw.suggested_fix || raw.fix || raw.solution || 'No specific fix suggested',
+    codeChange: raw.codeChange || raw.code_change || raw.fixedCode || raw.fixed_code || null,
+    configPatch: raw.configPatch || raw.config_patch || {},
+    severity,
   };
 }
 
@@ -170,17 +170,17 @@ function normalizeExplainTransformation(raw) {
       fixedCode: null,
       whatChanged: null,
       suggestions: [],
-      dataFlow: null
+      dataFlow: null,
     };
   }
 
   return {
-    explanation:  raw.explanation  || raw.description  || raw.details    || 'No explanation provided',
-    rootCause:    raw.rootCause    || raw.root_cause   || raw.cause      || null,
-    fixedCode:    raw.fixedCode    || raw.fixed_code   || raw.codeChange || null,
-    whatChanged:  raw.whatChanged  || raw.what_changed || raw.changes    || null,
-    suggestions:  Array.isArray(raw.suggestions) ? raw.suggestions : [],
-    dataFlow:     raw.dataFlow     || raw.data_flow    || null
+    explanation: raw.explanation || raw.description || raw.details || 'No explanation provided',
+    rootCause: raw.rootCause || raw.root_cause || raw.cause || null,
+    fixedCode: raw.fixedCode || raw.fixed_code || raw.codeChange || null,
+    whatChanged: raw.whatChanged || raw.what_changed || raw.changes || null,
+    suggestions: Array.isArray(raw.suggestions) ? raw.suggestions : [],
+    dataFlow: raw.dataFlow || raw.data_flow || null,
   };
 }
 
@@ -188,5 +188,5 @@ module.exports = {
   buildErrorAnalysisPrompt,
   buildExplainTransformationPrompt,
   normalizeErrorAnalysis,
-  normalizeExplainTransformation
+  normalizeExplainTransformation,
 };

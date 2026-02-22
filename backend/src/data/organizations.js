@@ -1,10 +1,7 @@
 'use strict';
 const { log, logError } = require('../logger');
 const mongodb = require('../mongodb');
-const {
-  useMongo,
-  fallbackDisabledError
-} = require('./helpers');
+const { useMongo, fallbackDisabledError } = require('./helpers');
 
 function mapOrganizationSummary(doc) {
   return {
@@ -16,7 +13,7 @@ function mapOrganizationSummary(doc) {
     email: doc.email || null,
     phone: doc.phone || null,
     address: doc.address || null,
-    tags: Array.isArray(doc.tags) ? doc.tags : []
+    tags: Array.isArray(doc.tags) ? doc.tags : [],
   };
 }
 
@@ -43,11 +40,9 @@ async function getOrganization(orgId) {
 
 async function getNextSequenceValue(sequenceName) {
   const dbClient = await mongodb.getDbSafe();
-  const result = await dbClient.collection('counters').findOneAndUpdate(
-    { _id: sequenceName },
-    { $inc: { sequence: 1 } },
-    { upsert: true, returnDocument: 'after' }
-  );
+  const result = await dbClient
+    .collection('counters')
+    .findOneAndUpdate({ _id: sequenceName }, { $inc: { sequence: 1 } }, { upsert: true, returnDocument: 'after' });
   return result.value.sequence;
 }
 
@@ -76,7 +71,7 @@ async function createOrganization(payload) {
     region: payload.region || null,
     timezone: payload.timezone || null,
     createdAt: now,
-    updatedAt: now
+    updatedAt: now,
   };
 
   await dbClient.collection('organizations').insertOne(org);
@@ -92,14 +87,12 @@ async function updateOrganization(orgId, updates) {
   const updateDoc = {
     $set: {
       ...updates,
-      updatedAt: new Date()
-    }
+      updatedAt: new Date(),
+    },
   };
-  const result = await dbClient.collection('organizations').findOneAndUpdate(
-    { orgId },
-    updateDoc,
-    { returnDocument: 'after' }
-  );
+  const result = await dbClient
+    .collection('organizations')
+    .findOneAndUpdate({ orgId }, updateDoc, { returnDocument: 'after' });
   return result.value || null;
 }
 
@@ -149,7 +142,7 @@ async function createOrgUnit(orgId, payload) {
     region: payload.region || null,
     timezone: payload.timezone || null,
     createdAt: now,
-    updatedAt: now
+    updatedAt: now,
   };
   await dbClient.collection('org_units').insertOne(unit);
   return unit;
@@ -166,8 +159,8 @@ async function updateOrgUnit(orgId, rid, updates) {
     {
       $set: {
         ...updates,
-        updatedAt: new Date()
-      }
+        updatedAt: new Date(),
+      },
     },
     { returnDocument: 'after' }
   );
@@ -206,7 +199,7 @@ async function listTenantIds() {
     dbClient.collection('ui_config').distinct('orgId'),
     dbClient.collection('lookups').distinct('orgId'),
     dbClient.collection('event_audit').distinct('orgId'),
-    dbClient.collection('execution_logs').distinct('orgId')
+    dbClient.collection('execution_logs').distinct('orgId'),
   ]);
 
   const ids = new Set();
@@ -235,7 +228,7 @@ async function listTenantSummaries() {
     code: `ORG-${orgId}`,
     region: null,
     timezone: null,
-    email: null
+    email: null,
   }));
 }
 
@@ -252,5 +245,5 @@ module.exports = {
   updateOrgUnit,
   deleteOrgUnit,
   listTenantIds,
-  listTenantSummaries
+  listTenantSummaries,
 };

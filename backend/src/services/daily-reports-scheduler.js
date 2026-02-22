@@ -76,10 +76,7 @@ class DailyReportsScheduler {
       const db = mongodb.getDb();
 
       // Fetch all orgs that have daily reports enabled
-      const reportConfigs = await db
-        .collection('daily_report_config')
-        .find({ enabled: true })
-        .toArray();
+      const reportConfigs = await db.collection('daily_report_config').find({ enabled: true }).toArray();
 
       if (reportConfigs.length === 0) {
         log('info', '[DailyReports] No orgs configured for daily reports');
@@ -96,11 +93,15 @@ class DailyReportsScheduler {
           const result = await this.sendDailyReport(reportConfig);
           results.push(result);
         } catch (error) {
-          await logError(error, { scope: 'DailyReports', action: 'processOrg', orgId: reportConfig.orgId || reportConfig.entityParentRid });
+          await logError(error, {
+            scope: 'DailyReports',
+            action: 'processOrg',
+            orgId: reportConfig.orgId || reportConfig.entityParentRid,
+          });
           results.push({
             orgId: reportConfig.orgId || reportConfig.entityParentRid,
             success: false,
-            error: error.message
+            error: error.message,
           });
         }
       }
@@ -119,7 +120,7 @@ class DailyReportsScheduler {
         totalReports: reportConfigs.length,
         successful,
         failed,
-        results
+        results,
       });
     } catch (error) {
       await logError(error, { scope: 'DailyReports', action: 'runDailyReports' });
@@ -151,7 +152,7 @@ class DailyReportsScheduler {
       const summary = await dashboardCaptureService.getDashboardSummary({
         orgId,
         apiKey,
-        days: 1
+        days: 1,
       });
 
       // Generate dashboard URL from config
@@ -166,7 +167,7 @@ class DailyReportsScheduler {
           pdfBuffer = await dashboardCaptureService.captureDashboard({
             orgId,
             apiKey,
-            days: 1
+            days: 1,
           });
           log('info', `[DailyReports] PDF generated successfully (${pdfBuffer.length} bytes)`);
         } catch (pdfError) {
@@ -182,7 +183,7 @@ class DailyReportsScheduler {
         entityName,
         dashboardUrl,
         summary,
-        pdfBuffer
+        pdfBuffer,
       });
 
       if (!emailResult.success) {
@@ -196,7 +197,7 @@ class DailyReportsScheduler {
         entityName,
         success: true,
         recipients: emailResult.recipients,
-        messageId: emailResult.messageId
+        messageId: emailResult.messageId,
       };
     } catch (error) {
       await logError(error, { scope: 'DailyReports', action: 'sendDailyReport', orgId });
@@ -204,7 +205,7 @@ class DailyReportsScheduler {
         orgId,
         entityName,
         success: false,
-        error: error.message
+        error: error.message,
       };
     }
   }
@@ -217,7 +218,7 @@ class DailyReportsScheduler {
       const db = mongodb.getDb();
       await db.collection('daily_report_logs').insertOne({
         ...executionData,
-        createdAt: new Date()
+        createdAt: new Date(),
       });
     } catch (error) {
       await logError(error, { scope: 'DailyReports', action: 'logExecution' });

@@ -6,8 +6,8 @@ const mongodb = require('../../mongodb');
 const { log, logError } = require('../../logger');
 const data = require('../../data');
 
-const COMMUNICATION_SERVICE_URL = config.communicationServiceUrl ||
-  'https://notification.example.com/notification-service/api/sendNotification';
+const COMMUNICATION_SERVICE_URL =
+  config.communicationServiceUrl || 'https://notification.example.com/notification-service/api/sendNotification';
 
 function postJson(url, payload, timeoutMs = 10000) {
   return new Promise((resolve, reject) => {
@@ -23,13 +23,15 @@ function postJson(url, payload, timeoutMs = 10000) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(body)
+          'Content-Length': Buffer.byteLength(body),
         },
-        timeout: timeoutMs
+        timeout: timeoutMs,
       },
       (res) => {
         let data = '';
-        res.on('data', (chunk) => { data += chunk; });
+        res.on('data', (chunk) => {
+          data += chunk;
+        });
         res.on('end', () => {
           resolve({ status: res.statusCode || 0, body: data });
         });
@@ -50,7 +52,7 @@ const DEFAULT_CONFIG = {
   intervalMinutes: 15,
   lookbackMinutes: 60,
   minFailures: 1,
-  maxItems: 25
+  maxItems: 25,
 };
 
 function escapeHtml(value) {
@@ -75,9 +77,9 @@ function formatDateTime(value) {
       month: 'short',
       day: '2-digit',
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
     });
-  } catch (err) {
+  } catch (_err) {
     return String(value);
   }
 }
@@ -93,7 +95,7 @@ async function getFailureReportConfig(orgId) {
       const configured = uiConfig?.notifications?.failureEmailReports || {};
       return {
         ...DEFAULT_CONFIG,
-        ...configured
+        ...configured,
       };
     } catch (err) {
       logError(err, { scope: 'failureReport:getFailureReportConfig', orgId });
@@ -107,7 +109,7 @@ async function getFailureReportConfig(orgId) {
 
   return {
     ...DEFAULT_CONFIG,
-    ...configured
+    ...configured,
   };
 }
 
@@ -121,7 +123,7 @@ async function getEntityEmail(orgId) {
     return {
       email: overrideEmail || tenant.tenantEmail || null,
       tenantName: tenant.tenantName || `ENT-${orgId}`,
-      tenantCode: tenant.tenantCode || String(orgId)
+      tenantCode: tenant.tenantCode || String(orgId),
     };
   } catch (err) {
     logError(err, { scope: 'failureReport:getEntityEmail', orgId });
@@ -139,11 +141,9 @@ function generateCurlCommand(log) {
     .map(([key, value]) => `-H '${key}: ${String(value).replace(/'/g, "\\'")}'`)
     .join(' \\\n  ');
 
-  const payload = log.requestPayload
-    ? `-d '${JSON.stringify(log.requestPayload).replace(/'/g, "\\'")}'`
-    : '';
+  const payload = log.requestPayload ? `-d '${JSON.stringify(log.requestPayload).replace(/'/g, "\\'")}'` : '';
 
-  return `curl -X ${log.httpMethod || 'POST'} '${log.targetUrl}' \\\n  ${headers}${payload ? ' \\\n  ' + payload : ''}`;
+  return `curl -X ${log.httpMethod || 'POST'} '${log.targetUrl}' \\\n  ${headers}${payload ? ` \\\n  ${payload}` : ''}`;
 }
 
 function buildEmailHtml({
@@ -156,7 +156,7 @@ function buildEmailHtml({
   topIntegrations,
   recentFailures,
   dashboardBaseUrl,
-  aiInsights
+  aiInsights,
 }) {
   const header = `
     <div style="padding: 20px 24px; background: #0f172a; color: #f8fafc; border-radius: 12px;">
@@ -172,21 +172,28 @@ function buildEmailHtml({
       <div style="margin-top: 12px; display: flex; flex-wrap: wrap; gap: 10px;">
         <span style="background: #fee2e2; color: #b91c1c; padding: 6px 10px; border-radius: 999px; font-weight: 600; font-size: 12px;">${totalFailures} total failures</span>
         ${Object.entries(statusCounts)
-          .map(([status, count]) => `
+          .map(
+            ([status, count]) => `
             <span style="background: #e2e8f0; color: #334155; padding: 6px 10px; border-radius: 999px; font-weight: 600; font-size: 12px;">${escapeHtml(status)}: ${count}</span>
-          `).join('')}
+          `
+          )
+          .join('')}
       </div>
     </div>
   `;
 
   const integrationRows = topIntegrations.length
-    ? topIntegrations.map((wh) => `
+    ? topIntegrations
+        .map(
+          (wh) => `
         <tr>
           <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0;">${escapeHtml(wh.__KEEP_integrationName__ || wh.__KEEP___KEEP_integrationConfig__Id__ || 'Unknown')}</td>
           <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0; text-align: right;">${wh.count}</td>
           <td style="padding: 10px 12px; border-bottom: 1px solid #e2e8f0;">${escapeHtml(formatDateTime(wh.lastFailure))}</td>
         </tr>
-      `).join('')
+      `
+        )
+        .join('')
     : `
       <tr>
         <td colspan="3" style="padding: 12px; color: #64748b;">No failing integrations found.</td>
@@ -212,9 +219,11 @@ function buildEmailHtml({
   `;
 
   const failureDetails = recentFailures.length
-    ? recentFailures.slice(0, 5).map((log, index) => {
-        const curlCommand = generateCurlCommand(log);
-        return `
+    ? recentFailures
+        .slice(0, 5)
+        .map((log, index) => {
+          const curlCommand = generateCurlCommand(log);
+          return `
           <div style="margin-top: ${index === 0 ? '0' : '16px'}; padding: 16px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
             <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
               <div>
@@ -228,21 +237,31 @@ function buildEmailHtml({
               </span>
             </div>
 
-            ${log.errorMessage ? `
+            ${
+              log.errorMessage
+                ? `
               <div style="margin-top: 12px; padding: 10px; background: #fef2f2; border-left: 3px solid #ef4444; border-radius: 4px;">
                 <div style="font-size: 11px; color: #991b1b; font-weight: 600; margin-bottom: 4px;">ERROR</div>
                 <div style="font-size: 12px; color: #7f1d1d;">${escapeHtml(log.errorMessage)}</div>
               </div>
-            ` : ''}
+            `
+                : ''
+            }
 
-            ${log.responseBody ? `
+            ${
+              log.responseBody
+                ? `
               <div style="margin-top: 12px; padding: 10px; background: #fff; border: 1px solid #e5e7eb; border-radius: 4px;">
                 <div style="font-size: 11px; color: #6b7280; font-weight: 600; margin-bottom: 4px;">RESPONSE</div>
                 <div style="font-size: 11px; font-family: 'Courier New', monospace; color: #374151; white-space: pre-wrap; overflow-wrap: break-word;">${escapeHtml(truncateText(log.responseBody, 300))}</div>
               </div>
-            ` : ''}
+            `
+                : ''
+            }
 
-            ${curlCommand ? `
+            ${
+              curlCommand
+                ? `
               <details style="margin-top: 12px; cursor: pointer;">
                 <summary style="font-size: 11px; color: #6b7280; font-weight: 600; padding: 8px 0; user-select: none;">
                   🔧 Debug with curl
@@ -251,21 +270,28 @@ function buildEmailHtml({
                   <code style="font-size: 11px; font-family: 'Courier New', monospace; color: #e2e8f0; white-space: pre; display: block;">${escapeHtml(curlCommand)}</code>
                 </div>
               </details>
-            ` : ''}
+            `
+                : ''
+            }
           </div>
         `;
-      }).join('')
+        })
+        .join('')
     : `<div style="padding: 16px; text-align: center; color: #64748b;">No recent failures found.</div>`;
 
   const failureSection = `
     <div style="margin-top: 20px;">
       <h3 style="margin: 0 0 12px; font-size: 15px;">Detailed Failure Analysis (Latest ${Math.min(5, recentFailures.length)})</h3>
       ${failureDetails}
-      ${recentFailures.length > 5 ? `
+      ${
+        recentFailures.length > 5
+          ? `
         <div style="margin-top: 12px; text-align: center; font-size: 12px; color: #64748b;">
           + ${recentFailures.length - 5} more failures • <a href="${escapeHtml(dashboardBaseUrl)}/logs?status=FAILED" style="color: #2563eb;">View all in dashboard</a>
         </div>
-      ` : ''}
+      `
+          : ''
+      }
     </div>
   `;
 
@@ -314,35 +340,31 @@ async function buildAIFailureInsights(orgId, context) {
       `Total failures: ${context.totalFailures}`,
       `Status counts: ${JSON.stringify(context.statusCounts)}`,
       `Top integrations: ${JSON.stringify(context.topIntegrations)}`,
-      `Recent failures: ${JSON.stringify(context.recentFailures)}`
+      `Recent failures: ${JSON.stringify(context.recentFailures)}`,
     ].join('\n');
 
-    const reply = await aiService.chat(
-      orgId,
-      [{ role: 'user', content: prompt }],
-      { page: 'failure-report', eventType: 'FAILURE_REPORT' }
-    );
+    const reply = await aiService.chat(orgId, [{ role: 'user', content: prompt }], {
+      page: 'failure-report',
+      eventType: 'FAILURE_REPORT',
+    });
 
     return reply ? String(reply).slice(0, 2500) : null;
   } catch (err) {
     log('warn', 'AI insights generation failed for failure report', {
       orgId,
-      error: err.message
+      error: err.message,
     });
     return null;
   }
 }
 
-async function sendFailureReportEmail({
-  payload,
-  subject
-}) {
+async function sendFailureReportEmail({ payload, subject }) {
   const response = await postJson(COMMUNICATION_SERVICE_URL, payload, 10000);
 
   log('info', 'Communication service response', {
     status: response.status,
     body: response.body,
-    subject
+    subject,
   });
 
   if (response.status < 200 || response.status >= 300) {
@@ -353,7 +375,9 @@ async function sendFailureReportEmail({
   let parsed = null;
   try {
     parsed = JSON.parse(response.body);
-  } catch (e) { /* non-JSON response is fine */ }
+  } catch (_e) {
+    /* non-JSON response is fine */
+  }
 
   if (parsed && parsed.success === false) {
     throw new Error(`Communication service accepted request but did not send: ${JSON.stringify(parsed)}`);
@@ -366,13 +390,7 @@ function buildSubject(totalFailures, tenantName) {
   return `Delivery Failure Report (${totalFailures}) - ${tenantName}`;
 }
 
-function buildEmailPayload({
-  orgId,
-  tenantCode,
-  recipient,
-  subject,
-  htmlContent
-}) {
+function buildEmailPayload({ orgId, tenantCode, recipient, subject, htmlContent }) {
   return {
     payload: {
       messageType: 'email',
@@ -382,8 +400,8 @@ function buildEmailPayload({
       to: recipient,
       subject,
       html: htmlContent,
-      content: htmlContent
-    }
+      content: htmlContent,
+    },
   };
 }
 
@@ -406,7 +424,7 @@ async function processFailureReports() {
 
   const entityRids = await dbClient.collection('execution_logs').distinct('orgId', {
     createdAt: { $gte: lookbackStart },
-    status: { $in: failureStatuses }
+    status: { $in: failureStatuses },
   });
 
   if (!entityRids.length) {
@@ -434,7 +452,7 @@ async function processFailureReports() {
       const match = {
         orgId,
         createdAt: { $gte: windowStart, $lte: now },
-        status: { $in: failureStatuses }
+        status: { $in: failureStatuses },
       };
 
       totalFailures = await dbClient.collection('execution_logs').countDocuments(match);
@@ -452,7 +470,7 @@ async function processFailureReports() {
           totalFailures,
           windowStart,
           windowEnd: now,
-          errorMessage: `Below minimum failure threshold (${entityConfig.minFailures}).`
+          errorMessage: `Below minimum failure threshold (${entityConfig.minFailures}).`,
         });
         continue;
       }
@@ -468,39 +486,43 @@ async function processFailureReports() {
           totalFailures,
           windowStart,
           windowEnd: now,
-          errorMessage: 'Missing tenant email (ent_mail not configured).'
+          errorMessage: 'Missing tenant email (ent_mail not configured).',
         });
         continue;
       }
 
-      const statusCounts = await dbClient.collection('execution_logs').aggregate([
-        { $match: match },
-        { $group: { _id: '$status', count: { $sum: 1 } } }
-      ]).toArray();
+      const statusCounts = await dbClient
+        .collection('execution_logs')
+        .aggregate([{ $match: match }, { $group: { _id: '$status', count: { $sum: 1 } } }])
+        .toArray();
 
       const statusSummary = statusCounts.reduce((acc, item) => {
         acc[item._id] = item.count;
         return acc;
       }, {});
 
-      const topIntegrations = await dbClient.collection('execution_logs').aggregate([
-        { $match: match },
-        {
-          $group: {
-            _id: {
-              __KEEP___KEEP_integrationConfig__Id__: '$__KEEP___KEEP_integrationConfig__Id__',
-              __KEEP_integrationName__: '$__KEEP_integrationName__'
+      const topIntegrations = await dbClient
+        .collection('execution_logs')
+        .aggregate([
+          { $match: match },
+          {
+            $group: {
+              _id: {
+                __KEEP___KEEP_integrationConfig__Id__: '$__KEEP___KEEP_integrationConfig__Id__',
+                __KEEP_integrationName__: '$__KEEP_integrationName__',
+              },
+              count: { $sum: 1 },
+              lastFailure: { $max: '$createdAt' },
             },
-            count: { $sum: 1 },
-            lastFailure: { $max: '$createdAt' }
-          }
-        },
-        { $sort: { count: -1 } },
-        { $limit: 10 }
-      ]).toArray();
+          },
+          { $sort: { count: -1 } },
+          { $limit: 10 },
+        ])
+        .toArray();
 
       // Fetch detailed delivery logs with request/response data
-      const recentFailures = await dbClient.collection('execution_logs')
+      const recentFailures = await dbClient
+        .collection('execution_logs')
         .find(match)
         .sort({ createdAt: -1 })
         .limit(entityConfig.maxItems)
@@ -515,7 +537,7 @@ async function processFailureReports() {
           httpMethod: 1,
           requestPayload: 1,
           requestHeaders: 1,
-          createdAt: 1
+          createdAt: 1,
         })
         .toArray();
 
@@ -523,18 +545,18 @@ async function processFailureReports() {
       const aiInsights = await buildAIFailureInsights(orgId, {
         totalFailures,
         statusCounts: statusSummary,
-        topIntegrations: topIntegrations.map(item => ({
+        topIntegrations: topIntegrations.map((item) => ({
           name: item._id.__KEEP_integrationName__ || 'Unknown',
           count: item.count,
-          lastFailure: item.lastFailure
+          lastFailure: item.lastFailure,
         })),
         recentFailures: recentFailures.slice(0, 5).map((item) => ({
           integration: item.__KEEP_integrationName__ || 'Unknown',
           eventType: item.eventType,
           status: item.status,
           errorMessage: truncateText(item.errorMessage, 200),
-          responseStatus: item.responseStatus
-        }))
+          responseStatus: item.responseStatus,
+        })),
       });
 
       const htmlContent = buildEmailHtml({
@@ -544,15 +566,15 @@ async function processFailureReports() {
         windowEnd: now,
         totalFailures,
         statusCounts: statusSummary,
-        topIntegrations: topIntegrations.map(item => ({
+        topIntegrations: topIntegrations.map((item) => ({
           __KEEP___KEEP_integrationConfig__Id__: item._id.__KEEP___KEEP_integrationConfig__Id__,
           __KEEP_integrationName__: item._id.__KEEP_integrationName__,
           count: item.count,
-          lastFailure: item.lastFailure
+          lastFailure: item.lastFailure,
         })),
         recentFailures,
         dashboardBaseUrl,
-        aiInsights
+        aiInsights,
       });
 
       payload = buildEmailPayload({
@@ -560,19 +582,15 @@ async function processFailureReports() {
         tenantCode: tenantInfo.tenantCode,
         recipient,
         subject,
-        htmlContent
+        htmlContent,
       });
 
       const sendResult = await sendFailureReportEmail({
         payload,
-        subject
+        subject,
       });
 
-      await stateCollection.updateOne(
-        { orgId },
-        { $set: { lastSentAt: now, updatedAt: now } },
-        { upsert: true }
-      );
+      await stateCollection.updateOne({ orgId }, { $set: { lastSentAt: now, updatedAt: now } }, { upsert: true });
 
       await data.recordAlertCenterLog(orgId, {
         type: 'DELIVERY_FAILURE_REPORT',
@@ -585,13 +603,13 @@ async function processFailureReports() {
         windowEnd: now,
         providerUrl: COMMUNICATION_SERVICE_URL,
         providerResponse: sendResult ? { status: sendResult.status, body: sendResult.body } : null,
-        payload
+        payload,
       });
 
       log('info', 'Failure report email sent', {
         orgId,
         totalFailures,
-        recipient
+        recipient,
       });
     } catch (err) {
       logError(err, { scope: 'failureReport:send', orgId });
@@ -608,7 +626,7 @@ async function processFailureReports() {
         providerUrl: COMMUNICATION_SERVICE_URL,
         errorMessage,
         errorStack: err instanceof Error ? err.stack : null,
-        payload
+        payload,
       });
     }
   }
@@ -635,11 +653,9 @@ function startFailureEmailReportScheduler() {
       const dbClient = mongodb.isConnected() ? await mongodb.getDbSafe() : null;
       if (dbClient) {
         const now = new Date();
-        await dbClient.collection('scheduler_state').updateOne(
-          { _id: 'failure_email_reports' },
-          { $set: { lastRunAt: now, updatedAt: now } },
-          { upsert: true }
-        );
+        await dbClient
+          .collection('scheduler_state')
+          .updateOne({ _id: 'failure_email_reports' }, { $set: { lastRunAt: now, updatedAt: now } }, { upsert: true });
         const lockId = `lock-${Date.now()}-${Math.random().toString(16).slice(2)}`;
         const lockExpiresAt = new Date(Date.now() + 2 * 60 * 1000); // 2 minutes
 
@@ -651,8 +667,8 @@ function startFailureEmailReportScheduler() {
               _id: 'failure_email_reports',
               lockedUntil: new Date(0),
               lockId: null,
-              createdAt: now
-            }
+              createdAt: now,
+            },
           },
           { upsert: true }
         );
@@ -661,17 +677,14 @@ function startFailureEmailReportScheduler() {
         const lockResult = await dbClient.collection('scheduler_locks').findOneAndUpdate(
           {
             _id: 'failure_email_reports',
-            $or: [
-              { lockedUntil: { $lte: now } },
-              { lockedUntil: { $exists: false } }
-            ]
+            $or: [{ lockedUntil: { $lte: now } }, { lockedUntil: { $exists: false } }],
           },
           {
             $set: {
               lockedUntil: lockExpiresAt,
               lockId,
-              lockedAt: now
-            }
+              lockedAt: now,
+            },
           },
           { returnDocument: 'after' }
         );
@@ -692,10 +705,12 @@ function startFailureEmailReportScheduler() {
       if (activeLockId && mongodb.isConnected()) {
         try {
           const dbClient = await mongodb.getDbSafe();
-          await dbClient.collection('scheduler_locks').updateOne(
-            { _id: 'failure_email_reports', lockId: activeLockId },
-            { $set: { lockedUntil: new Date(0), releasedAt: new Date() } }
-          );
+          await dbClient
+            .collection('scheduler_locks')
+            .updateOne(
+              { _id: 'failure_email_reports', lockId: activeLockId },
+              { $set: { lockedUntil: new Date(0), releasedAt: new Date() } }
+            );
         } catch (unlockErr) {
           logError(unlockErr, { scope: 'failureReport:unlock' });
         }
@@ -718,5 +733,5 @@ function startFailureEmailReportScheduler() {
 
 module.exports = {
   startFailureEmailReportScheduler,
-  processFailureReports
+  processFailureReports,
 };

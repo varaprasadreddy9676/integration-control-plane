@@ -34,8 +34,18 @@ const eventTypeSchemas = [
       { path: 'userRID', type: 'number', description: 'User resource identifier', example: 3439091 },
 
       // Patient object fields
-      { path: 'patient.mrn.documentNumber', type: 'string', description: 'Patient MRN document number', example: 'SEHBLR/908601/26' },
-      { path: 'patient.mrn.sequenceNumber', type: 'number', description: 'Patient MRN sequence number', example: 59071146 },
+      {
+        path: 'patient.mrn.documentNumber',
+        type: 'string',
+        description: 'Patient MRN document number',
+        example: 'SEHBLR/908601/26',
+      },
+      {
+        path: 'patient.mrn.sequenceNumber',
+        type: 'number',
+        description: 'Patient MRN sequence number',
+        example: 59071146,
+      },
       { path: 'patient.fullName', type: 'string', description: 'Patient full name', example: 'Kishore' },
       { path: 'patient.phone', type: 'string', description: 'Patient phone number', example: '7498668989' },
       { path: 'patient.email', type: 'string', description: 'Patient email address', example: 'patient@example.com' },
@@ -47,8 +57,18 @@ const eventTypeSchemas = [
       { path: 'patient.confidential', type: 'boolean', description: 'Confidential flag', example: false },
       { path: 'patient.notifyBySms', type: 'boolean', description: 'SMS notification preference', example: false },
       { path: 'patient.notifyByEmail', type: 'boolean', description: 'Email notification preference', example: false },
-      { path: 'patient.notifyByWhatsapp', type: 'boolean', description: 'WhatsApp notification preference', example: false },
-      { path: 'patient.isMobileNoVerified', type: 'boolean', description: 'Mobile verification status', example: false },
+      {
+        path: 'patient.notifyByWhatsapp',
+        type: 'boolean',
+        description: 'WhatsApp notification preference',
+        example: false,
+      },
+      {
+        path: 'patient.isMobileNoVerified',
+        type: 'boolean',
+        description: 'Mobile verification status',
+        example: false,
+      },
       { path: 'patient.valid', type: 'number', description: 'Patient validity status', example: 0 },
       { path: 'patient.sourceSystemId', type: 'number', description: 'source system ID', example: 0 },
       { path: 'patient.referencePatientId', type: 'number', description: 'Reference patient ID', example: 0 },
@@ -63,8 +83,8 @@ const eventTypeSchemas = [
       { path: 'visit.patientAgeInYears', type: 'number', description: 'Patient age in years', example: 0 },
       { path: 'visit.patientAgeInMonths', type: 'number', description: 'Patient age in months', example: 0 },
       { path: 'visit.freeRemainingCount', type: 'number', description: 'Free remaining count', example: 0 },
-      { path: 'visit.sourceAppointmentId', type: 'number', description: 'source system appointment ID', example: 0 }
-    ]
+      { path: 'visit.sourceAppointmentId', type: 'number', description: 'source system appointment ID', example: 0 },
+    ],
   },
 
   {
@@ -99,8 +119,18 @@ const eventTypeSchemas = [
       { path: 'visit.sourceAppointmentId', type: 'number', description: 'source system appointment ID', example: 0 },
 
       // Patient object fields
-      { path: 'patient.mrn.documentNumber', type: 'string', description: 'Patient MRN document number', example: 'SEC/860797/25' },
-      { path: 'patient.mrn.sequenceNumber', type: 'number', description: 'Patient MRN sequence number', example: 25416590 },
+      {
+        path: 'patient.mrn.documentNumber',
+        type: 'string',
+        description: 'Patient MRN document number',
+        example: 'SEC/860797/25',
+      },
+      {
+        path: 'patient.mrn.sequenceNumber',
+        type: 'number',
+        description: 'Patient MRN sequence number',
+        example: 25416590,
+      },
       { path: 'patient.fullName', type: 'string', description: 'Patient full name', example: 'Leelavathi B A' },
       { path: 'patient.phone', type: 'string', description: 'Patient phone number', example: '8310955291' },
       { path: 'patient.email', type: 'string', description: 'Patient email address', example: '' },
@@ -112,13 +142,23 @@ const eventTypeSchemas = [
       { path: 'patient.confidential', type: 'boolean', description: 'Confidential flag', example: false },
       { path: 'patient.notifyBySms', type: 'boolean', description: 'SMS notification preference', example: false },
       { path: 'patient.notifyByEmail', type: 'boolean', description: 'Email notification preference', example: false },
-      { path: 'patient.notifyByWhatsapp', type: 'boolean', description: 'WhatsApp notification preference', example: false },
-      { path: 'patient.isMobileNoVerified', type: 'boolean', description: 'Mobile verification status', example: false },
+      {
+        path: 'patient.notifyByWhatsapp',
+        type: 'boolean',
+        description: 'WhatsApp notification preference',
+        example: false,
+      },
+      {
+        path: 'patient.isMobileNoVerified',
+        type: 'boolean',
+        description: 'Mobile verification status',
+        example: false,
+      },
       { path: 'patient.valid', type: 'number', description: 'Patient validity status', example: 0 },
       { path: 'patient.sourceSystemId', type: 'number', description: 'source system ID', example: 0 },
       { path: 'patient.referencePatientId', type: 'number', description: 'Reference patient ID', example: 0 },
-      { path: 'patient.updateCount', type: 'number', description: 'Update count', example: 0 }
-    ]
+      { path: 'patient.updateCount', type: 'number', description: 'Update count', example: 0 },
+    ],
   },
 
   {
@@ -152,12 +192,22 @@ const eventTypeSchemas = [
       { path: 'visit.patientMRN', type: 'string', description: 'Patient MRN', example: 'SEHBLR/908601/26' },
       { path: 'visit.gender.name', type: 'string', description: 'Patient gender', example: 'Male' },
       { path: 'visit.gender.index', type: 'number', description: 'Gender code', example: 1 },
-      { path: 'visit.speciality.name', type: 'string', description: 'Speciality name', example: 'General Ophthalmology' },
+      {
+        path: 'visit.speciality.name',
+        type: 'string',
+        description: 'Speciality name',
+        example: 'General Ophthalmology',
+      },
       { path: 'visit.speciality.index', type: 'number', description: 'Speciality code', example: 549222 },
       { path: 'visit.consultingDoctor.value', type: 'string', description: 'Consulting doctor ID', example: '54589' },
       { path: 'visit.visitedEntity.value', type: 'string', description: 'Visited entity ID', example: '84' },
       { path: 'visit.referredBy', type: 'string', description: 'Referral source', example: 'Self' },
-      { path: 'visit.referralPhoneNumber', type: 'string', description: 'Referral phone number', example: '8754111722' },
+      {
+        path: 'visit.referralPhoneNumber',
+        type: 'string',
+        description: 'Referral phone number',
+        example: '8754111722',
+      },
       { path: 'visit.visitNumber.documentNumber', type: 'string', description: 'Visit document number', example: '' },
       { path: 'visit.visitNumber.sequenceNumber', type: 'number', description: 'Visit sequence number', example: 1 },
       { path: 'visit.leadNo', type: 'string', description: 'Lead number', example: '' },
@@ -173,8 +223,18 @@ const eventTypeSchemas = [
       { path: 'visit.sourceAppointmentId', type: 'number', description: 'source system appointment ID', example: 0 },
 
       // Patient object fields
-      { path: 'patient.mrn.documentNumber', type: 'string', description: 'Patient MRN document number', example: 'SEHBLR/908601/26' },
-      { path: 'patient.mrn.sequenceNumber', type: 'number', description: 'Patient MRN sequence number', example: 59071146 },
+      {
+        path: 'patient.mrn.documentNumber',
+        type: 'string',
+        description: 'Patient MRN document number',
+        example: 'SEHBLR/908601/26',
+      },
+      {
+        path: 'patient.mrn.sequenceNumber',
+        type: 'number',
+        description: 'Patient MRN sequence number',
+        example: 59071146,
+      },
       { path: 'patient.fullName', type: 'string', description: 'Patient full name', example: 'Kishore' },
       { path: 'patient.phone', type: 'string', description: 'Patient phone number', example: '7498668989' },
       { path: 'patient.address', type: 'string', description: 'Patient address', example: 'Btm' },
@@ -186,12 +246,22 @@ const eventTypeSchemas = [
       { path: 'patient.confidential', type: 'boolean', description: 'Confidential flag', example: false },
       { path: 'patient.notifyBySms', type: 'boolean', description: 'SMS notification preference', example: false },
       { path: 'patient.notifyByEmail', type: 'boolean', description: 'Email notification preference', example: false },
-      { path: 'patient.notifyByWhatsapp', type: 'boolean', description: 'WhatsApp notification preference', example: false },
-      { path: 'patient.isMobileNoVerified', type: 'boolean', description: 'Mobile verification status', example: false },
+      {
+        path: 'patient.notifyByWhatsapp',
+        type: 'boolean',
+        description: 'WhatsApp notification preference',
+        example: false,
+      },
+      {
+        path: 'patient.isMobileNoVerified',
+        type: 'boolean',
+        description: 'Mobile verification status',
+        example: false,
+      },
       { path: 'patient.sourceSystemId', type: 'number', description: 'source system ID', example: 0 },
       { path: 'patient.referencePatientId', type: 'number', description: 'Reference patient ID', example: 0 },
-      { path: 'patient.updateCount', type: 'number', description: 'Update count', example: 0 }
-    ]
+      { path: 'patient.updateCount', type: 'number', description: 'Update count', example: 0 },
+    ],
   },
 
   {
@@ -216,7 +286,12 @@ const eventTypeSchemas = [
 
       // Appointment object fields
       { path: 'appt.apptRID', type: 'number', description: 'Appointment resource ID', example: 3909468 },
-      { path: 'appt.bookingNumber', type: 'string', description: 'Booking number', example: 'SEH-HYDERABAD-24012026-06' },
+      {
+        path: 'appt.bookingNumber',
+        type: 'string',
+        description: 'Booking number',
+        example: 'SEH-HYDERABAD-24012026-06',
+      },
       { path: 'appt.apptDate', type: 'string', description: 'Appointment date', example: '2026-01-24' },
       { path: 'appt.apptTime', type: 'string', description: 'Appointment time', example: '17:10:00' },
       { path: 'appt.fromDate', type: 'string', description: 'From date', example: '2026-01-24' },
@@ -232,9 +307,24 @@ const eventTypeSchemas = [
       { path: 'appt.patientPhone', type: 'string', description: 'Patient phone', example: '8787879898' },
       { path: 'appt.visitRID', type: 'number', description: 'Visit resource ID', example: 19840887 },
       { path: 'appt.serviceProviderRID', type: 'number', description: 'Service provider RID', example: 34206 },
-      { path: 'appt.serviceProviderName', type: 'string', description: 'Service provider name', example: 'Balam Pradeep' },
-      { path: 'appt.serviceProviderPhone', type: 'string', description: 'Service provider phone', example: '9591956783' },
-      { path: 'appt.serviceProviderResourceRID', type: 'number', description: 'Service provider resource RID', example: 73638 },
+      {
+        path: 'appt.serviceProviderName',
+        type: 'string',
+        description: 'Service provider name',
+        example: 'Balam Pradeep',
+      },
+      {
+        path: 'appt.serviceProviderPhone',
+        type: 'string',
+        description: 'Service provider phone',
+        example: '9591956783',
+      },
+      {
+        path: 'appt.serviceProviderResourceRID',
+        type: 'number',
+        description: 'Service provider resource RID',
+        example: 73638,
+      },
       { path: 'appt.resourceName', type: 'string', description: 'Resource name', example: 'Balam Pradeep' },
       { path: 'appt.resourceType', type: 'number', description: 'Resource type', example: 1 },
       { path: 'appt.isResourceAppointment', type: 'boolean', description: 'Is resource appointment', example: true },
@@ -252,7 +342,12 @@ const eventTypeSchemas = [
       { path: 'appt.recurring', type: 'boolean', description: 'Recurring appointment', example: false },
       { path: 'appt.orderRID', type: 'number', description: 'Order RID', example: 0 },
       { path: 'appt.updateCount', type: 'number', description: 'Update count', example: 0 },
-      { path: 'appt.apptCreatedUserRID', type: 'number', description: 'User who created appointment', example: 15228108 },
+      {
+        path: 'appt.apptCreatedUserRID',
+        type: 'number',
+        description: 'User who created appointment',
+        example: 15228108,
+      },
 
       // Visit object fields
       { path: 'visit.id.value', type: 'string', description: 'Visit ID', example: '19840887' },
@@ -286,7 +381,12 @@ const eventTypeSchemas = [
 
       // Patient object fields
       { path: 'patient.mrn.documentNumber', type: 'string', description: 'Patient MRN document number', example: '' },
-      { path: 'patient.mrn.sequenceNumber', type: 'number', description: 'Patient MRN sequence number', example: 59071145 },
+      {
+        path: 'patient.mrn.sequenceNumber',
+        type: 'number',
+        description: 'Patient MRN sequence number',
+        example: 59071145,
+      },
       { path: 'patient.fullName', type: 'string', description: 'Patient full name', example: 'Krishna' },
       { path: 'patient.phone', type: 'string', description: 'Patient phone number', example: '8787879898' },
       { path: 'patient.valid', type: 'number', description: 'Patient validity status', example: 0 },
@@ -297,12 +397,22 @@ const eventTypeSchemas = [
       { path: 'patient.confidential', type: 'boolean', description: 'Confidential flag', example: false },
       { path: 'patient.notifyBySms', type: 'boolean', description: 'SMS notification preference', example: false },
       { path: 'patient.notifyByEmail', type: 'boolean', description: 'Email notification preference', example: false },
-      { path: 'patient.notifyByWhatsapp', type: 'boolean', description: 'WhatsApp notification preference', example: false },
-      { path: 'patient.isMobileNoVerified', type: 'boolean', description: 'Mobile verification status', example: false },
+      {
+        path: 'patient.notifyByWhatsapp',
+        type: 'boolean',
+        description: 'WhatsApp notification preference',
+        example: false,
+      },
+      {
+        path: 'patient.isMobileNoVerified',
+        type: 'boolean',
+        description: 'Mobile verification status',
+        example: false,
+      },
       { path: 'patient.sourceSystemId', type: 'number', description: 'source system ID', example: 0 },
       { path: 'patient.referencePatientId', type: 'number', description: 'Reference patient ID', example: 0 },
-      { path: 'patient.updateCount', type: 'number', description: 'Update count', example: 0 }
-    ]
+      { path: 'patient.updateCount', type: 'number', description: 'Update count', example: 0 },
+    ],
   },
 
   {
@@ -327,24 +437,44 @@ const eventTypeSchemas = [
 
       // Appointment object fields (similar to APPOINTMENT_CONFIRMATION but with status = CANCELLED)
       { path: 'appt.apptRID', type: 'number', description: 'Appointment resource ID', example: 3909466 },
-      { path: 'appt.bookingNumber', type: 'string', description: 'Booking number', example: 'BANJARA HILLS-24012026-08' },
+      {
+        path: 'appt.bookingNumber',
+        type: 'string',
+        description: 'Booking number',
+        example: 'BANJARA HILLS-24012026-08',
+      },
       { path: 'appt.apptDate', type: 'string', description: 'Appointment date', example: '2026-01-24' },
       { path: 'appt.apptTime', type: 'string', description: 'Appointment time', example: '16:50:00' },
-      { path: 'appt.apptStatus', type: 'number', description: 'Appointment status code (-1 for cancelled)', example: -1 },
+      {
+        path: 'appt.apptStatus',
+        type: 'number',
+        description: 'Appointment status code (-1 for cancelled)',
+        example: -1,
+      },
       { path: 'appt.apptStatusName', type: 'string', description: 'Appointment status name', example: 'CANCELLED' },
       { path: 'appt.patientRID', type: 'number', description: 'Patient resource ID', example: 59071143 },
       { path: 'appt.patientName', type: 'string', description: 'Patient name', example: 'John' },
       { path: 'appt.patientPhone', type: 'string', description: 'Patient phone', example: '9515557495' },
-      { path: 'appt.serviceProviderName', type: 'string', description: 'Service provider name', example: 'Sandeep Karunakaran' },
+      {
+        path: 'appt.serviceProviderName',
+        type: 'string',
+        description: 'Service provider name',
+        example: 'Sandeep Karunakaran',
+      },
 
       // Visit and patient fields (same as APPOINTMENT_CONFIRMATION)
       { path: 'visit.id.value', type: 'string', description: 'Visit ID', example: '19840885' },
       { path: 'visit.status', type: 'number', description: 'Visit status code (5 for cancelled)', example: 5 },
       { path: 'visit.statusName', type: 'string', description: 'Visit status name', example: 'Cancelled' },
-      { path: 'patient.mrn.sequenceNumber', type: 'number', description: 'Patient MRN sequence number', example: 59071143 },
+      {
+        path: 'patient.mrn.sequenceNumber',
+        type: 'number',
+        description: 'Patient MRN sequence number',
+        example: 59071143,
+      },
       { path: 'patient.fullName', type: 'string', description: 'Patient full name', example: 'John' },
-      { path: 'patient.phone', type: 'string', description: 'Patient phone number', example: '9515557495' }
-    ]
+      { path: 'patient.phone', type: 'string', description: 'Patient phone number', example: '9515557495' },
+    ],
   },
 
   {
@@ -366,24 +496,79 @@ const eventTypeSchemas = [
       { path: 'appt.patientName', type: 'string', description: 'Patient name', example: 'John' },
 
       // Previous appointment details (in previousValues object)
-      { path: 'appt.previousValues.apptRID', type: 'number', description: 'Previous appointment RID', example: 3909465 },
-      { path: 'appt.previousValues.apptDate', type: 'string', description: 'Previous appointment date', example: '2026-01-24' },
-      { path: 'appt.previousValues.apptTime', type: 'string', description: 'Previous appointment time', example: '18:00:00' },
-      { path: 'appt.previousValues.recurring', type: 'boolean', description: 'Previous recurring status', example: false },
+      {
+        path: 'appt.previousValues.apptRID',
+        type: 'number',
+        description: 'Previous appointment RID',
+        example: 3909465,
+      },
+      {
+        path: 'appt.previousValues.apptDate',
+        type: 'string',
+        description: 'Previous appointment date',
+        example: '2026-01-24',
+      },
+      {
+        path: 'appt.previousValues.apptTime',
+        type: 'string',
+        description: 'Previous appointment time',
+        example: '18:00:00',
+      },
+      {
+        path: 'appt.previousValues.recurring',
+        type: 'boolean',
+        description: 'Previous recurring status',
+        example: false,
+      },
       { path: 'appt.previousValues.updateCount', type: 'number', description: 'Previous update count', example: 0 },
       { path: 'appt.previousValues.apptDuration', type: 'number', description: 'Previous duration', example: 10 },
-      { path: 'appt.previousValues.servicePointRID', type: 'number', description: 'Previous service point RID', example: 0 },
-      { path: 'appt.previousValues.servicePointName', type: 'string', description: 'Previous service point name', example: '' },
-      { path: 'appt.previousValues.serviceProviderRID', type: 'number', description: 'Previous service provider RID', example: 75656 },
-      { path: 'appt.previousValues.serviceProviderName', type: 'string', description: 'Previous service provider name', example: 'Sandeep Karunakaran' },
-      { path: 'appt.previousValues.isVideoConsultation', type: 'boolean', description: 'Previous video consultation flag', example: false },
-      { path: 'appt.previousValues.isResourceAppointment', type: 'boolean', description: 'Previous resource appointment flag', example: false },
+      {
+        path: 'appt.previousValues.servicePointRID',
+        type: 'number',
+        description: 'Previous service point RID',
+        example: 0,
+      },
+      {
+        path: 'appt.previousValues.servicePointName',
+        type: 'string',
+        description: 'Previous service point name',
+        example: '',
+      },
+      {
+        path: 'appt.previousValues.serviceProviderRID',
+        type: 'number',
+        description: 'Previous service provider RID',
+        example: 75656,
+      },
+      {
+        path: 'appt.previousValues.serviceProviderName',
+        type: 'string',
+        description: 'Previous service provider name',
+        example: 'Sandeep Karunakaran',
+      },
+      {
+        path: 'appt.previousValues.isVideoConsultation',
+        type: 'boolean',
+        description: 'Previous video consultation flag',
+        example: false,
+      },
+      {
+        path: 'appt.previousValues.isResourceAppointment',
+        type: 'boolean',
+        description: 'Previous resource appointment flag',
+        example: false,
+      },
 
       // Visit and patient fields
       { path: 'visit.id.value', type: 'string', description: 'Visit ID', example: '19840885' },
-      { path: 'patient.mrn.sequenceNumber', type: 'number', description: 'Patient MRN sequence number', example: 59071143 },
-      { path: 'patient.fullName', type: 'string', description: 'Patient full name', example: 'John' }
-    ]
+      {
+        path: 'patient.mrn.sequenceNumber',
+        type: 'number',
+        description: 'Patient MRN sequence number',
+        example: 59071143,
+      },
+      { path: 'patient.fullName', type: 'string', description: 'Patient full name', example: 'John' },
+    ],
   },
 
   {
@@ -429,35 +614,85 @@ const eventTypeSchemas = [
       { path: 'Bill[0].billDetail[0].orderId', type: 'string', description: 'Order ID', example: '35583621' },
       { path: 'Bill[0].billDetail[0].chargeId', type: 'string', description: 'Charge ID', example: '1522064' },
       { path: 'Bill[0].billDetail[0].chargeCode', type: 'string', description: 'Charge code', example: 'CONSFEE' },
-      { path: 'Bill[0].billDetail[0].chargeName', type: 'string', description: 'Charge name', example: 'CONSULTATION CHARGES' },
+      {
+        path: 'Bill[0].billDetail[0].chargeName',
+        type: 'string',
+        description: 'Charge name',
+        example: 'CONSULTATION CHARGES',
+      },
       { path: 'Bill[0].billDetail[0].chargeType', type: 'string', description: 'Charge type', example: 'C' },
       { path: 'Bill[0].billDetail[0].groupId', type: 'string', description: 'Group ID', example: '8959560' },
       { path: 'Bill[0].billDetail[0].groupCode', type: 'string', description: 'Group code', example: 'G-8959372' },
       { path: 'Bill[0].billDetail[0].groupName', type: 'string', description: 'Group name', example: 'Consultation' },
       { path: 'Bill[0].billDetail[0].groupTypeId', type: 'string', description: 'Group type ID', example: '1' },
-      { path: 'Bill[0].billDetail[0].parentGroupID', type: 'string', description: 'Parent group ID', example: '8959517' },
-      { path: 'Bill[0].billDetail[0].parentGroupCode', type: 'string', description: 'Parent group code', example: 'G-8959329' },
-      { path: 'Bill[0].billDetail[0].parentGroupName', type: 'string', description: 'Parent group name', example: 'CHARGES' },
+      {
+        path: 'Bill[0].billDetail[0].parentGroupID',
+        type: 'string',
+        description: 'Parent group ID',
+        example: '8959517',
+      },
+      {
+        path: 'Bill[0].billDetail[0].parentGroupCode',
+        type: 'string',
+        description: 'Parent group code',
+        example: 'G-8959329',
+      },
+      {
+        path: 'Bill[0].billDetail[0].parentGroupName',
+        type: 'string',
+        description: 'Parent group name',
+        example: 'CHARGES',
+      },
       { path: 'Bill[0].billDetail[0].qty', type: 'string', description: 'Quantity', example: '1.0' },
       { path: 'Bill[0].billDetail[0].price', type: 'string', description: 'Price', example: '600.0' },
       { path: 'Bill[0].billDetail[0].grossAmount', type: 'string', description: 'Gross amount', example: '600.0' },
       { path: 'Bill[0].billDetail[0].discAmount', type: 'string', description: 'Discount amount', example: '0.0' },
-      { path: 'Bill[0].billDetail[0].discPercentage', type: 'string', description: 'Discount percentage', example: '0.0' },
+      {
+        path: 'Bill[0].billDetail[0].discPercentage',
+        type: 'string',
+        description: 'Discount percentage',
+        example: '0.0',
+      },
       { path: 'Bill[0].billDetail[0].taxAmount', type: 'string', description: 'Tax amount', example: '0.0' },
       { path: 'Bill[0].billDetail[0].taxPercentage', type: 'string', description: 'Tax percentage', example: '0.0' },
       { path: 'Bill[0].billDetail[0].netAmount', type: 'string', description: 'Net amount', example: '600.0' },
       { path: 'Bill[0].billDetail[0].patientAmount', type: 'string', description: 'Patient amount', example: '600.0' },
       { path: 'Bill[0].billDetail[0].payerAmount', type: 'string', description: 'Payer amount', example: '0.0' },
-      { path: 'Bill[0].billDetail[0].patientLineNetAmt', type: 'string', description: 'Patient line net amount', example: '600.0' },
-      { path: 'Bill[0].billDetail[0].payerLineNetAmt', type: 'string', description: 'Payer line net amount', example: '0.0' },
-      { path: 'Bill[0].billDetail[0].payerGrossAmt', type: 'string', description: 'Payer gross amount', example: '0.0' },
+      {
+        path: 'Bill[0].billDetail[0].patientLineNetAmt',
+        type: 'string',
+        description: 'Patient line net amount',
+        example: '600.0',
+      },
+      {
+        path: 'Bill[0].billDetail[0].payerLineNetAmt',
+        type: 'string',
+        description: 'Payer line net amount',
+        example: '0.0',
+      },
+      {
+        path: 'Bill[0].billDetail[0].payerGrossAmt',
+        type: 'string',
+        description: 'Payer gross amount',
+        example: '0.0',
+      },
       { path: 'Bill[0].billDetail[0].coPayAmt', type: 'string', description: 'Co-pay amount', example: '0.0' },
       { path: 'Bill[0].billDetail[0].hsn', type: 'string', description: 'HSN code', example: '01' },
       { path: 'Bill[0].billDetail[0].hcpcsCode', type: 'string', description: 'HCPCS code', example: '' },
       { path: 'Bill[0].billDetail[0].mrp', type: 'string', description: 'MRP', example: null },
-      { path: 'Bill[0].billDetail[0].orderDateTime', type: 'string', description: 'Order date time', example: '2026-01-24 16:35:14' },
+      {
+        path: 'Bill[0].billDetail[0].orderDateTime',
+        type: 'string',
+        description: 'Order date time',
+        example: '2026-01-24 16:35:14',
+      },
       { path: 'Bill[0].billDetail[0].incidentId', type: 'string', description: 'Incident ID', example: '19840884' },
-      { path: 'Bill[0].billDetail[0].itemTransType', type: 'string', description: 'Item transaction type', example: 'O' },
+      {
+        path: 'Bill[0].billDetail[0].itemTransType',
+        type: 'string',
+        description: 'Item transaction type',
+        example: 'O',
+      },
       { path: 'Bill[0].billDetail[0].batchNumber', type: 'string', description: 'Batch number', example: '' },
       { path: 'Bill[0].billDetail[0].batchNumberId', type: 'string', description: 'Batch number ID', example: '' },
       { path: 'Bill[0].billDetail[0].packageId', type: 'string', description: 'Package ID', example: '0' },
@@ -467,16 +702,46 @@ const eventTypeSchemas = [
       { path: 'Bill[0].billDetail[0].planId', type: 'string', description: 'Plan ID', example: '0' },
       { path: 'Bill[0].billDetail[0].pcmId', type: 'string', description: 'PCM ID', example: '0' },
       { path: 'Bill[0].billDetail[0].orderHeaderId', type: 'string', description: 'Order header ID', example: '0' },
-      { path: 'Bill[0].billDetail[0].orderHeaderNumber', type: 'string', description: 'Order header number', example: '' },
+      {
+        path: 'Bill[0].billDetail[0].orderHeaderNumber',
+        type: 'string',
+        description: 'Order header number',
+        example: '',
+      },
       { path: 'Bill[0].billDetail[0].billOrderStatus', type: 'string', description: 'Bill order status', example: '0' },
       { path: 'Bill[0].billDetail[0].discRemarks', type: 'string', description: 'Discount remarks', example: '' },
-      { path: 'Bill[0].billDetail[0].isDiscApproved', type: 'string', description: 'Is discount approved', example: '1' },
-      { path: 'Bill[0].billDetail[0].discApprovalUserId', type: 'string', description: 'Discount approval user ID', example: '0' },
-      { path: 'Bill[0].billDetail[0].isItemLevelDiscGiven', type: 'string', description: 'Is item level discount given', example: '0' },
+      {
+        path: 'Bill[0].billDetail[0].isDiscApproved',
+        type: 'string',
+        description: 'Is discount approved',
+        example: '1',
+      },
+      {
+        path: 'Bill[0].billDetail[0].discApprovalUserId',
+        type: 'string',
+        description: 'Discount approval user ID',
+        example: '0',
+      },
+      {
+        path: 'Bill[0].billDetail[0].isItemLevelDiscGiven',
+        type: 'string',
+        description: 'Is item level discount given',
+        example: '0',
+      },
       { path: 'Bill[0].billDetail[0].debtAdviceType', type: 'string', description: 'Debt advice type', example: '1' },
-      { path: 'Bill[0].billDetail[0].billingBedTypeId', type: 'string', description: 'Billing bed type ID', example: '0' },
-      { path: 'Bill[0].billDetail[0].claimsDeniedAmt', type: 'string', description: 'Claims denied amount', example: '0.0' }
-    ]
+      {
+        path: 'Bill[0].billDetail[0].billingBedTypeId',
+        type: 'string',
+        description: 'Billing bed type ID',
+        example: '0',
+      },
+      {
+        path: 'Bill[0].billDetail[0].claimsDeniedAmt',
+        type: 'string',
+        description: 'Claims denied amount',
+        example: '0.0',
+      },
+    ],
   },
 
   {
@@ -498,14 +763,24 @@ const eventTypeSchemas = [
       // Visit and patient fields (minimal structure)
       { path: 'visit.sealed', type: 'boolean', description: 'Visit sealed status', example: false },
       { path: 'visit.sourceSystemId', type: 'number', description: 'source system visit ID', example: 0 },
-      { path: 'patient.mrn.documentNumber', type: 'string', description: 'Patient MRN document number', example: 'SEC/860797/25' },
-      { path: 'patient.mrn.sequenceNumber', type: 'number', description: 'Patient MRN sequence number', example: 25416590 },
+      {
+        path: 'patient.mrn.documentNumber',
+        type: 'string',
+        description: 'Patient MRN document number',
+        example: 'SEC/860797/25',
+      },
+      {
+        path: 'patient.mrn.sequenceNumber',
+        type: 'number',
+        description: 'Patient MRN sequence number',
+        example: 25416590,
+      },
       { path: 'patient.fullName', type: 'string', description: 'Patient full name', example: 'Leelavathi B A' },
       { path: 'patient.phone', type: 'string', description: 'Patient phone number', example: '8310955291' },
       { path: 'patient.email', type: 'string', description: 'Patient email address', example: '' },
-      { path: 'patient.address', type: 'string', description: 'Patient address', example: 'Kannanda Bane' }
-    ]
-  }
+      { path: 'patient.address', type: 'string', description: 'Patient address', example: 'Kannanda Bane' },
+    ],
+  },
 ];
 
 /**
@@ -529,11 +804,11 @@ async function seedEventSchemas() {
           $set: {
             ...schema,
             orgId: null,
-            updatedAt: new Date()
+            updatedAt: new Date(),
           },
           $setOnInsert: {
-            createdAt: new Date()
-          }
+            createdAt: new Date(),
+          },
         },
         { upsert: true }
       );
@@ -550,7 +825,7 @@ async function seedEventSchemas() {
     log('info', 'Event schema seeding completed', {
       total: eventTypeSchemas.length,
       created,
-      updated
+      updated,
     });
 
     await mongodb.close();

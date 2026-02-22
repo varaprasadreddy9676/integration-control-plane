@@ -28,7 +28,7 @@ class MemoryMonitor {
     log('info', 'Memory monitor started', {
       heapThresholdMB: this.heapThresholdMB,
       warningThresholdMB: this.warningThresholdMB,
-      checkIntervalMs: this.checkIntervalMs
+      checkIntervalMs: this.checkIntervalMs,
     });
 
     this.intervalHandle = setInterval(() => {
@@ -66,7 +66,7 @@ class MemoryMonitor {
         heapUsedMB,
         warningThresholdMB: this.warningThresholdMB,
         heapThresholdMB: this.heapThresholdMB,
-        percentOfThreshold: Math.round((heapUsedMB / this.heapThresholdMB) * 100)
+        percentOfThreshold: Math.round((heapUsedMB / this.heapThresholdMB) * 100),
       });
 
       // Trigger garbage collection if available
@@ -87,7 +87,7 @@ class MemoryMonitor {
         heapUsedMB,
         heapThresholdMB: this.heapThresholdMB,
         percentUsed: stats.percentUsed,
-        action: this.gracefulShutdown ? 'graceful_shutdown' : 'log_only'
+        action: this.gracefulShutdown ? 'graceful_shutdown' : 'log_only',
       });
 
       if (this.gracefulShutdown) {
@@ -124,7 +124,7 @@ class MemoryMonitor {
 
       // Uptime
       uptimeSeconds: Math.round(process.uptime()),
-      uptimeHours: Math.round(process.uptime() / 3600 * 10) / 10
+      uptimeHours: Math.round((process.uptime() / 3600) * 10) / 10,
     };
   }
 
@@ -140,14 +140,14 @@ class MemoryMonitor {
       percentUsed: stats.percentUsed,
       rss: stats.rss,
       uptimeHours: stats.uptimeHours,
-      detachedContexts: stats.numberOfDetachedContexts
+      detachedContexts: stats.numberOfDetachedContexts,
     });
 
     // Warn about detached contexts (potential memory leaks)
     if (stats.numberOfDetachedContexts > 10) {
       log('warn', 'High number of detached contexts detected', {
         detachedContexts: stats.numberOfDetachedContexts,
-        note: 'Potential memory leak'
+        note: 'Potential memory leak',
       });
     }
   }
@@ -158,7 +158,7 @@ class MemoryMonitor {
   initiateGracefulShutdown() {
     log('error', 'Initiating graceful shutdown due to memory threshold', {
       heapUsedMB: this.getMemoryStats().heapUsedMB,
-      thresholdMB: this.heapThresholdMB
+      thresholdMB: this.heapThresholdMB,
     });
 
     // Stop accepting new requests
@@ -183,24 +183,24 @@ class MemoryMonitor {
         used: `${stats.heapUsedMB} MB`,
         total: `${stats.heapTotalMB} MB`,
         limit: `${stats.heapLimitMB} MB`,
-        percentUsed: `${stats.percentUsed}%`
+        percentUsed: `${stats.percentUsed}%`,
       },
       process: {
         rss: `${stats.rss} MB`,
-        external: `${stats.external} MB`
+        external: `${stats.external} MB`,
       },
       threshold: {
         warning: `${this.warningThresholdMB} MB`,
-        critical: `${this.heapThresholdMB} MB`
+        critical: `${this.heapThresholdMB} MB`,
       },
       uptime: {
         seconds: stats.uptimeSeconds,
-        hours: stats.uptimeHours
+        hours: stats.uptimeHours,
       },
       leakIndicators: {
         detachedContexts: stats.numberOfDetachedContexts,
-        possibleLeak: stats.numberOfDetachedContexts > 10
-      }
+        possibleLeak: stats.numberOfDetachedContexts > 10,
+      },
     };
   }
 
@@ -216,13 +216,13 @@ class MemoryMonitor {
       log('info', 'Forced garbage collection', {
         before: `${before} MB`,
         after: `${after} MB`,
-        freed: `${before - after} MB`
+        freed: `${before - after} MB`,
       });
 
       return { before, after, freed: before - after };
     } else {
       log('warn', 'GC not available', {
-        note: 'Start Node.js with --expose-gc flag to enable manual GC'
+        note: 'Start Node.js with --expose-gc flag to enable manual GC',
       });
       return null;
     }

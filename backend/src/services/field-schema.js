@@ -33,7 +33,10 @@ function deduplicateByEventType(docs) {
     const key = doc.eventType || doc.type;
     if (!key) continue;
     const existing = byType.get(key);
-    if (!existing || (doc.orgId !== null && doc.orgId !== undefined && (existing.orgId === null || existing.orgId === undefined))) {
+    if (
+      !existing ||
+      (doc.orgId !== null && doc.orgId !== undefined && (existing.orgId === null || existing.orgId === undefined))
+    ) {
       byType.set(key, doc);
     }
   }
@@ -47,7 +50,7 @@ function deduplicateByEventType(docs) {
  * @param {boolean} options.activeOnly - Return only active event types (default: true)
  * @param {number|string|null} orgId - Requesting org's ID
  */
-async function getAllEventTypes(options = {}, orgId) {
+async function getAllEventTypes(options, orgId) {
   try {
     const db = await mongodb.getDbSafe();
     const collection = db.collection('event_types');
@@ -130,5 +133,5 @@ module.exports = {
   getFieldSchema,
   getAllFieldSchemas,
   getAllEventTypes,
-  getEventType
+  getEventType,
 };

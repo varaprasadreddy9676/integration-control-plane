@@ -53,7 +53,7 @@ function createEventHandler(sourceType) {
             ...(storeSummaryPayload ? { payloadSummary: data.extractSafePayload(event.payload) } : {}),
             payloadSize,
             sourceMetadata: data.extractSourceMetadata(event, sourceType),
-            timeline: [{ ts: new Date(), stage: 'RECEIVED', details: 'Event received but entity context missing' }]
+            timeline: [{ ts: new Date(), stage: 'RECEIVED', details: 'Event received but entity context missing' }],
           });
         }
 
@@ -82,7 +82,7 @@ function createEventHandler(sourceType) {
             ...(storeSummaryPayload ? { payloadSummary: data.extractSafePayload(event.payload) } : {}),
             payloadSize,
             sourceMetadata: data.extractSourceMetadata(event, sourceType),
-            timeline: [{ ts: new Date(), stage: 'RECEIVED', details: 'Event received but payload too large' }]
+            timeline: [{ ts: new Date(), stage: 'RECEIVED', details: 'Event received but payload too large' }],
           });
         }
 
@@ -107,7 +107,7 @@ function createEventHandler(sourceType) {
           ...(canStoreFullPayload ? { payload: event.payload } : {}),
           payloadSize,
           sourceMetadata: data.extractSourceMetadata(event, sourceType),
-          timeline: [{ ts: new Date(), stage: 'RECEIVED', details: 'Event received from source' }]
+          timeline: [{ ts: new Date(), stage: 'RECEIVED', details: 'Event received from source' }],
         });
       }
 
@@ -119,7 +119,7 @@ function createEventHandler(sourceType) {
           sourceIdentifier,
           orgId,
           lastProcessedId: event.id?.toString(),
-          lastProcessedAt: new Date()
+          lastProcessedAt: new Date(),
         });
       }
 
@@ -128,7 +128,7 @@ function createEventHandler(sourceType) {
         await data.updateEventAudit(stableEventId, {
           status: 'PROCESSING',
           processingStartedAt: new Date(),
-          timeline: { ts: new Date(), stage: 'PROCESSING', details: 'Started processing event' }
+          timeline: { ts: new Date(), stage: 'PROCESSING', details: 'Started processing event' },
         });
       }
 
@@ -148,7 +148,7 @@ function createEventHandler(sourceType) {
             duplicateType,
             processingCompletedAt: new Date(),
             processingTimeMs: Date.now() - startTime,
-            timeline: { ts: new Date(), stage: 'SKIPPED', details: `Duplicate event (${duplicateType})` }
+            timeline: { ts: new Date(), stage: 'SKIPPED', details: `Duplicate event (${duplicateType})` },
           });
         }
 
@@ -171,7 +171,7 @@ function createEventHandler(sourceType) {
             deliveryStatus: { integrationsMatched: 0, deliveredCount: 0, failedCount: 0, deliveryLogIds: [] },
             processingCompletedAt: new Date(),
             processingTimeMs: Date.now() - startTime,
-            timeline: { ts: new Date(), stage: 'SKIPPED', details: 'No integrations matched' }
+            timeline: { ts: new Date(), stage: 'SKIPPED', details: 'No integrations matched' },
           });
         }
 
@@ -190,9 +190,9 @@ function createEventHandler(sourceType) {
         if (r.logIds && Array.isArray(r.logIds)) return r.logIds;
         return r.logId ? [r.logId] : [];
       });
-      const deliveredCount = deliveryResults.filter(r => r.status === 'SUCCESS').length;
-      const failedCount = deliveryResults.filter(r => ['FAILED', 'ABANDONED', 'RETRYING'].includes(r.status)).length;
-      const skippedCount = deliveryResults.filter(r => r.status === 'SKIPPED').length;
+      const deliveredCount = deliveryResults.filter((r) => r.status === 'SUCCESS').length;
+      const failedCount = deliveryResults.filter((r) => ['FAILED', 'ABANDONED', 'RETRYING'].includes(r.status)).length;
+      const skippedCount = deliveryResults.filter((r) => r.status === 'SKIPPED').length;
       const hasSuccess = deliveredCount > 0 || scheduledCount > 0;
       const hasFailure = failedCount > 0;
 
@@ -207,20 +207,22 @@ function createEventHandler(sourceType) {
           deliveryStatus: { integrationsMatched: integrations.length, deliveredCount, failedCount, deliveryLogIds },
           processingCompletedAt: new Date(),
           processingTimeMs: Date.now() - startTime,
-          skipReason: hasSuccess && failedCount > 0
-            ? `Partial success: ${deliveredCount} ok, ${scheduledCount} scheduled, ${failedCount} failed`
-            : (finalStatus === 'SKIPPED' ? 'All integrations skipped (transformation returned null)' : null),
-          skipCategory: hasSuccess ? null : (finalStatus === 'SKIPPED' ? 'INTEGRATION_SKIPPED' : 'WORKER_ERROR'),
+          skipReason:
+            hasSuccess && failedCount > 0
+              ? `Partial success: ${deliveredCount} ok, ${scheduledCount} scheduled, ${failedCount} failed`
+              : finalStatus === 'SKIPPED'
+                ? 'All integrations skipped (transformation returned null)'
+                : null,
+          skipCategory: hasSuccess ? null : finalStatus === 'SKIPPED' ? 'INTEGRATION_SKIPPED' : 'WORKER_ERROR',
           timeline: {
             ts: new Date(),
             stage: finalStatus,
-            details: `Processed ${integrations.length} integrations: ${deliveredCount} ok, ${scheduledCount} scheduled, ${failedCount} failed, ${skippedCount} skipped`
-          }
+            details: `Processed ${integrations.length} integrations: ${deliveredCount} ok, ${scheduledCount} scheduled, ${failedCount} failed, ${skippedCount} skipped`,
+          },
         });
       }
 
       await ctx.ack();
-
     } catch (error) {
       log('error', 'Event processing failed', { eventId: stableEventId, error: error.message, stack: error.stack });
 
@@ -234,7 +236,7 @@ function createEventHandler(sourceType) {
             errorStack: error.stack,
             processingCompletedAt: new Date(),
             processingTimeMs: Date.now() - startTime,
-            timeline: { ts: new Date(), stage: 'FAILED', details: `Worker error: ${error.message}` }
+            timeline: { ts: new Date(), stage: 'FAILED', details: `Worker error: ${error.message}` },
           });
         } catch (auditErr) {
           log('error', 'Failed to update event audit on error', { eventId: stableEventId, error: auditErr.message });

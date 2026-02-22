@@ -27,7 +27,7 @@ async function getTemplateById(orgId, templateId) {
 async function getTemplatesByCategory(orgId, category) {
   try {
     const templates = await data.listCustomTemplates(orgId);
-    return templates.filter(t => t.category === category);
+    return templates.filter((t) => t.category === category);
   } catch (err) {
     log('error', 'Failed to list templates by category', { category, error: err.message });
     return [];
@@ -38,7 +38,7 @@ async function getTemplateCategories(orgId) {
   try {
     const templates = await data.listCustomTemplates(orgId);
     const categories = new Set();
-    templates.forEach(t => {
+    templates.forEach((t) => {
       if (t.category) categories.add(t.category);
     });
     return Array.from(categories).sort();
@@ -63,7 +63,7 @@ function replacePlaceholders(value, placeholders) {
 function replacePlaceholdersInObject(obj, placeholders) {
   if (!obj || typeof obj !== 'object') return obj;
   if (Array.isArray(obj)) {
-    return obj.map(item => replacePlaceholdersInObject(item, placeholders));
+    return obj.map((item) => replacePlaceholdersInObject(item, placeholders));
   }
   const result = {};
   Object.keys(obj).forEach((key) => {
@@ -99,29 +99,23 @@ async function createIntegrationFromTemplate(orgId, templateId, overrides = {}) 
       overrides.outgoingAuthConfig || template.authConfig,
       overrides.placeholders
     ),
-    headers: replacePlaceholdersInObject(
-      overrides.headers || template.headers || {},
-      overrides.placeholders
-    ),
+    headers: replacePlaceholdersInObject(overrides.headers || template.headers || {}, overrides.placeholders),
     timeoutMs: overrides.timeoutMs || template.timeoutMs || 15000,
-    retryCount: overrides.retryCount !== undefined ? overrides.retryCount : (template.retryCount || 3),
+    retryCount: overrides.retryCount !== undefined ? overrides.retryCount : template.retryCount || 3,
     transformationMode: overrides.transformationMode || template.transformationMode,
     transformation: replacePlaceholdersInObject(
       overrides.transformation || template.transformation || {},
       overrides.placeholders
     ),
-    actions: replacePlaceholdersInObject(
-      overrides.actions || template.actions,
-      overrides.placeholders
-    ),
+    actions: replacePlaceholdersInObject(overrides.actions || template.actions, overrides.placeholders),
     isActive: overrides.isActive !== undefined ? overrides.isActive : true,
     description: overrides.description || template.description,
     metadata: {
       ...template.metadata,
       templateId: template.id,
       templateName: template.name,
-      templateCategory: template.category
-    }
+      templateCategory: template.category,
+    },
   };
 }
 
@@ -149,7 +143,11 @@ async function validateTemplate(orgId, templateId, overrides = {}) {
     errors.push('Event type is required');
   }
 
-  if (__KEEP_integrationConfig__.actions && Array.isArray(__KEEP_integrationConfig__.actions) && __KEEP_integrationConfig__.actions.length > 0) {
+  if (
+    __KEEP_integrationConfig__.actions &&
+    Array.isArray(__KEEP_integrationConfig__.actions) &&
+    __KEEP_integrationConfig__.actions.length > 0
+  ) {
     __KEEP_integrationConfig__.actions.forEach((action, index) => {
       const target = action.targetUrl || __KEEP_integrationConfig__.targetUrl;
       if (!target) {
@@ -161,14 +159,12 @@ async function validateTemplate(orgId, templateId, overrides = {}) {
         }
       }
     });
+  } else if (!__KEEP_integrationConfig__.targetUrl) {
+    errors.push('Target URL is required');
   } else {
-    if (!__KEEP_integrationConfig__.targetUrl) {
-      errors.push('Target URL is required');
-    } else {
-      const check = validateTargetUrl(__KEEP_integrationConfig__.targetUrl, config.security);
-      if (!check.valid) {
-        errors.push(check.reason);
-      }
+    const check = validateTargetUrl(__KEEP_integrationConfig__.targetUrl, config.security);
+    if (!check.valid) {
+      errors.push(check.reason);
     }
   }
 
@@ -177,7 +173,7 @@ async function validateTemplate(orgId, templateId, overrides = {}) {
     errors,
     warnings,
     template,
-    __KEEP_integrationConfig__
+    __KEEP_integrationConfig__,
   };
 }
 
@@ -188,5 +184,5 @@ module.exports = {
   getTemplatesByCategory,
   getTemplateCategories,
   validateTemplate,
-  createIntegrationFromTemplate
+  createIntegrationFromTemplate,
 };

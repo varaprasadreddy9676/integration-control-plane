@@ -42,14 +42,14 @@ class ExecutionLogger {
         messageId: this.messageId,
         request: this.request,
         status: 'pending',
-        startedAt: new Date(this.startTime)
+        startedAt: new Date(this.startTime),
       });
 
       log('debug', 'Execution log started', {
         traceId: this.traceId,
         direction: this.direction,
         integrationName: this.integrationName,
-        orgId: this.orgId
+        orgId: this.orgId,
       });
 
       return this.traceId;
@@ -57,7 +57,7 @@ class ExecutionLogger {
       log('error', 'Failed to create execution log', {
         error: error.message,
         direction: this.direction,
-        orgId: this.orgId
+        orgId: this.orgId,
       });
       // Don't fail the main execution if logging fails
       return null;
@@ -77,13 +77,13 @@ class ExecutionLogger {
         durationMs: options.durationMs || null,
         status: options.status || 'success',
         metadata: options.metadata || {},
-        error: options.error || null
+        error: options.error || null,
       });
     } catch (error) {
       log('error', 'Failed to add execution step', {
         traceId: this.traceId,
         stepName: name,
-        error: error.message
+        error: error.message,
       });
     }
   }
@@ -103,17 +103,17 @@ class ExecutionLogger {
         finishedAt,
         durationMs,
         response: options.response || {},
-        metadata: options.metadata || {}
+        metadata: options.metadata || {},
       });
 
       log('debug', 'Execution log completed successfully', {
         traceId: this.traceId,
-        durationMs
+        durationMs,
       });
     } catch (error) {
       log('error', 'Failed to mark execution as success', {
         traceId: this.traceId,
-        error: error.message
+        error: error.message,
       });
     }
   }
@@ -136,9 +136,9 @@ class ExecutionLogger {
         error: {
           message: error.message || 'Unknown error',
           stack: error.stack || null,
-          code: error.code || 'UNKNOWN_ERROR'
+          code: error.code || 'UNKNOWN_ERROR',
         },
-        response: options.response || {}
+        response: options.response || {},
       });
 
       // Create DLQ entry for automatic retry (unless disabled)
@@ -154,22 +154,22 @@ class ExecutionLogger {
             message: error.message || 'Unknown error',
             stack: error.stack || null,
             code: error.code || 'UNKNOWN_ERROR',
-            statusCode: error.statusCode || options.statusCode || null
+            statusCode: error.statusCode || options.statusCode || null,
           },
           maxRetries: options.maxRetries || 5,
           retryStrategy: options.retryStrategy || 'exponential',
-          metadata: options.metadata || {}
+          metadata: options.metadata || {},
         });
 
         log('info', 'DLQ entry created for failed execution', {
           traceId: this.traceId,
-          errorCode: error.code
+          errorCode: error.code,
         });
       }
     } catch (logError) {
       log('error', 'Failed to mark execution as failed', {
         traceId: this.traceId,
-        error: logError.message
+        error: logError.message,
       });
     }
   }
@@ -183,13 +183,13 @@ class ExecutionLogger {
     try {
       await executionLogsData.updateExecutionLog(this.traceId, {
         status,
-        updatedAt: new Date()
+        updatedAt: new Date(),
       });
     } catch (error) {
       log('error', 'Failed to update execution status', {
         traceId: this.traceId,
         status,
-        error: error.message
+        error: error.message,
       });
     }
   }
@@ -259,13 +259,13 @@ async function logExecution(options) {
       request: options.request || {},
       response: options.response || {},
       error: options.error || null,
-      metadata: options.metadata || {}
+      metadata: options.metadata || {},
     });
   } catch (error) {
     log('error', 'Failed to log execution', {
       error: error.message,
       direction: options.direction,
-      orgId: options.orgId
+      orgId: options.orgId,
     });
   }
 }
@@ -273,5 +273,5 @@ async function logExecution(options) {
 module.exports = {
   ExecutionLogger,
   createExecutionLogger,
-  logExecution
+  logExecution,
 };

@@ -29,10 +29,11 @@ const getVariableValue = (variable, context) => {
     switch (func) {
       case 'today()':
         return now.toISOString().split('T')[0];
-      case 'yesterday()':
+      case 'yesterday()': {
         const yesterday = new Date(now);
         yesterday.setDate(yesterday.getDate() - 1);
         return yesterday.toISOString().split('T')[0];
+      }
       case 'todayStart()':
         return new Date(now.setHours(0, 0, 0, 0)).toISOString();
       case 'todayEnd()':
@@ -76,24 +77,21 @@ const buildSqlConnectionOptions = (dataSourceConfig, context) => {
   if (!hostRaw) return null;
 
   const host = replaceVariables(String(hostRaw), context);
-  const port = dataSourceConfig.port !== undefined && dataSourceConfig.port !== null
-    ? Number(replaceVariables(String(dataSourceConfig.port), context))
-    : undefined;
+  const port =
+    dataSourceConfig.port !== undefined && dataSourceConfig.port !== null
+      ? Number(replaceVariables(String(dataSourceConfig.port), context))
+      : undefined;
   const userRaw = dataSourceConfig.username || dataSourceConfig.user;
   const user = userRaw ? replaceVariables(String(userRaw), context) : undefined;
-  const password = dataSourceConfig.password
-    ? replaceVariables(String(dataSourceConfig.password), context)
-    : undefined;
-  const database = dataSourceConfig.database
-    ? replaceVariables(String(dataSourceConfig.database), context)
-    : undefined;
+  const password = dataSourceConfig.password ? replaceVariables(String(dataSourceConfig.password), context) : undefined;
+  const database = dataSourceConfig.database ? replaceVariables(String(dataSourceConfig.database), context) : undefined;
 
   return {
     host,
     ...(port ? { port } : {}),
     ...(user ? { user } : {}),
     ...(password ? { password } : {}),
-    ...(database ? { database } : {})
+    ...(database ? { database } : {}),
   };
 };
 
@@ -136,9 +134,9 @@ const executeSqlQuery = async (dataSourceConfig, context) => {
 
     const orgId = context.config.orgId;
     log('info', 'Executing SQL query', {
-      query: query.substring(0, 100) + '...',
+      query: `${query.substring(0, 100)}...`,
       orgId,
-      isExternal
+      isExternal,
     });
 
     const [rows] = await connection.query(query);
@@ -146,15 +144,15 @@ const executeSqlQuery = async (dataSourceConfig, context) => {
     log('info', 'SQL query executed successfully', {
       rowCount: rows.length,
       orgId,
-      isExternal
+      isExternal,
     });
 
     return rows;
   } catch (error) {
     log('error', 'SQL query execution failed', {
       error: error.message,
-      query: dataSourceConfig.query.substring(0, 100) + '...',
-      isExternal
+      query: `${dataSourceConfig.query.substring(0, 100)}...`,
+      isExternal,
     });
     throw new Error(`SQL query failed: ${error.message}`);
   } finally {
@@ -179,12 +177,12 @@ const executeMongoQuery = async (dataSourceConfig, context) => {
 
       log('info', 'Connecting to external MongoDB', {
         database: databaseName,
-        orgId: context.config.orgId
+        orgId: context.config.orgId,
       });
 
       client = new MongoClient(connectionString, {
         serverSelectionTimeoutMS: 5000,
-        socketTimeoutMS: 30000
+        socketTimeoutMS: 30000,
       });
 
       await client.connect();
@@ -220,7 +218,7 @@ const executeMongoQuery = async (dataSourceConfig, context) => {
       database: dataSourceConfig.database || 'internal',
       stages: pipeline.length,
       isExternal: !!dataSourceConfig.connectionString,
-      orgId: context.config.orgId
+      orgId: context.config.orgId,
     });
 
     const collection = db.collection(dataSourceConfig.collection);
@@ -228,7 +226,7 @@ const executeMongoQuery = async (dataSourceConfig, context) => {
 
     log('info', 'MongoDB aggregation executed successfully', {
       resultCount: results.length,
-      orgId: context.config.orgId
+      orgId: context.config.orgId,
     });
 
     return results;
@@ -237,7 +235,7 @@ const executeMongoQuery = async (dataSourceConfig, context) => {
       error: error.message,
       collection: dataSourceConfig.collection,
       database: dataSourceConfig.database,
-      isExternal: !!dataSourceConfig.connectionString
+      isExternal: !!dataSourceConfig.connectionString,
     });
     throw new Error(`MongoDB query failed: ${error.message}`);
   } finally {
@@ -261,11 +259,11 @@ const executeApiCall = async (dataSourceConfig, context) => {
     const url = replaceVariables(dataSourceConfig.url, context);
     const method = dataSourceConfig.method || 'GET';
 
-    let requestConfig = {
+    const requestConfig = {
       method,
       url,
       headers: dataSourceConfig.headers || {},
-      timeout: 30000
+      timeout: 30000,
     };
 
     // Replace variables in headers
@@ -275,7 +273,7 @@ const executeApiCall = async (dataSourceConfig, context) => {
 
     // Add body for POST/PUT
     if (dataSourceConfig.body && ['POST', 'PUT', 'PATCH'].includes(method)) {
-      let body = JSON.parse(JSON.stringify(dataSourceConfig.body));
+      const body = JSON.parse(JSON.stringify(dataSourceConfig.body));
 
       // Recursively replace variables
       const replaceInObject = (obj) => {
@@ -299,7 +297,7 @@ const executeApiCall = async (dataSourceConfig, context) => {
     log('info', 'Executing API call', {
       url,
       method,
-      orgId: context.config.orgId
+      orgId: context.config.orgId,
     });
 
     const response = await axios(requestConfig);
@@ -307,14 +305,14 @@ const executeApiCall = async (dataSourceConfig, context) => {
     log('info', 'API call executed successfully', {
       url,
       status: response.status,
-      orgId: context.config.orgId
+      orgId: context.config.orgId,
     });
 
     return response.data;
   } catch (error) {
     log('error', 'API call failed', {
       error: error.message,
-      url: dataSourceConfig.url
+      url: dataSourceConfig.url,
     });
     throw new Error(`API call failed: ${error.message}`);
   }
@@ -329,8 +327,8 @@ const executeDataSource = async (dataSourceConfig, integrationConfig) => {
     config: {
       orgId: integrationConfig.orgId,
       integrationId: integrationConfig._id,
-      integrationName: integrationConfig.name
-    }
+      integrationName: integrationConfig.name,
+    },
   };
 
   switch (dataSourceConfig.type) {
@@ -350,5 +348,5 @@ const executeDataSource = async (dataSourceConfig, integrationConfig) => {
 
 module.exports = {
   executeDataSource,
-  replaceVariables // Export for testing
+  replaceVariables, // Export for testing
 };

@@ -8,11 +8,7 @@ function getOrgIdFromQuery(query = {}) {
 }
 
 function getOrgIdFromRequest(req = {}) {
-  return (
-    parsePositiveInt(req.orgId) ||
-    parsePositiveInt(req.entityParentRid) ||
-    getOrgIdFromQuery(req.query)
-  );
+  return parsePositiveInt(req.orgId) || parsePositiveInt(req.entityParentRid) || getOrgIdFromQuery(req.query);
 }
 
 function legacyOrgQuery(orgId) {
@@ -23,6 +19,5 @@ module.exports = {
   parsePositiveInt,
   getOrgIdFromQuery,
   getOrgIdFromRequest,
-  legacyOrgQuery
+  legacyOrgQuery,
 };
-

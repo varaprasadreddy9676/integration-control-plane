@@ -133,5 +133,5 @@ NOW ANALYZE THE DOCUMENTATION AND GENERATE THE CONFIGURATION:`;
 }
 
 module.exports = {
-  buildDocumentationAnalysisPrompt
+  buildDocumentationAnalysisPrompt,
 };

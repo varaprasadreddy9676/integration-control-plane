@@ -13,9 +13,7 @@ async function getDataStructuresDocs() {
   const db = await mongodb.getDbSafe();
 
   // Fetch all event types to extract field documentation
-  const eventTypes = await db.collection('event_types')
-    .find({})
-    .toArray();
+  const eventTypes = await db.collection('event_types').find({}).toArray();
 
   // Extract fields by object type
   const patientFields = [];
@@ -24,29 +22,29 @@ async function getDataStructuresDocs() {
   const billFields = [];
 
   // Collect all fields from all event types (including nested properties)
-  eventTypes.forEach(eventType => {
+  eventTypes.forEach((eventType) => {
     if (!eventType.fields) return;
 
     // Recursive function to extract all fields including nested properties
     const extractFields = (fields) => {
-      fields.forEach(field => {
+      fields.forEach((field) => {
         const path = field.path || '';
 
         // Add this field
         if (path.startsWith('patient.')) {
-          if (!patientFields.find(f => f.path === path)) {
+          if (!patientFields.find((f) => f.path === path)) {
             patientFields.push(field);
           }
         } else if (path.startsWith('visit.')) {
-          if (!visitFields.find(f => f.path === path)) {
+          if (!visitFields.find((f) => f.path === path)) {
             visitFields.push(field);
           }
         } else if (path.startsWith('appt.')) {
-          if (!apptFields.find(f => f.path === path)) {
+          if (!apptFields.find((f) => f.path === path)) {
             apptFields.push(field);
           }
         } else if (path.startsWith('Bill.') || path.startsWith('bill.')) {
-          if (!billFields.find(f => f.path === path)) {
+          if (!billFields.find((f) => f.path === path)) {
             billFields.push(field);
           }
         }
@@ -66,7 +64,7 @@ async function getDataStructuresDocs() {
     patient: buildObjectDocFromFields('PATIENT OBJECT', patientFields),
     visit: buildObjectDocFromFields('VISIT OBJECT', visitFields),
     appt: buildObjectDocFromFields('APPOINTMENT OBJECT', apptFields),
-    bill: buildObjectDocFromFields('BILL OBJECT', billFields)
+    bill: buildObjectDocFromFields('BILL OBJECT', billFields),
   };
 }
 
@@ -82,15 +80,13 @@ function buildObjectDocFromFields(title, fields) {
 
   let doc = `**${title}** (${fields.length} fields):\n\`\`\`javascript\n{\n`;
 
-  fields.forEach(field => {
+  fields.forEach((field) => {
     const path = field.path || '';
     const fieldName = path.split('.').pop();
     const description = field.description || '';
     const example = field.example;
 
-    let value = example !== undefined
-      ? (typeof example === 'string' ? `"${example}"` : example)
-      : '[VALUE]';
+    const value = example !== undefined ? (typeof example === 'string' ? `"${example}"` : example) : '[VALUE]';
 
     if (description) {
       doc += `  ${fieldName}: ${value}, // ${description}\n`;
@@ -279,5 +275,5 @@ module.exports = {
   buildPatientObjectDoc,
   buildVisitObjectDoc,
   buildApptObjectDoc,
-  buildBillObjectDoc
+  buildBillObjectDoc,
 };

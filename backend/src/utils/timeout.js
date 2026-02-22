@@ -17,10 +17,10 @@ function withTimeout(promise, timeoutMs, operationName = 'Operation') {
       setTimeout(() => {
         reject(new Error(`${operationName} timed out after ${timeoutMs}ms`));
       }, timeoutMs);
-    })
+    }),
   ]);
 }
 
 module.exports = {
-  withTimeout
+  withTimeout,
 };

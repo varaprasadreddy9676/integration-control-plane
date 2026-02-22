@@ -32,11 +32,9 @@ async function getSystemConfig() {
  */
 async function updateSystemConfig(patch) {
   const db = await mongodb.getDbSafe();
-  await db.collection(COLLECTION).findOneAndUpdate(
-    { _id: DOC_ID },
-    { $set: { ...patch, updatedAt: new Date() } },
-    { upsert: true }
-  );
+  await db
+    .collection(COLLECTION)
+    .findOneAndUpdate({ _id: DOC_ID }, { $set: { ...patch, updatedAt: new Date() } }, { upsert: true });
 }
 
 /**
@@ -86,7 +84,7 @@ async function applyRuntimeConfig() {
     }
   } catch (err) {
     log('warn', 'Could not apply runtime config from MongoDB — using config.json values', {
-      error: err.message
+      error: err.message,
     });
   }
 }

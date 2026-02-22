@@ -21,12 +21,12 @@ async function processPendingDeliveries() {
         {
           $set: {
             status: 'PROCESSING',
-            processedAt: new Date()
-          }
+            processedAt: new Date(),
+          },
         },
         {
-          sort: { createdAt: 1 },  // Process oldest first
-          returnDocument: 'after'   // Return the updated document
+          sort: { createdAt: 1 }, // Process oldest first
+          returnDocument: 'after', // Return the updated document
         }
       );
 
@@ -39,26 +39,27 @@ async function processPendingDeliveries() {
       processedCount++;
 
       try {
-
         // Fetch integration config
         const jobOrgId = job.orgId;
         const integration = await db.collection('integration_configs').findOne({
           _id: job.integrationConfigId,
           orgId: jobOrgId,
           direction: 'INBOUND',
-          isActive: true
+          isActive: true,
         });
 
         if (!integration) {
           log('warn', 'Integration not found for pending job', {
             jobId: job._id.toString(),
-            integrationConfigId: job.integrationConfigId.toString()
+            integrationConfigId: job.integrationConfigId.toString(),
           });
 
-          await db.collection('pending_deliveries').updateOne(
-            { _id: job._id },
-            { $set: { status: 'FAILED', completedAt: new Date(), error: 'Integration not found or inactive' } }
-          );
+          await db
+            .collection('pending_deliveries')
+            .updateOne(
+              { _id: job._id },
+              { $set: { status: 'FAILED', completedAt: new Date(), error: 'Integration not found or inactive' } }
+            );
           continue;
         }
 
@@ -67,7 +68,7 @@ async function processPendingDeliveries() {
         const integrationMapped = {
           id: integration._id.toString(),
           _id: integration._id.toString(),
-          ...integration
+          ...integration,
         };
 
         const evt = {
@@ -76,7 +77,7 @@ async function processPendingDeliveries() {
           event_type: job.eventType,
           payload: job.payload,
           orgId: jobOrgId,
-          attempt_count: job.retryCount || 0
+          attempt_count: job.retryCount || 0,
         };
 
         let allActionsSucceeded = true;
@@ -102,7 +103,7 @@ async function processPendingDeliveries() {
               actionIndex: i,
               actionName: action.name,
               status: result.status,
-              logId: result.logId
+              logId: result.logId,
             });
 
             if (result.status !== 'SUCCESS') {
@@ -113,14 +114,14 @@ async function processPendingDeliveries() {
               jobId: job._id.toString(),
               actionIndex: i,
               actionName: action.name,
-              error: error.message
+              error: error.message,
             });
 
             actionResults.push({
               actionIndex: i,
               actionName: action.name,
               status: 'FAILED',
-              error: error.message
+              error: error.message,
             });
 
             allActionsSucceeded = false;
@@ -135,15 +136,15 @@ async function processPendingDeliveries() {
               $set: {
                 status: 'COMPLETED',
                 completedAt: new Date(),
-                actionResults
-              }
+                actionResults,
+              },
             }
           );
 
           log('info', 'INBOUND COMMUNICATION job completed successfully', {
             jobId: job._id.toString(),
             traceId: job.traceId,
-            actionCount: actions.length
+            actionCount: actions.length,
           });
         } else {
           // Increment retry count and set back to PENDING (or FAILED if max retries reached)
@@ -159,8 +160,8 @@ async function processPendingDeliveries() {
                 retryCount: newRetryCount,
                 lastAttemptAt: new Date(),
                 ...(newStatus === 'FAILED' ? { completedAt: new Date(), failedAt: new Date() } : {}),
-                actionResults
-              }
+                actionResults,
+              },
             }
           );
 
@@ -168,14 +169,14 @@ async function processPendingDeliveries() {
             jobId: job._id.toString(),
             traceId: job.traceId,
             retryCount: newRetryCount,
-            maxRetries
+            maxRetries,
           });
         }
       } catch (error) {
         log('error', 'Failed to process pending job', {
           jobId: job._id.toString(),
           error: error.message,
-          stack: error.stack
+          stack: error.stack,
         });
 
         // Mark job as PENDING for retry (unless max retries reached)
@@ -192,14 +193,14 @@ async function processPendingDeliveries() {
                 retryCount: newRetryCount,
                 lastAttemptAt: new Date(),
                 error: error.message,
-                ...(newStatus === 'FAILED' ? { completedAt: new Date(), failedAt: new Date() } : {})
-              }
+                ...(newStatus === 'FAILED' ? { completedAt: new Date(), failedAt: new Date() } : {}),
+              },
             }
           );
         } catch (updateError) {
           log('error', 'Failed to update job status after error', {
             jobId: job._id.toString(),
-            updateError: updateError.message
+            updateError: updateError.message,
           });
         }
       }
@@ -211,7 +212,7 @@ async function processPendingDeliveries() {
   } catch (error) {
     log('error', 'Failed to process pending deliveries', {
       error: error.message,
-      stack: error.stack
+      stack: error.stack,
     });
   }
 }
@@ -235,20 +236,20 @@ function startPendingDeliveriesWorker() {
       await processPendingDeliveries();
     } catch (error) {
       log('error', 'Pending deliveries worker error', {
-        error: error.message
+        error: error.message,
       });
     }
   }, intervalMs);
 
   // Process immediately on startup
-  processPendingDeliveries().catch(error => {
+  processPendingDeliveries().catch((error) => {
     log('error', 'Initial pending deliveries processing failed', {
-      error: error.message
+      error: error.message,
     });
   });
 }
 
 module.exports = {
   processPendingDeliveries,
-  startPendingDeliveriesWorker
+  startPendingDeliveriesWorker,
 };

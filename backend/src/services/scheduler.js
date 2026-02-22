@@ -12,7 +12,7 @@ async function executeSchedulingScript(script, event, context = {}) {
   try {
     // Utility functions available in scheduling scripts
     // Define epoch as a standalone function so datetime can reference it directly
-    const epochFn = function(dateStr) {
+    const epochFn = (dateStr) => {
       if (!dateStr) return null;
       try {
         let date;
@@ -34,13 +34,26 @@ async function executeSchedulingScript(script, event, context = {}) {
           }
         } else if (dateStr.match(/^\d{1,2}-[A-Za-z]{3}-\d{4}/)) {
           const parts = dateStr.split(/[\s-]+/);
-          const monthMap = {'jan':0,'feb':1,'mar':2,'apr':3,'may':4,'jun':5,'jul':6,'aug':7,'sep':8,'oct':9,'nov':10,'dec':11};
-          date = new Date(parts[2], monthMap[parts[1].toLowerCase().substring(0,3)], parts[0]);
+          const monthMap = {
+            jan: 0,
+            feb: 1,
+            mar: 2,
+            apr: 3,
+            may: 4,
+            jun: 5,
+            jul: 6,
+            aug: 7,
+            sep: 8,
+            oct: 9,
+            nov: 10,
+            dec: 11,
+          };
+          date = new Date(parts[2], monthMap[parts[1].toLowerCase().substring(0, 3)], parts[0]);
         } else {
           date = new Date(dateStr);
         }
-        return isNaN(date.getTime()) ? null : Math.floor(date.getTime() / 1000);
-      } catch(e) {
+        return Number.isNaN(date.getTime()) ? null : Math.floor(date.getTime() / 1000);
+      } catch (_e) {
         return null;
       }
     };
@@ -49,17 +62,17 @@ async function executeSchedulingScript(script, event, context = {}) {
       // Date/Time conversion utilities
       epoch: epochFn,
 
-      datetime: function(date, time, timezone) {
+      datetime: (date, time, timezone) => {
         if (!date) return null;
         const tz = timezone || '+05:30';
-        const dateTimeStr = time ? date + 'T' + time + tz : date + 'T00:00:00' + tz;
-        return epochFn(dateTimeStr);  // Call epochFn directly instead of this.epoch
+        const dateTimeStr = time ? `${date}T${time}${tz}` : `${date}T00:00:00${tz}`;
+        return epochFn(dateTimeStr); // Call epochFn directly instead of this.epoch
       },
 
       // Date parsing
       parseDate: (dateString) => {
         const parsed = new Date(dateString);
-        if (isNaN(parsed.getTime())) {
+        if (Number.isNaN(parsed.getTime())) {
           throw new Error(`Invalid date string: ${dateString}`);
         }
         return parsed;
@@ -115,8 +128,8 @@ async function executeSchedulingScript(script, event, context = {}) {
       // Logging (limited)
       console: {
         log: (...args) => log('debug', 'Scheduling script log', { message: args.join(' ') }),
-        error: (...args) => log('warn', 'Scheduling script error', { message: args.join(' ') })
-      }
+        error: (...args) => log('warn', 'Scheduling script error', { message: args.join(' ') }),
+      },
     };
 
     // Create sandboxed VM
@@ -124,10 +137,10 @@ async function executeSchedulingScript(script, event, context = {}) {
       timeout: 5000, // 5 second timeout
       allowAsync: false, // Scheduling scripts are synchronous
       sandbox: {
-        event,              // Event payload
-        context,            // Additional context
-        ...utilities        // Utility functions (Date, Math, JSON provided by SecureVM)
-      }
+        event, // Event payload
+        context, // Additional context
+        ...utilities, // Utility functions (Date, Math, JSON provided by SecureVM)
+      },
     });
 
     // Wrap script in a function to allow return statements
@@ -140,7 +153,7 @@ async function executeSchedulingScript(script, event, context = {}) {
     // Validate result
     if (typeof result === 'number') {
       // DELAYED mode: allow past timestamps to support OVERDUE scheduled entries
-      if (result > Date.now() + (365 * 24 * 60 * 60 * 1000)) {
+      if (result > Date.now() + 365 * 24 * 60 * 60 * 1000) {
         throw new Error('Scheduled time cannot be more than 1 year in the future');
       }
       return result;
@@ -154,7 +167,7 @@ async function executeSchedulingScript(script, event, context = {}) {
   } catch (err) {
     logError(err, {
       scope: 'executeSchedulingScript',
-      eventType: context.eventType
+      eventType: context.eventType,
     });
     throw new Error(`Scheduling script execution failed: ${err.message}`);
   }
@@ -172,7 +185,7 @@ function validateRecurringConfig(config) {
   // Allow a small grace period for recurring first occurrence (same as DELAYED mode)
   // This prevents the recurring validation from being stricter than the worker's past-time check
   const gracePeriodMs = 60000; // 1 minute
-  if (config.firstOccurrence < (Date.now() - gracePeriodMs)) {
+  if (config.firstOccurrence < Date.now() - gracePeriodMs) {
     throw new Error('First occurrence must not be more than 1 minute in the past');
   }
 
@@ -201,7 +214,7 @@ function validateRecurringConfig(config) {
  * @param {string} eventType - Event type
  * @returns {Object|null} Cancellation info or null
  */
-function extractCancellationInfo(event, eventType) {
+function extractCancellationInfo(event, _eventType) {
   const cancellationInfo = {};
 
   // Extract patientRid (check common field names)
@@ -215,9 +228,16 @@ function extractCancellationInfo(event, eventType) {
 
   // Extract scheduledDateTime (check common field names)
   const datetimeFields = [
-    'scheduledDateTime', 'scheduled_date_time', 'appointmentDateTime', 'appointment_date_time',
-    'scheduledDate', 'scheduled_date', 'appointmentDate', 'appointment_date',
-    'scheduledTime', 'scheduled_time'
+    'scheduledDateTime',
+    'scheduled_date_time',
+    'appointmentDateTime',
+    'appointment_date_time',
+    'scheduledDate',
+    'scheduled_date',
+    'appointmentDate',
+    'appointment_date',
+    'scheduledTime',
+    'scheduled_time',
   ];
   for (const field of datetimeFields) {
     if (event[field]) {
@@ -244,7 +264,7 @@ function calculateNextOccurrence(recurringConfig, currentOccurrence) {
   const { firstOccurrence, intervalMs, maxOccurrences, endDate } = recurringConfig;
 
   // currentOccurrence is 1-based (1 = first occurrence, 2 = second, etc.)
-  const nextTimestamp = firstOccurrence + (intervalMs * (currentOccurrence - 1));
+  const nextTimestamp = firstOccurrence + intervalMs * (currentOccurrence - 1);
 
   // Check if series is complete
   if (maxOccurrences && currentOccurrence > maxOccurrences) {
@@ -262,5 +282,5 @@ module.exports = {
   executeSchedulingScript,
   extractCancellationInfo,
   calculateNextOccurrence,
-  validateRecurringConfig
+  validateRecurringConfig,
 };

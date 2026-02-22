@@ -61,7 +61,7 @@ async function sendNotification(notification, enabledChannels = [], channelConfi
   log('debug', 'Sending notification via channels', {
     type: notification.type,
     severity: notification.severity,
-    channels: enabledChannels
+    channels: enabledChannels,
   });
 
   // Send via each enabled channel
@@ -72,7 +72,7 @@ async function sendNotification(notification, enabledChannels = [], channelConfi
       log('warn', `Channel not registered: ${channelName}`);
       results[channelName] = {
         success: false,
-        error: 'Channel not registered'
+        error: 'Channel not registered',
       };
       continue;
     }
@@ -86,18 +86,18 @@ async function sendNotification(notification, enabledChannels = [], channelConfi
       if (success) {
         log('info', `Notification sent via ${channelName}`, {
           type: notification.type,
-          severity: notification.severity
+          severity: notification.severity,
         });
       }
     } catch (error) {
       log('error', `Failed to send notification via ${channelName}`, {
         type: notification.type,
         severity: notification.severity,
-        error: error.message
+        error: error.message,
       });
       results[channelName] = {
         success: false,
-        error: error.message
+        error: error.message,
       };
     }
   }
@@ -124,11 +124,11 @@ async function sendIntegrationFailureAlert(integration, failureDetails, enabledC
         name: integration.name,
         targetUrl: integration.targetUrl,
         eventType: integration.type,
-        orgId: integration.orgId
+        orgId: integration.orgId,
       },
       failure: failureDetails,
-      dashboardLink: `${config.frontendUrl || process.env.FRONTEND_URL || 'http://localhost:5174'}/integrations/${integration.id}`
-    }
+      dashboardLink: `${config.frontendUrl || process.env.FRONTEND_URL || 'http://localhost:5174'}/integrations/${integration.id}`,
+    },
   };
 
   return sendNotification(notification, enabledChannels, channelConfigs);
@@ -152,11 +152,11 @@ async function sendCircuitBreakerAlert(integration, circuitState, enabledChannel
         id: integration.id,
         name: integration.name,
         targetUrl: integration.targetUrl,
-        orgId: integration.orgId
+        orgId: integration.orgId,
       },
       circuitState,
-      dashboardLink: `${config.frontendUrl || process.env.FRONTEND_URL || 'http://localhost:5174'}/integrations/${integration.id}`
-    }
+      dashboardLink: `${config.frontendUrl || process.env.FRONTEND_URL || 'http://localhost:5174'}/integrations/${integration.id}`,
+    },
   };
 
   return sendNotification(notification, enabledChannels, channelConfigs);
@@ -176,8 +176,8 @@ async function sendSystemHealthAlert(healthStatus, enabledChannels, channelConfi
     message: `System health is at ${healthStatus.severity} level`,
     data: {
       health: healthStatus,
-      dashboardLink: `${config.frontendUrl || process.env.FRONTEND_URL || 'http://localhost:5174'}/dashboard`
-    }
+      dashboardLink: `${config.frontendUrl || process.env.FRONTEND_URL || 'http://localhost:5174'}/dashboard`,
+    },
   };
 
   return sendNotification(notification, enabledChannels, channelConfigs);
@@ -202,11 +202,11 @@ async function sendIntegrationAutoDisabledAlert(integration, consecutiveFailures
         name: integration.name,
         targetUrl: integration.targetUrl,
         eventType: integration.type,
-        orgId: integration.orgId
+        orgId: integration.orgId,
       },
       consecutiveFailures,
-      dashboardLink: `${config.frontendUrl || process.env.FRONTEND_URL || 'http://localhost:5174'}/integrations/${integration.id}`
-    }
+      dashboardLink: `${config.frontendUrl || process.env.FRONTEND_URL || 'http://localhost:5174'}/integrations/${integration.id}`,
+    },
   };
 
   return sendNotification(notification, enabledChannels, channelConfigs);
@@ -220,5 +220,5 @@ module.exports = {
   sendIntegrationFailureAlert,
   sendCircuitBreakerAlert,
   sendSystemHealthAlert,
-  sendIntegrationAutoDisabledAlert
+  sendIntegrationAutoDisabledAlert,
 };

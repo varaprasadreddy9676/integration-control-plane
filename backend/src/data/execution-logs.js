@@ -10,11 +10,11 @@ const { uuidv4 } = require('../utils/runtime');
 const normalizeStatus = (status) => {
   if (!status) return 'PENDING';
   const statusMap = {
-    'SUCCESS': 'SUCCESS',
-    'FAILED': 'FAILED',
-    'PENDING': 'PENDING',
-    'RETRYING': 'RETRYING',
-    'ABANDONED': 'ABANDONED'
+    SUCCESS: 'SUCCESS',
+    FAILED: 'FAILED',
+    PENDING: 'PENDING',
+    RETRYING: 'RETRYING',
+    ABANDONED: 'ABANDONED',
   };
   return statusMap[String(status).toUpperCase()] || String(status).toUpperCase();
 };
@@ -33,15 +33,12 @@ const buildIdMatch = (id) => {
         { integrationConfigId: idObj },
         { integrationConfigId: id },
         { __KEEP___KEEP_integrationConfig__Id__: idObj },
-        { __KEEP___KEEP_integrationConfig__Id__: id }
-      ]
+        { __KEEP___KEEP_integrationConfig__Id__: id },
+      ],
     };
   }
   return {
-    $or: [
-      { integrationConfigId: id },
-      { __KEEP___KEEP_integrationConfig__Id__: id }
-    ]
+    $or: [{ integrationConfigId: id }, { __KEEP___KEEP_integrationConfig__Id__: id }],
   };
 };
 
@@ -50,7 +47,7 @@ const mapExecutionLog = (log) => ({
   id: log._id.toString(),
   responseStatus: log.response?.statusCode || log.responseStatus,
   responseBody: log.response?.body || log.responseBody,
-  requestHeaders: log.request?.headers || log.requestHeaders
+  requestHeaders: log.request?.headers || log.requestHeaders,
 });
 
 const buildOrgScopeQuery = (orgId) => ({ orgId });
@@ -96,7 +93,6 @@ const buildExecutionLogsQuery = (orgId, filters = {}) => {
   return query;
 };
 
-
 const safeDateMs = (value) => {
   if (!value) return null;
   const date = new Date(value);
@@ -105,7 +101,7 @@ const safeDateMs = (value) => {
 };
 
 const getTraceStatus = (docs = []) => {
-  const statuses = new Set(docs.map(d => normalizeStatus(d.status)));
+  const statuses = new Set(docs.map((d) => normalizeStatus(d.status)));
   if (statuses.has('FAILED') || statuses.has('ABANDONED')) return 'FAILED';
   if (statuses.has('RETRYING')) return 'RETRYING';
   if (statuses.has('PENDING') || statuses.has('QUEUED')) return 'PENDING';
@@ -142,7 +138,7 @@ const parseJsonSafely = (value) => {
   if (typeof value !== 'string') return value;
   try {
     return JSON.parse(value);
-  } catch (err) {
+  } catch (_err) {
     return value;
   }
 };
@@ -179,8 +175,8 @@ async function createExecutionLog(logData) {
 
     // Integration/Integration details (for UI display)
     __KEEP___KEEP_integrationConfig__Id__: logData.__KEEP___KEEP_integrationConfig__Id__
-      ? (toObjectId(logData.__KEEP___KEEP_integrationConfig__Id__) || logData.__KEEP___KEEP_integrationConfig__Id__)
-      : (toObjectId(logData.integrationConfigId) || logData.integrationConfigId || null),
+      ? toObjectId(logData.__KEEP___KEEP_integrationConfig__Id__) || logData.__KEEP___KEEP_integrationConfig__Id__
+      : toObjectId(logData.integrationConfigId) || logData.integrationConfigId || null,
     __KEEP_integrationName__: logData.__KEEP_integrationName__ || logData.integrationName || null,
 
     // Event details (for OUTBOUND integrations)
@@ -210,12 +206,12 @@ async function createExecutionLog(logData) {
       headers: logData.request?.headers || logData.requestHeaders || {},
       body: logData.request?.body || {},
       url: logData.request?.url || logData.targetUrl || null,
-      method: logData.request?.method || logData.httpMethod || null
+      method: logData.request?.method || logData.httpMethod || null,
     },
     response: {
       statusCode: logData.response?.statusCode || logData.responseStatus || null,
       headers: logData.response?.headers || {},
-      body: logData.response?.body || logData.responseBody || {}
+      body: logData.response?.body || logData.responseBody || {},
     },
 
     // Payload tracking (for OUTBOUND integrations)
@@ -245,7 +241,7 @@ async function createExecutionLog(logData) {
 
     // Timestamps
     createdAt: now,
-    updatedAt: now
+    updatedAt: now,
   };
 
   await db.collection('execution_logs').insertOne(executionLog);
@@ -263,7 +259,7 @@ async function updateExecutionLog(traceId, updates) {
 
   const updateDoc = {
     ...updates,
-    updatedAt: new Date()
+    updatedAt: new Date(),
   };
 
   if (updates.status) {
@@ -273,15 +269,12 @@ async function updateExecutionLog(traceId, updates) {
   // Calculate duration if finishedAt is being set
   if (updates.finishedAt) {
     const existingLog = await db.collection('execution_logs').findOne({ traceId });
-    if (existingLog && existingLog.startedAt) {
+    if (existingLog?.startedAt) {
       updateDoc.durationMs = updates.finishedAt - existingLog.startedAt;
     }
   }
 
-  await db.collection('execution_logs').updateOne(
-    { traceId },
-    { $set: updateDoc }
-  );
+  await db.collection('execution_logs').updateOne({ traceId }, { $set: updateDoc });
 }
 
 /**
@@ -298,14 +291,14 @@ async function addExecutionStep(traceId, step) {
     durationMs: step.durationMs || null,
     status: step.status || 'success', // 'success' | 'error' | 'warning'
     metadata: step.metadata || {},
-    error: step.error || null
+    error: step.error || null,
   };
 
   await db.collection('execution_logs').updateOne(
     { traceId },
     {
       $push: { steps: stepWithTimestamp },
-      $set: { updatedAt: new Date() }
+      $set: { updatedAt: new Date() },
     }
   );
 }
@@ -319,10 +312,9 @@ async function addExecutionStep(traceId, step) {
 async function getExecutionLog(traceId, orgId) {
   const db = await getDbSafe();
 
-  const logDoc = await db.collection('execution_logs').findOne(
-    { traceId, ...buildOrgScopeQuery(orgId) },
-    { sort: { createdAt: -1 } }
-  );
+  const logDoc = await db
+    .collection('execution_logs')
+    .findOne({ traceId, ...buildOrgScopeQuery(orgId) }, { sort: { createdAt: -1 } });
 
   return logDoc ? mapExecutionLog(logDoc) : null;
 }
@@ -343,13 +335,8 @@ async function listExecutionLogs(orgId, filters = {}, pagination = {}) {
   const skip = (page - 1) * limit;
 
   const [logs, total] = await Promise.all([
-    db.collection('execution_logs')
-      .find(query)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .toArray(),
-    db.collection('execution_logs').countDocuments(query)
+    db.collection('execution_logs').find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).toArray(),
+    db.collection('execution_logs').countDocuments(query),
   ]);
 
   const mappedLogs = logs.map(mapExecutionLog);
@@ -360,7 +347,7 @@ async function listExecutionLogs(orgId, filters = {}, pagination = {}) {
     hasMore: skip + logs.length < total,
     page,
     pages: Math.ceil(total / limit),
-    limit
+    limit,
   };
 }
 
@@ -383,21 +370,16 @@ async function listExecutionTraces(orgId, filters = {}, pagination = {}) {
         updatedAt: { $max: '$updatedAt' },
         startedAt: { $min: '$startedAt' },
         latestAt: { $max: '$createdAt' },
-        docs: { $push: '$$ROOT' }
-      }
+        docs: { $push: '$$ROOT' },
+      },
     },
     { $sort: { latestAt: -1, _id: -1 } },
     {
       $facet: {
-        rows: [
-          { $skip: skip },
-          { $limit: limit }
-        ],
-        meta: [
-          { $count: 'total' }
-        ]
-      }
-    }
+        rows: [{ $skip: skip }, { $limit: limit }],
+        meta: [{ $count: 'total' }],
+      },
+    },
   ];
 
   const aggregated = await db.collection('execution_logs').aggregate(pipeline).toArray();
@@ -418,14 +400,13 @@ async function listExecutionTraces(orgId, filters = {}, pagination = {}) {
       actionIndex: doc.actionIndex ?? null,
       timestamp: doc.createdAt || doc.startedAt || null,
       responseStatus: doc.response?.statusCode || doc.responseStatus || null,
-      durationMs: doc.durationMs || doc.responseTimeMs || null
+      durationMs: doc.durationMs || doc.responseTimeMs || null,
     }));
 
     const startedAtMs = safeDateMs(first.startedAt || first.createdAt);
     const finishedAtMs = safeDateMs(last.finishedAt || last.updatedAt || last.createdAt);
-    const totalDuration = startedAtMs !== null && finishedAtMs !== null && finishedAtMs >= startedAtMs
-      ? finishedAtMs - startedAtMs
-      : null;
+    const totalDuration =
+      startedAtMs !== null && finishedAtMs !== null && finishedAtMs >= startedAtMs ? finishedAtMs - startedAtMs : null;
 
     return {
       traceId: row.traceId,
@@ -446,7 +427,7 @@ async function listExecutionTraces(orgId, filters = {}, pagination = {}) {
       latestActionName: last.actionName || null,
       latestTarget: last.targetUrl || null,
       createdAt: row.createdAt || null,
-      updatedAt: row.updatedAt || row.latestAt || null
+      updatedAt: row.updatedAt || row.latestAt || null,
     };
   });
 
@@ -456,14 +437,15 @@ async function listExecutionTraces(orgId, filters = {}, pagination = {}) {
     hasMore: skip + traces.length < total,
     page,
     pages: Math.ceil(total / limit),
-    limit
+    limit,
   };
 }
 
 async function getExecutionTrace(traceId, orgId) {
   const db = await getDbSafe();
 
-  const docs = await db.collection('execution_logs')
+  const docs = await db
+    .collection('execution_logs')
     .find({ traceId, ...buildOrgScopeQuery(orgId) })
     .sort({ createdAt: 1, _id: 1 })
     .toArray();
@@ -476,44 +458,47 @@ async function getExecutionTrace(traceId, orgId) {
   const last = docs[docs.length - 1];
   const traceStatus = getTraceStatus(docs);
 
-  const timeline = docs.map((doc, index) => {
-    const timestamp = doc.createdAt || doc.startedAt || new Date();
-    const providerHeaders = doc.request?.headers || doc.requestHeaders || {};
-    const responseStatus = doc.response?.statusCode || doc.responseStatus || null;
-    const stageStatus = normalizeStatus(doc.status);
-    const stageName = getStageName(doc, index);
+  const timeline = docs
+    .map((doc, index) => {
+      const timestamp = doc.createdAt || doc.startedAt || new Date();
+      const providerHeaders = doc.request?.headers || doc.requestHeaders || {};
+      const responseStatus = doc.response?.statusCode || doc.responseStatus || null;
+      const stageStatus = normalizeStatus(doc.status);
+      const stageName = getStageName(doc, index);
 
-    return {
-      step: stageName,
-      name: stageName,
-      timestamp,
-      durationMs: doc.durationMs || doc.responseTimeMs || null,
-      status: stageStatus,
-      error: doc.error || (doc.errorMessage ? { message: doc.errorMessage } : null),
-      metadata: {
-        direction: doc.direction || null,
-        triggerType: doc.triggerType || null,
-        actionName: doc.actionName || null,
-        actionIndex: doc.actionIndex ?? null,
-        integrationName: doc.__KEEP_integrationName__ || null,
-        responseStatus,
-        targetUrl: doc.targetUrl || doc.request?.url || null,
-        messageId: doc.messageId || null,
-        provider: providerHeaders.provider || null,
-        channel: providerHeaders.channel || null
-      },
-      request: doc.request || null,
-      response: doc.response || null
-    };
-  }).map((item, index, all) => ({
-    ...item,
-    gapMs: index < all.length - 1
-      ? Math.max(0, (safeDateMs(all[index + 1].timestamp) || 0) - (safeDateMs(item.timestamp) || 0))
-      : null
-  }));
+      return {
+        step: stageName,
+        name: stageName,
+        timestamp,
+        durationMs: doc.durationMs || doc.responseTimeMs || null,
+        status: stageStatus,
+        error: doc.error || (doc.errorMessage ? { message: doc.errorMessage } : null),
+        metadata: {
+          direction: doc.direction || null,
+          triggerType: doc.triggerType || null,
+          actionName: doc.actionName || null,
+          actionIndex: doc.actionIndex ?? null,
+          integrationName: doc.__KEEP_integrationName__ || null,
+          responseStatus,
+          targetUrl: doc.targetUrl || doc.request?.url || null,
+          messageId: doc.messageId || null,
+          provider: providerHeaders.provider || null,
+          channel: providerHeaders.channel || null,
+        },
+        request: doc.request || null,
+        response: doc.response || null,
+      };
+    })
+    .map((item, index, all) => ({
+      ...item,
+      gapMs:
+        index < all.length - 1
+          ? Math.max(0, (safeDateMs(all[index + 1].timestamp) || 0) - (safeDateMs(item.timestamp) || 0))
+          : null,
+    }));
 
   const vendorResponses = docs
-    .filter(doc => doc.direction === 'COMMUNICATION')
+    .filter((doc) => doc.direction === 'COMMUNICATION')
     .map((doc) => {
       const responseBody = doc.response?.body || doc.responseBody || null;
       const parsedResponseBody = parseJsonSafely(responseBody);
@@ -527,17 +512,16 @@ async function getExecutionTrace(traceId, orgId) {
         responseStatus: doc.response?.statusCode || doc.responseStatus || null,
         messageId: doc.messageId || null,
         target: doc.targetUrl || doc.request?.url || null,
-        responseBody: parsedResponseBody
+        responseBody: parsedResponseBody,
       };
     });
 
   const startedAtMs = safeDateMs(first.startedAt || first.createdAt);
   const finishedAtMs = safeDateMs(last.finishedAt || last.updatedAt || last.createdAt);
-  const totalDuration = startedAtMs !== null && finishedAtMs !== null && finishedAtMs >= startedAtMs
-    ? finishedAtMs - startedAtMs
-    : null;
+  const totalDuration =
+    startedAtMs !== null && finishedAtMs !== null && finishedAtMs >= startedAtMs ? finishedAtMs - startedAtMs : null;
 
-  const errorStep = timeline.find(step => ['FAILED', 'ABANDONED', 'ERROR'].includes(normalizeStatus(step.status)));
+  const errorStep = timeline.find((step) => ['FAILED', 'ABANDONED', 'ERROR'].includes(normalizeStatus(step.status)));
 
   return {
     summary: {
@@ -549,14 +533,14 @@ async function getExecutionTrace(traceId, orgId) {
       startedAt: first.startedAt || first.createdAt || null,
       finishedAt: last.finishedAt || null,
       stepCount: timeline.length,
-      errorStep: errorStep?.name || null
+      errorStep: errorStep?.name || null,
     },
     timeline,
     request: first.request || null,
     response: last.response || null,
     error: errorStep?.error || last.error || (last.errorMessage ? { message: last.errorMessage } : null),
     vendorResponses,
-    records: docs.map(mapExecutionLog)
+    records: docs.map(mapExecutionLog),
   };
 }
 
@@ -584,42 +568,41 @@ async function getExecutionStats(orgId, filters = {}) {
     if (filters.endDate) matchStage.startedAt.$lte = new Date(filters.endDate);
   }
 
-  const stats = await db.collection('execution_logs').aggregate([
-    { $match: matchStage },
-    {
-      $facet: {
-        statusBreakdown: [
-          { $group: { _id: '$status', count: { $sum: 1 } } }
-        ],
-        directionBreakdown: [
-          { $group: { _id: '$direction', count: { $sum: 1 } } }
-        ],
-        avgDuration: [
-          {
-            $match: { durationMs: { $ne: null } }
-          },
-          {
-            $group: {
-              _id: null,
-              avg: { $avg: '$durationMs' },
-              min: { $min: '$durationMs' },
-              max: { $max: '$durationMs' }
-            }
-          }
-        ],
-        errorBreakdown: [
-          {
-            $match: { status: 'FAILED', 'error.code': { $exists: true } }
-          },
-          {
-            $group: { _id: '$error.code', count: { $sum: 1 } }
-          },
-          { $sort: { count: -1 } },
-          { $limit: 10 }
-        ]
-      }
-    }
-  ]).toArray();
+  const stats = await db
+    .collection('execution_logs')
+    .aggregate([
+      { $match: matchStage },
+      {
+        $facet: {
+          statusBreakdown: [{ $group: { _id: '$status', count: { $sum: 1 } } }],
+          directionBreakdown: [{ $group: { _id: '$direction', count: { $sum: 1 } } }],
+          avgDuration: [
+            {
+              $match: { durationMs: { $ne: null } },
+            },
+            {
+              $group: {
+                _id: null,
+                avg: { $avg: '$durationMs' },
+                min: { $min: '$durationMs' },
+                max: { $max: '$durationMs' },
+              },
+            },
+          ],
+          errorBreakdown: [
+            {
+              $match: { status: 'FAILED', 'error.code': { $exists: true } },
+            },
+            {
+              $group: { _id: '$error.code', count: { $sum: 1 } },
+            },
+            { $sort: { count: -1 } },
+            { $limit: 10 },
+          ],
+        },
+      },
+    ])
+    .toArray();
 
   const result = stats[0];
 
@@ -633,7 +616,7 @@ async function getExecutionStats(orgId, filters = {}) {
       return acc;
     }, {}),
     performance: result.avgDuration[0] || { avg: null, min: null, max: null },
-    topErrors: result.errorBreakdown
+    topErrors: result.errorBreakdown,
   };
 }
 
@@ -648,7 +631,7 @@ async function getExecutionLogById(id, orgId) {
 
   const log = await db.collection('execution_logs').findOne({
     _id: toObjectId(id),
-    orgId
+    orgId,
   });
 
   if (!log) return null;
@@ -659,7 +642,7 @@ async function getExecutionLogById(id, orgId) {
     id: log._id.toString(),
     responseStatus: log.response?.statusCode || log.responseStatus,
     responseBody: log.response?.body || log.responseBody,
-    requestHeaders: log.request?.headers || log.requestHeaders
+    requestHeaders: log.request?.headers || log.requestHeaders,
   };
 }
 
@@ -671,22 +654,23 @@ async function getExecutionLogById(id, orgId) {
 async function getFailedLogsForRetry(batchSize = 10) {
   const db = await getDbSafe();
 
-  const logs = await db.collection('execution_logs')
+  const logs = await db
+    .collection('execution_logs')
     .find({
       status: { $in: ['RETRYING', 'FAILED'] },
-      shouldRetry: true
+      shouldRetry: true,
     })
     .sort({ lastAttemptAt: 1 })
     .limit(batchSize)
     .toArray();
 
   // Normalize log fields for consistent API response
-  return logs.map(log => ({
+  return logs.map((log) => ({
     ...log,
     id: log._id.toString(),
     responseStatus: log.response?.statusCode || log.responseStatus,
     responseBody: log.response?.body || log.responseBody,
-    requestHeaders: log.request?.headers || log.requestHeaders
+    requestHeaders: log.request?.headers || log.requestHeaders,
   }));
 }
 
@@ -703,8 +687,8 @@ async function markLogAsAbandoned(logId) {
       $set: {
         status: 'ABANDONED',
         shouldRetry: false,
-        updatedAt: new Date()
-      }
+        updatedAt: new Date(),
+      },
     }
   );
 }
@@ -734,28 +718,31 @@ async function getExecutionLogStats(orgId, filters = {}) {
     if (filters.endDate) matchStage.createdAt.$lte = new Date(filters.endDate);
   }
 
-  const stats = await db.collection('execution_logs').aggregate([
-    { $match: matchStage },
-    {
-      $group: {
-        _id: null,
-        total: { $sum: 1 },
-        success: {
-          $sum: { $cond: [{ $eq: ['$status', 'SUCCESS'] }, 1, 0] }
+  const stats = await db
+    .collection('execution_logs')
+    .aggregate([
+      { $match: matchStage },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: 1 },
+          success: {
+            $sum: { $cond: [{ $eq: ['$status', 'SUCCESS'] }, 1, 0] },
+          },
+          failed: {
+            $sum: { $cond: [{ $in: ['$status', ['FAILED', 'ABANDONED']] }, 1, 0] },
+          },
+          retrying: {
+            $sum: { $cond: [{ $eq: ['$status', 'RETRYING'] }, 1, 0] },
+          },
+          pending: {
+            $sum: { $cond: [{ $eq: ['$status', 'PENDING'] }, 1, 0] },
+          },
+          avgResponseTime: { $avg: '$responseTimeMs' },
         },
-        failed: {
-          $sum: { $cond: [{ $in: ['$status', ['FAILED', 'ABANDONED']] }, 1, 0] }
-        },
-        retrying: {
-          $sum: { $cond: [{ $eq: ['$status', 'RETRYING'] }, 1, 0] }
-        },
-        pending: {
-          $sum: { $cond: [{ $eq: ['$status', 'PENDING'] }, 1, 0] }
-        },
-        avgResponseTime: { $avg: '$responseTimeMs' }
-      }
-    }
-  ]).toArray();
+      },
+    ])
+    .toArray();
 
   if (stats.length === 0) {
     return {
@@ -764,7 +751,7 @@ async function getExecutionLogStats(orgId, filters = {}) {
       failed: 0,
       retrying: 0,
       pending: 0,
-      avgResponseTime: 0
+      avgResponseTime: 0,
     };
   }
 
@@ -799,11 +786,7 @@ async function* streamExecutionLogsForExport(orgId, filters = {}) {
 
   const limit = filters.limit || 1000;
 
-  const cursor = db.collection('execution_logs')
-    .find(query)
-    .sort({ createdAt: -1 })
-    .limit(limit)
-    .batchSize(100);
+  const cursor = db.collection('execution_logs').find(query).sort({ createdAt: -1 }).limit(limit).batchSize(100);
 
   for await (const log of cursor) {
     // Normalize log fields for consistent API response
@@ -812,7 +795,7 @@ async function* streamExecutionLogsForExport(orgId, filters = {}) {
       id: log._id.toString(),
       responseStatus: log.response?.statusCode || log.responseStatus,
       responseBody: log.response?.body || log.responseBody,
-      requestHeaders: log.request?.headers || log.requestHeaders
+      requestHeaders: log.request?.headers || log.requestHeaders,
     };
   }
 }
@@ -829,7 +812,7 @@ async function deleteOldExecutionLogs(daysOld = 30) {
   cutoffDate.setDate(cutoffDate.getDate() - daysOld);
 
   const result = await db.collection('execution_logs').deleteMany({
-    startedAt: { $lt: cutoffDate }
+    startedAt: { $lt: cutoffDate },
   });
 
   return result.deletedCount;
@@ -849,5 +832,5 @@ module.exports = {
   getFailedLogsForRetry,
   markLogAsAbandoned,
   streamExecutionLogsForExport,
-  deleteOldExecutionLogs
+  deleteOldExecutionLogs,
 };

@@ -32,26 +32,20 @@ function generateCurlCommand(integration, options = {}) {
   const samplePayload = options.samplePayload || {
     // Generic example payload
     resourceId: 'example-id',
-    context: 'sample-context'
+    context: 'sample-context',
   };
 
   // Build curl command
-  const curlParts = [
-    'curl',
-    '-X POST',
-    `'${url}'`
-  ];
+  const curlParts = ['curl', '-X POST', `'${url}'`];
 
   // Add headers
   curlParts.push(`-H 'Content-Type: application/json'`);
-  authHeaders.forEach(header => {
+  authHeaders.forEach((header) => {
     curlParts.push(`-H '${header.name}: ${header.value}'`);
   });
 
   // Add data payload
-  const jsonPayload = JSON.stringify(samplePayload, null, 2)
-    .split('\n')
-    .join('\n  '); // Indent payload for readability
+  const jsonPayload = JSON.stringify(samplePayload, null, 2).split('\n').join('\n  '); // Indent payload for readability
 
   curlParts.push(`-d '${jsonPayload}'`);
 
@@ -107,7 +101,7 @@ function buildInboundAuthHeaders(integration) {
 function generateMaskedCurlCommand(integration, options = {}) {
   const maskedIntegration = {
     ...integration,
-    inboundAuthConfig: maskAuthConfig(integration.inboundAuthConfig, integration.inboundAuthType)
+    inboundAuthConfig: maskAuthConfig(integration.inboundAuthConfig, integration.inboundAuthType),
   };
 
   return generateCurlCommand(maskedIntegration, options);
@@ -143,5 +137,5 @@ function maskAuthConfig(authConfig, authType) {
 
 module.exports = {
   generateCurlCommand,
-  generateMaskedCurlCommand
+  generateMaskedCurlCommand,
 };

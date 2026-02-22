@@ -32,7 +32,7 @@ const DEFAULT_SYSTEM_PROMPT = loadDefaultSystemPrompt();
 
 const _cache = {
   content: null, // null means "use hardcoded default"
-  loadedAt: 0 // epoch ms
+  loadedAt: 0, // epoch ms
 };
 
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
@@ -155,5 +155,5 @@ module.exports = {
   buildSystemContext,
   getSystemPrompt,
   initSystemPromptCache,
-  invalidateSystemPromptCache
+  invalidateSystemPromptCache,
 };

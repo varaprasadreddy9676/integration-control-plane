@@ -14,7 +14,7 @@ const COLLECTION = 'ai_configs';
 
 function buildOrgQuery(orgId) {
   return {
-    $or: [{ orgId }, { entityParentRid: orgId }]
+    $or: [{ orgId }, { entityParentRid: orgId }],
   };
 }
 
@@ -29,7 +29,7 @@ function encryptApiKey(plaintext) {
   const iv = crypto.randomBytes(16);
   const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
   const encrypted = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
-  return iv.toString('hex') + ':' + encrypted.toString('hex');
+  return `${iv.toString('hex')}:${encrypted.toString('hex')}`;
 }
 
 function decryptApiKey(ciphertext) {
@@ -64,10 +64,9 @@ async function ensureIndexes() {
     const collection = db.collection(COLLECTION);
 
     // One-time migration: promote legacy entityParentRid to orgId.
-    await collection.updateMany(
-      { orgId: { $exists: false }, entityParentRid: { $exists: true } },
-      [{ $set: { orgId: '$entityParentRid' } }]
-    );
+    await collection.updateMany({ orgId: { $exists: false }, entityParentRid: { $exists: true } }, [
+      { $set: { orgId: '$entityParentRid' } },
+    ]);
 
     // Move to orgId unique index for ai_configs collection.
     await collection.dropIndex('entityParentRid_1').catch(() => {});
@@ -93,7 +92,7 @@ async function getAIConfig(orgId) {
     dailyLimit: doc.dailyLimit ?? 100,
     enabled: doc.enabled !== false,
     hasApiKey: !!doc.apiKeyEncrypted,
-    updatedAt: doc.updatedAt
+    updatedAt: doc.updatedAt,
   };
 }
 
@@ -126,7 +125,7 @@ async function getProviderConfig(orgId) {
     model: doc.model || null,
     maxTokens: doc.maxTokens || 2048,
     dailyLimit: doc.dailyLimit ?? 100,
-    enabled: true
+    enabled: true,
   };
 }
 
@@ -145,18 +144,20 @@ async function saveAIConfig(orgId, { provider, apiKey, model, maxTokens, dailyLi
     maxTokens: typeof maxTokens === 'number' ? maxTokens : 2048,
     dailyLimit: typeof dailyLimit === 'number' ? dailyLimit : 100,
     enabled: enabled !== false,
-    updatedAt: new Date()
+    updatedAt: new Date(),
   };
 
-  if (apiKey && apiKey.trim()) {
+  if (apiKey?.trim()) {
     update.apiKeyEncrypted = encryptApiKey(apiKey.trim());
   }
 
-  await db.collection(COLLECTION).updateOne(
-    buildOrgQuery(orgId),
-    { $set: update, $unset: { entityParentRid: '' }, $setOnInsert: { createdAt: new Date() } },
-    { upsert: true }
-  );
+  await db
+    .collection(COLLECTION)
+    .updateOne(
+      buildOrgQuery(orgId),
+      { $set: update, $unset: { entityParentRid: '' }, $setOnInsert: { createdAt: new Date() } },
+      { upsert: true }
+    );
 
   log('info', 'AI config saved for org', { orgId, provider: update.provider });
   return getAIConfig(orgId);
@@ -167,13 +168,10 @@ async function saveAIConfig(orgId, { provider, apiKey, model, maxTokens, dailyLi
  */
 async function deleteAIKey(orgId) {
   const db = await getDb();
-  await db.collection(COLLECTION).updateOne(
-    buildOrgQuery(orgId),
-    {
-      $unset: { apiKeyEncrypted: '', entityParentRid: '' },
-      $set: { orgId, enabled: false, updatedAt: new Date() }
-    }
-  );
+  await db.collection(COLLECTION).updateOne(buildOrgQuery(orgId), {
+    $unset: { apiKeyEncrypted: '', entityParentRid: '' },
+    $set: { orgId, enabled: false, updatedAt: new Date() },
+  });
   log('info', 'AI API key removed for org', { orgId });
 }
 
@@ -183,14 +181,14 @@ async function deleteAIKey(orgId) {
 async function getAllConfigs() {
   const db = await getDb();
   const docs = await db.collection(COLLECTION).find({}).toArray();
-  return docs.map(doc => ({
+  return docs.map((doc) => ({
     orgId: doc.orgId || doc.entityParentRid,
     provider: doc.provider,
     model: doc.model,
     dailyLimit: doc.dailyLimit,
     enabled: doc.enabled,
     hasApiKey: !!doc.apiKeyEncrypted,
-    updatedAt: doc.updatedAt
+    updatedAt: doc.updatedAt,
   }));
 }
 
@@ -207,9 +205,9 @@ async function enableAIForEntity(orgId) {
       $set: {
         orgId,
         'features.aiAssistant': true,
-        updatedAt: new Date()
+        updatedAt: new Date(),
       },
-      $setOnInsert: { createdAt: new Date() }
+      $setOnInsert: { createdAt: new Date() },
     },
     { upsert: true }
   );
@@ -226,9 +224,9 @@ async function disableAIForEntity(orgId) {
       $set: {
         orgId,
         'features.aiAssistant': false,
-        updatedAt: new Date()
+        updatedAt: new Date(),
       },
-      $setOnInsert: { createdAt: new Date() }
+      $setOnInsert: { createdAt: new Date() },
     },
     { upsert: true }
   );
@@ -240,7 +238,7 @@ async function isAIEnabledForEntity(orgId) {
   if (!mongodb.isConnected()) return false;
   const db = await mongodb.getDbSafe();
   const uiConfig = await db.collection('ui_config').findOne({
-    $or: [{ orgId }, { entityParentRid: orgId }]
+    $or: [{ orgId }, { entityParentRid: orgId }],
   });
   if (!uiConfig || !uiConfig.features) return true;
   return uiConfig.features.aiAssistant !== false;
@@ -249,11 +247,12 @@ async function isAIEnabledForEntity(orgId) {
 async function getAllAIConfigurations() {
   if (!mongodb.isConnected()) return [];
   const db = await mongodb.getDbSafe();
-  const configs = await db.collection('ui_config')
+  const configs = await db
+    .collection('ui_config')
     .find({ 'features.aiAssistant': { $exists: true } })
     .project({ orgId: 1, entityParentRid: 1, 'features.aiAssistant': 1 })
     .toArray();
-  return configs.map(c => ({ orgId: c.orgId || c.entityParentRid, aiEnabled: c.features.aiAssistant }));
+  return configs.map((c) => ({ orgId: c.orgId || c.entityParentRid, aiEnabled: c.features.aiAssistant }));
 }
 
 // ---------------------------------------------------------------------------
@@ -276,7 +275,7 @@ async function getSystemPromptFromDB() {
     content: doc.content,
     updatedAt: doc.updatedAt,
     characterCount: doc.content ? doc.content.length : 0,
-    isCustomized: true
+    isCustomized: true,
   };
 }
 
@@ -290,7 +289,7 @@ async function saveSystemPromptToDB(content) {
     { key: SYSTEM_PROMPT_KEY },
     {
       $set: { content, updatedAt: new Date() },
-      $setOnInsert: { key: SYSTEM_PROMPT_KEY, createdAt: new Date() }
+      $setOnInsert: { key: SYSTEM_PROMPT_KEY, createdAt: new Date() },
     },
     { upsert: true }
   );
@@ -323,5 +322,5 @@ module.exports = {
   enableAIForEntity,
   disableAIForEntity,
   isAIEnabledForEntity,
-  getAllAIConfigurations
+  getAllAIConfigurations,
 };

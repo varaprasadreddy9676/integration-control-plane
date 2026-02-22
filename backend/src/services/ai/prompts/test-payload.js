@@ -3,7 +3,12 @@
  */
 
 const { buildSystemContext } = require('./system-context');
-const { buildPatientObjectDoc, buildVisitObjectDoc, buildApptObjectDoc, buildBillObjectDoc } = require('./data-structures');
+const {
+  buildPatientObjectDoc,
+  buildVisitObjectDoc,
+  buildApptObjectDoc,
+  buildBillObjectDoc,
+} = require('./data-structures');
 const { getEventSchema } = require('./transformation');
 
 /**
@@ -52,7 +57,7 @@ Users will think there is a data breach if you use wrong entity information!
     eventSpecificContext = `\n**EVENT-SPECIFIC CONTEXT for ${eventType}** (from MongoDB event_types):
 ${eventSchema.description || eventSchema.label || 'No description available'}
 Category: ${eventSchema.category || 'N/A'}
-Available fields: ${eventSchema.fields?.map(f => f.path).join(', ') || 'See examples below'}`;
+Available fields: ${eventSchema.fields?.map((f) => f.path).join(', ') || 'See examples below'}`;
   }
 
   return `${systemContext}
@@ -89,5 +94,5 @@ NOW GENERATE THE TEST PAYLOAD:`;
 }
 
 module.exports = {
-  buildTestPayloadPrompt
+  buildTestPayloadPrompt,
 };

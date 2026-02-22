@@ -20,7 +20,7 @@ function generateCorrelationId() {
 }
 
 function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function resolveMultiActionDelayMs(orgId) {
@@ -39,7 +39,7 @@ async function resolveMultiActionDelayMs(orgId) {
   } catch (err) {
     log('warn', 'Failed to read ui_config for multi-action delay; using config.json value', {
       orgId,
-      error: err.message
+      error: err.message,
     });
   }
 
@@ -79,7 +79,7 @@ function startSchedulerWorker() {
 
       log('info', `[SCHEDULER #${pollCount}] Cycle started`, {
         intervalMs,
-        batchSize
+        batchSize,
       });
 
       // CRITICAL: Reset any integrations stuck in PROCESSING state (e.g., from worker crashes)
@@ -105,7 +105,7 @@ function startSchedulerWorker() {
       );
 
       log('info', `[SCHEDULER #${pollCount}] Fetched ${scheduledIntegrations.length} pending scheduled integrations`, {
-        count: scheduledIntegrations.length
+        count: scheduledIntegrations.length,
       });
 
       let sentCount = 0;
@@ -127,7 +127,7 @@ function startSchedulerWorker() {
             status: scheduled.status,
             attemptCount: scheduled.attemptCount || 0,
             isRecurring: !!scheduled.recurringConfig,
-            occurrenceNumber: scheduled.recurringConfig?.occurrenceNumber
+            occurrenceNumber: scheduled.recurringConfig?.occurrenceNumber,
           });
 
           // Fetch integration configuration for auth and circuit breaker
@@ -142,17 +142,19 @@ function startSchedulerWorker() {
             log('warn', `[SCHEDULER #${pollCount}] Integration config not found`, {
               correlationId,
               scheduledId: scheduled.id,
-              __KEEP___KEEP_integrationConfig__Id__: scheduled.__KEEP___KEEP_integrationConfig__Id__
+              __KEEP___KEEP_integrationConfig__Id__: scheduled.__KEEP___KEEP_integrationConfig__Id__,
             });
             // eslint-disable-next-line no-await-in-loop
             await withTimeout(
               data.updateScheduledIntegrationStatus(scheduled.id, 'FAILED', {
-                errorMessage: 'Integration configuration not found'
+                errorMessage: 'Integration configuration not found',
               }),
               dbTimeout,
               'updateScheduledIntegrationStatus'
-            ).catch(err => {
-              log('warn', `Failed to update scheduled integration status: ${err.message}`, { scheduledId: scheduled.id });
+            ).catch((err) => {
+              log('warn', `Failed to update scheduled integration status: ${err.message}`, {
+                scheduledId: scheduled.id,
+              });
             });
             failedCount++;
             continue;
@@ -163,17 +165,19 @@ function startSchedulerWorker() {
             log('info', `[SCHEDULER #${pollCount}] Integration is inactive, skipping`, {
               correlationId,
               scheduledId: scheduled.id,
-              integrationId: integration.id
+              integrationId: integration.id,
             });
             // eslint-disable-next-line no-await-in-loop
             await withTimeout(
               data.updateScheduledIntegrationStatus(scheduled.id, 'CANCELLED', {
-                errorMessage: 'Integration configuration is inactive'
+                errorMessage: 'Integration configuration is inactive',
               }),
               dbTimeout,
               'updateScheduledIntegrationStatus'
-            ).catch(err => {
-              log('warn', `Failed to update scheduled integration status: ${err.message}`, { scheduledId: scheduled.id });
+            ).catch((err) => {
+              log('warn', `Failed to update scheduled integration status: ${err.message}`, {
+                scheduledId: scheduled.id,
+              });
             });
             continue;
           }
@@ -190,17 +194,19 @@ function startSchedulerWorker() {
               correlationId,
               scheduledId: scheduled.id,
               integrationId: integration.id,
-              circuitState: circuitStatus.state
+              circuitState: circuitStatus.state,
             });
             // eslint-disable-next-line no-await-in-loop
             await withTimeout(
               data.updateScheduledIntegrationStatus(scheduled.id, 'FAILED', {
-                errorMessage: `Circuit breaker OPEN: ${circuitStatus.reason}`
+                errorMessage: `Circuit breaker OPEN: ${circuitStatus.reason}`,
               }),
               dbTimeout,
               'updateScheduledIntegrationStatus'
-            ).catch(err => {
-              log('warn', `Failed to update scheduled integration status: ${err.message}`, { scheduledId: scheduled.id });
+            ).catch((err) => {
+              log('warn', `Failed to update scheduled integration status: ${err.message}`, {
+                scheduledId: scheduled.id,
+              });
             });
             failedCount++;
             continue;
@@ -208,18 +214,13 @@ function startSchedulerWorker() {
 
           // Deliver the scheduled integration
           // eslint-disable-next-line no-await-in-loop
-          const deliveryResult = await deliverScheduledIntegration(
-            scheduled,
-            integration,
-            pollCount,
-            correlationId
-          );
+          const deliveryResult = await deliverScheduledIntegration(scheduled, integration, pollCount, correlationId);
 
           if (deliveryResult.status === 'SUCCESS') {
             log('info', `[SCHEDULER #${pollCount}] Scheduled integration delivered successfully`, {
               correlationId,
               scheduledId: scheduled.id,
-              responseStatus: deliveryResult.responseStatus
+              responseStatus: deliveryResult.responseStatus,
             });
 
             // Update status - CRITICAL: Check if update succeeded
@@ -227,16 +228,20 @@ function startSchedulerWorker() {
             const statusUpdateSuccess = await data.updateScheduledIntegrationStatus(scheduled.id, 'SENT', {
               deliveredAt: new Date().toISOString(),
               deliveryLogId: deliveryResult.logId,
-              attemptCount: deliveryResult.attemptCount
+              attemptCount: deliveryResult.attemptCount,
             });
 
             if (!statusUpdateSuccess) {
-              log('error', `[SCHEDULER #${pollCount}] CRITICAL: Failed to update scheduled integration status to SENT!`, {
-                correlationId,
-                scheduledId: scheduled.id,
-                orgId,
-                currentStatus: scheduled.status
-              });
+              log(
+                'error',
+                `[SCHEDULER #${pollCount}] CRITICAL: Failed to update scheduled integration status to SENT!`,
+                {
+                  correlationId,
+                  scheduledId: scheduled.id,
+                  orgId,
+                  currentStatus: scheduled.status,
+                }
+              );
               // Don't continue to create next occurrence if we couldn't mark current one as SENT
               failedCount++;
               continue;
@@ -271,15 +276,15 @@ function startSchedulerWorker() {
                   cancellationInfo: scheduled.cancellationInfo,
                   recurringConfig: {
                     ...scheduled.recurringConfig,
-                    occurrenceNumber: scheduled.recurringConfig.occurrenceNumber + 1
-                  }
+                    occurrenceNumber: scheduled.recurringConfig.occurrenceNumber + 1,
+                  },
                 });
 
                 log('info', `[SCHEDULER #${pollCount}] Next occurrence scheduled`, {
                   correlationId,
                   scheduledId: scheduled.id,
                   nextOccurrence: new Date(nextOccurrence).toISOString(),
-                  occurrenceNumber: scheduled.recurringConfig.occurrenceNumber + 1
+                  occurrenceNumber: scheduled.recurringConfig.occurrenceNumber + 1,
                 });
 
                 recurringCreatedCount++;
@@ -287,7 +292,7 @@ function startSchedulerWorker() {
                 log('info', `[SCHEDULER #${pollCount}] Recurring series completed`, {
                   correlationId,
                   scheduledId: scheduled.id,
-                  totalOccurrences: scheduled.recurringConfig.occurrenceNumber
+                  totalOccurrences: scheduled.recurringConfig.occurrenceNumber,
                 });
               }
             }
@@ -296,7 +301,7 @@ function startSchedulerWorker() {
               correlationId,
               scheduledId: scheduled.id,
               nextAttemptAt: deliveryResult.nextAttemptAt,
-              error: deliveryResult.errorMessage
+              error: deliveryResult.errorMessage,
             });
 
             // Reschedule with backoff
@@ -304,27 +309,27 @@ function startSchedulerWorker() {
             await data.updateScheduledIntegrationStatus(scheduled.id, 'PENDING', {
               errorMessage: deliveryResult.errorMessage,
               scheduledFor: deliveryResult.nextAttemptAt,
-              attemptCount: deliveryResult.attemptCount
+              attemptCount: deliveryResult.attemptCount,
             });
           } else {
             log('error', `[SCHEDULER #${pollCount}] Scheduled integration delivery failed`, {
               correlationId,
               scheduledId: scheduled.id,
-              error: deliveryResult.errorMessage
+              error: deliveryResult.errorMessage,
             });
 
             // Update status - Check if update succeeded
             // eslint-disable-next-line no-await-in-loop
             const failedUpdateSuccess = await data.updateScheduledIntegrationStatus(scheduled.id, 'FAILED', {
               errorMessage: deliveryResult.errorMessage,
-              attemptCount: deliveryResult.attemptCount
+              attemptCount: deliveryResult.attemptCount,
             });
 
             if (!failedUpdateSuccess) {
               log('warn', `[SCHEDULER #${pollCount}] Failed to update scheduled integration status to FAILED`, {
                 correlationId,
                 scheduledId: scheduled.id,
-                orgId
+                orgId,
               });
             }
 
@@ -338,13 +343,13 @@ function startSchedulerWorker() {
           logError(err, {
             scope: 'scheduler-worker:processScheduled',
             scheduledId: scheduled.id,
-            correlationId
+            correlationId,
           });
 
           // Update status
           // eslint-disable-next-line no-await-in-loop
           await data.updateScheduledIntegrationStatus(scheduled.id, 'FAILED', {
-            errorMessage: err.message
+            errorMessage: err.message,
           });
 
           failedCount++;
@@ -356,12 +361,12 @@ function startSchedulerWorker() {
         durationMs: cycleTime,
         sent: sentCount,
         failed: failedCount,
-        recurringCreated: recurringCreatedCount
+        recurringCreated: recurringCreatedCount,
       });
     } catch (err) {
       logError(err, {
         scope: 'scheduler-worker:cycle',
-        pollCount
+        pollCount,
       });
     } finally {
       running = false;
@@ -376,7 +381,7 @@ function startSchedulerWorker() {
  * Deliver a scheduled integration
  */
 function computeRetryDelaySeconds(attemptCount) {
-  let delaySeconds = 10 * Math.pow(2, attemptCount - 1);
+  let delaySeconds = 10 * 2 ** (attemptCount - 1);
   delaySeconds = Math.min(delaySeconds, 240);
   const jitter = Math.random() * 2;
   return Math.floor(delaySeconds + jitter);
@@ -391,7 +396,17 @@ async function safeRead(resp) {
   }
 }
 
-async function deliverScheduledAction(action, actionIndex, payload, scheduled, integration, pollCount, traceId, attemptCount, executionLogger = null) {
+async function deliverScheduledAction(
+  action,
+  actionIndex,
+  payload,
+  scheduled,
+  integration,
+  pollCount,
+  traceId,
+  attemptCount,
+  executionLogger = null
+) {
   const prefix = pollCount > 0 ? `[SCHEDULER #${pollCount}] ` : '';
   const actionName = action.name || `Action ${actionIndex + 1}`;
   const start = Date.now();
@@ -401,12 +416,14 @@ async function deliverScheduledAction(action, actionIndex, payload, scheduled, i
   const urlCheck = validateTargetUrl(targetUrl, config.security);
   if (!urlCheck.valid) {
     if (executionLogger) {
-      await executionLogger.addStep('action_url_validation', {
-        status: 'failed',
-        durationMs: 0,
-        metadata: { actionName, actionIndex, url: targetUrl },
-        error: { message: urlCheck.reason }
-      }).catch(() => {});
+      await executionLogger
+        .addStep('action_url_validation', {
+          status: 'failed',
+          durationMs: 0,
+          metadata: { actionName, actionIndex, url: targetUrl },
+          error: { message: urlCheck.reason },
+        })
+        .catch(() => {});
     }
 
     await data.recordLog(orgId, {
@@ -428,7 +445,7 @@ async function deliverScheduledAction(action, actionIndex, payload, scheduled, i
       httpMethod: action.httpMethod || integration.httpMethod || 'POST',
       correlationId: traceId,
       traceId: traceId,
-      requestHeaders: null
+      requestHeaders: null,
     });
     return { status: 'FAILED', responseStatus: 400, errorMessage: urlCheck.reason, shouldRetry: false };
   }
@@ -440,33 +457,35 @@ async function deliverScheduledAction(action, actionIndex, payload, scheduled, i
       const actionAsIntegration = {
         ...integration,
         transformation: action.transformation,
-        transformationMode: action.transformationMode
+        transformationMode: action.transformationMode,
       };
       transformed = await applyTransform(actionAsIntegration, payload, {
         eventType: scheduled.eventType,
-        orgId
+        orgId,
       });
     } else {
       transformed = await applyTransform(integration, payload, {
         eventType: scheduled.eventType,
-        orgId
+        orgId,
       });
     }
 
     const transformedIsNull = transformed === null;
     if (executionLogger) {
-      await executionLogger.addStep('action_transformation', {
-        status: transformedIsNull ? 'warning' : 'success',
-        durationMs: Date.now() - transformStart,
-        metadata: { actionName, actionIndex, result: transformedIsNull ? 'skipped' : 'transformed' }
-      }).catch(() => {});
+      await executionLogger
+        .addStep('action_transformation', {
+          status: transformedIsNull ? 'warning' : 'success',
+          durationMs: Date.now() - transformStart,
+          metadata: { actionName, actionIndex, result: transformedIsNull ? 'skipped' : 'transformed' },
+        })
+        .catch(() => {});
     }
 
     if (transformedIsNull) {
       const skipMessage = `${prefix}Skipping scheduled delivery for ${actionName}: transformation returned null`;
       log('info', skipMessage, {
         integrationId: integration.id,
-        actionName
+        actionName,
       });
 
       await data.recordLog(orgId, {
@@ -488,7 +507,7 @@ async function deliverScheduledAction(action, actionIndex, payload, scheduled, i
         httpMethod: action.httpMethod || integration.httpMethod || 'POST',
         correlationId: traceId,
         traceId: traceId,
-        requestHeaders: null
+        requestHeaders: null,
       });
 
       await data.recordDeliverySuccess(integration.id);
@@ -502,12 +521,14 @@ async function deliverScheduledAction(action, actionIndex, payload, scheduled, i
     const errorMessage = `${prefix}Transform failed for ${actionName}: ${err.message}`;
 
     if (executionLogger) {
-      await executionLogger.addStep('action_transformation', {
-        status: 'failed',
-        durationMs: Date.now() - transformStart,
-        metadata: { actionName, actionIndex },
-        error: { message: err.message, stack: err.stack }
-      }).catch(() => {});
+      await executionLogger
+        .addStep('action_transformation', {
+          status: 'failed',
+          durationMs: Date.now() - transformStart,
+          metadata: { actionName, actionIndex },
+          error: { message: err.message, stack: err.stack },
+        })
+        .catch(() => {});
     }
 
     await data.recordLog(orgId, {
@@ -529,12 +550,12 @@ async function deliverScheduledAction(action, actionIndex, payload, scheduled, i
       httpMethod: action.httpMethod || integration.httpMethod || 'POST',
       correlationId: traceId,
       traceId: traceId,
-      requestHeaders: null
+      requestHeaders: null,
     });
     return { status: 'FAILED', responseStatus: 500, errorMessage, shouldRetry: false };
   }
 
-  if (integration.rateLimits && integration.rateLimits.enabled) {
+  if (integration.rateLimits?.enabled) {
     const rateStart = Date.now();
     try {
       const rateResult = await checkRateLimit(integration.id, orgId, integration.rateLimits);
@@ -543,19 +564,21 @@ async function deliverScheduledAction(action, actionIndex, payload, scheduled, i
       const windowSeconds = integration.rateLimits.windowSeconds || 60;
 
       if (executionLogger) {
-        await executionLogger.addStep('rate_limit', {
-          status: rateResult.allowed ? 'success' : 'failed',
-          durationMs,
-          metadata: {
-            actionName,
-            actionIndex,
-            remaining: rateResult.remaining,
-            resetAt: rateResult.resetAt,
-            maxRequests,
-            windowSeconds
-          },
-          error: rateResult.allowed ? null : { message: 'Rate limit exceeded' }
-        }).catch(() => {});
+        await executionLogger
+          .addStep('rate_limit', {
+            status: rateResult.allowed ? 'success' : 'failed',
+            durationMs,
+            metadata: {
+              actionName,
+              actionIndex,
+              remaining: rateResult.remaining,
+              resetAt: rateResult.resetAt,
+              maxRequests,
+              windowSeconds,
+            },
+            error: rateResult.allowed ? null : { message: 'Rate limit exceeded' },
+          })
+          .catch(() => {});
       }
 
       if (!rateResult.allowed) {
@@ -582,7 +605,7 @@ async function deliverScheduledAction(action, actionIndex, payload, scheduled, i
           httpMethod: action.httpMethod || integration.httpMethod || 'POST',
           correlationId: traceId,
           traceId: traceId,
-          requestHeaders: null
+          requestHeaders: null,
         });
 
         if (executionLogger) {
@@ -595,7 +618,7 @@ async function deliverScheduledAction(action, actionIndex, payload, scheduled, i
       log('warn', 'Rate limit check failed', {
         integrationId: integration.id,
         actionName,
-        error: error.message
+        error: error.message,
       });
     }
   }
@@ -622,17 +645,12 @@ async function deliverScheduledAction(action, actionIndex, payload, scheduled, i
         messageId = uuidv4();
         timestamp = Math.floor(Date.now() / 1000);
         const payloadString = JSON.stringify(transformed);
-        signatureHeaders = generateSignatureHeaders(
-          integration.signingSecrets,
-          messageId,
-          timestamp,
-          payloadString
-        );
+        signatureHeaders = generateSignatureHeaders(integration.signingSecrets, messageId, timestamp, payloadString);
         Object.assign(headers, signatureHeaders);
       } catch (signError) {
         log('warn', `${prefix}Failed to generate integration signature`, {
           error: signError.message,
-          scheduledId: scheduled.id
+          scheduledId: scheduled.id,
         });
       }
     }
@@ -641,7 +659,7 @@ async function deliverScheduledAction(action, actionIndex, payload, scheduled, i
       method: action.httpMethod || integration.httpMethod || 'POST',
       headers,
       body: JSON.stringify(transformed),
-      signal: controller.signal
+      signal: controller.signal,
     });
 
     clearTimeout(timer);
@@ -664,18 +682,20 @@ async function deliverScheduledAction(action, actionIndex, payload, scheduled, i
     }
 
     if (executionLogger) {
-      await executionLogger.addStep('action_http_request', {
-        status: statusOk ? 'success' : 'failed',
-        durationMs: responseTimeMs,
-        metadata: {
-          actionName,
-          actionIndex,
-          statusCode: resp.status,
-          method: action.httpMethod || integration.httpMethod || 'POST',
-          url: targetUrl
-        },
-        error: statusOk ? null : { message: errorMessage || `HTTP ${resp.status}` }
-      }).catch(() => {});
+      await executionLogger
+        .addStep('action_http_request', {
+          status: statusOk ? 'success' : 'failed',
+          durationMs: responseTimeMs,
+          metadata: {
+            actionName,
+            actionIndex,
+            statusCode: resp.status,
+            method: action.httpMethod || integration.httpMethod || 'POST',
+            url: targetUrl,
+          },
+          error: statusOk ? null : { message: errorMessage || `HTTP ${resp.status}` },
+        })
+        .catch(() => {});
     }
 
     await data.recordLog(orgId, {
@@ -702,27 +722,30 @@ async function deliverScheduledAction(action, actionIndex, payload, scheduled, i
       messageId,
       timestamp,
       signature: signatureHeaders ? signatureHeaders['X-Integration-Signature'] : null,
-      signatureHeaders
+      signatureHeaders,
     });
 
     return {
       status: statusOk ? 'SUCCESS' : 'FAILED',
       responseStatus: resp.status,
       errorMessage,
-      shouldRetry
+      shouldRetry,
     };
   } catch (err) {
-    const errorMessage = err.name === 'AbortError'
-      ? `Request timeout after ${integration.timeoutMs || config.worker?.timeoutMs || 10000}ms`
-      : err.message;
+    const errorMessage =
+      err.name === 'AbortError'
+        ? `Request timeout after ${integration.timeoutMs || config.worker?.timeoutMs || 10000}ms`
+        : err.message;
 
     if (executionLogger) {
-      await executionLogger.addStep('action_http_request', {
-        status: 'failed',
-        durationMs: Date.now() - start,
-        metadata: { actionName, actionIndex },
-        error: { message: errorMessage, stack: err.stack, code: err.code }
-      }).catch(() => {});
+      await executionLogger
+        .addStep('action_http_request', {
+          status: 'failed',
+          durationMs: Date.now() - start,
+          metadata: { actionName, actionIndex },
+          error: { message: errorMessage, stack: err.stack, code: err.code },
+        })
+        .catch(() => {});
     }
 
     await data.recordLog(orgId, {
@@ -744,7 +767,7 @@ async function deliverScheduledAction(action, actionIndex, payload, scheduled, i
       httpMethod: action.httpMethod || integration.httpMethod || 'POST',
       correlationId: traceId,
       traceId: traceId,
-      requestHeaders: headers
+      requestHeaders: headers,
     });
 
     return { status: 'FAILED', responseStatus: 500, errorMessage, shouldRetry: true };
@@ -815,27 +838,29 @@ async function deliverScheduledMultiAction(
         responseStatus: 500,
         errorMessage: lastError || 'Retrying scheduled integration',
         nextAttemptAt: new Date(Date.now() + delaySeconds * 1000).toISOString(),
-        attemptCount
+        attemptCount,
       };
     } else {
       result = {
         status: 'FAILED',
         responseStatus: 500,
         errorMessage: lastError || 'Scheduled integration failed',
-        attemptCount
+        attemptCount,
       };
     }
   }
 
   if (executionLogger) {
     if (result.status === 'SUCCESS') {
-      await executionLogger.success({
-        response: {
-          statusCode: 200,
-          body: { successCount, failureCount, skippedCount }
-        },
-        metadata: { successCount, failureCount, skippedCount }
-      }).catch(() => {});
+      await executionLogger
+        .success({
+          response: {
+            statusCode: 200,
+            body: { successCount, failureCount, skippedCount },
+          },
+          metadata: { successCount, failureCount, skippedCount },
+        })
+        .catch(() => {});
     } else if (result.status === 'SKIPPED') {
       await executionLogger.updateStatus('skipped').catch(() => {});
     } else if (result.status === 'RETRYING') {
@@ -843,13 +868,15 @@ async function deliverScheduledMultiAction(
     } else {
       const error = new Error(result.errorMessage || 'Scheduled integration failed');
       error.code = failureCount > 0 && successCount > 0 ? 'PARTIAL_FAILURE' : 'ACTION_FAILURE';
-      await executionLogger.fail(error, {
-        createDLQ: false,
-        response: {
-          statusCode: result.responseStatus || 500,
-          body: { successCount, failureCount, skippedCount }
-        }
-      }).catch(() => {});
+      await executionLogger
+        .fail(error, {
+          createDLQ: false,
+          response: {
+            statusCode: result.responseStatus || 500,
+            body: { successCount, failureCount, skippedCount },
+          },
+        })
+        .catch(() => {});
     }
   }
 
@@ -881,12 +908,12 @@ async function deliverScheduledIntegration(scheduled, integration, pollCount = 0
       url: scheduled.targetUrl,
       method: scheduled.httpMethod,
       headers: {},
-      body: payload
-    }
+      body: payload,
+    },
   });
 
   // Start execution logging
-  await executionLogger.start().catch(err => {
+  await executionLogger.start().catch((err) => {
     log('warn', 'Failed to start execution logger', { error: err.message, traceId });
   });
 
@@ -906,11 +933,13 @@ async function deliverScheduledIntegration(scheduled, integration, pollCount = 0
     const urlCheck = validateTargetUrl(scheduled.targetUrl, config.security);
     if (!urlCheck.valid) {
       // Log validation failure
-      await executionLogger.addStep('url_validation', {
-        status: 'failed',
-        durationMs: 0,
-        error: { message: urlCheck.reason }
-      }).catch(() => {});
+      await executionLogger
+        .addStep('url_validation', {
+          status: 'failed',
+          durationMs: 0,
+          error: { message: urlCheck.reason },
+        })
+        .catch(() => {});
 
       await data.recordLog(orgId, {
         __KEEP___KEEP_integrationConfig__Id__: integration.id,
@@ -929,45 +958,51 @@ async function deliverScheduledIntegration(scheduled, integration, pollCount = 0
         httpMethod: scheduled.httpMethod,
         correlationId: traceId,
         traceId: traceId,
-        requestHeaders: null
+        requestHeaders: null,
       });
 
       // Mark execution as failed
       const error = new Error(urlCheck.reason);
       error.code = 'INVALID_URL';
-      await executionLogger.fail(error, {
-        payload,
-        statusCode: 400
-      }).catch(() => {});
+      await executionLogger
+        .fail(error, {
+          payload,
+          statusCode: 400,
+        })
+        .catch(() => {});
 
       return { status: 'FAILED', responseStatus: 400, errorMessage: urlCheck.reason, attemptCount };
     }
 
     // Log successful validation
-    await executionLogger.addStep('url_validation', {
-      status: 'success',
-      durationMs: 0
-    }).catch(() => {});
+    await executionLogger
+      .addStep('url_validation', {
+        status: 'success',
+        durationMs: 0,
+      })
+      .catch(() => {});
 
-  if (integration.rateLimits && integration.rateLimits.enabled) {
-    const rateStart = Date.now();
-    try {
-      const rateResult = await checkRateLimit(integration.id, orgId, integration.rateLimits);
-      const durationMs = Date.now() - rateStart;
-      const maxRequests = integration.rateLimits.maxRequests || 100;
-      const windowSeconds = integration.rateLimits.windowSeconds || 60;
+    if (integration.rateLimits?.enabled) {
+      const rateStart = Date.now();
+      try {
+        const rateResult = await checkRateLimit(integration.id, orgId, integration.rateLimits);
+        const durationMs = Date.now() - rateStart;
+        const maxRequests = integration.rateLimits.maxRequests || 100;
+        const windowSeconds = integration.rateLimits.windowSeconds || 60;
 
-      await executionLogger.addStep('rate_limit', {
-        status: rateResult.allowed ? 'success' : 'failed',
-        durationMs,
-        metadata: {
-          remaining: rateResult.remaining,
-          resetAt: rateResult.resetAt,
-          maxRequests,
-          windowSeconds
-        },
-        error: rateResult.allowed ? null : { message: 'Rate limit exceeded' }
-      }).catch(() => {});
+        await executionLogger
+          .addStep('rate_limit', {
+            status: rateResult.allowed ? 'success' : 'failed',
+            durationMs,
+            metadata: {
+              remaining: rateResult.remaining,
+              resetAt: rateResult.resetAt,
+              maxRequests,
+              windowSeconds,
+            },
+            error: rateResult.allowed ? null : { message: 'Rate limit exceeded' },
+          })
+          .catch(() => {});
 
         if (!rateResult.allowed) {
           const retryAfter = rateResult.retryAfter ? `, retry after ${rateResult.retryAfter}s` : '';
@@ -991,7 +1026,7 @@ async function deliverScheduledIntegration(scheduled, integration, pollCount = 0
             httpMethod: scheduled.httpMethod,
             correlationId: traceId,
             traceId: traceId,
-            requestHeaders: null
+            requestHeaders: null,
           });
 
           await executionLogger.updateStatus('retrying').catch(() => {});
@@ -1002,13 +1037,13 @@ async function deliverScheduledIntegration(scheduled, integration, pollCount = 0
             responseStatus: 429,
             errorMessage,
             nextAttemptAt: new Date(Date.now() + delaySeconds * 1000).toISOString(),
-            attemptCount
+            attemptCount,
           };
         }
       } catch (error) {
         log('warn', 'Rate limit check failed', {
           integrationId: integration.id,
-          error: error.message
+          error: error.message,
         });
       }
     }
@@ -1035,24 +1070,19 @@ async function deliverScheduledIntegration(scheduled, integration, pollCount = 0
         timestamp = Math.floor(Date.now() / 1000);
         const payloadString = JSON.stringify(payload);
 
-        signatureHeaders = generateSignatureHeaders(
-          integration.signingSecrets,
-          messageId,
-          timestamp,
-          payloadString
-        );
+        signatureHeaders = generateSignatureHeaders(integration.signingSecrets, messageId, timestamp, payloadString);
 
         Object.assign(headers, signatureHeaders);
 
         log('debug', `${prefix}Integration signature generated`, {
           messageId,
           timestamp,
-          scheduledId: scheduled.id
+          scheduledId: scheduled.id,
         });
       } catch (signError) {
         log('warn', `${prefix}Failed to generate integration signature`, {
           error: signError.message,
-          scheduledId: scheduled.id
+          scheduledId: scheduled.id,
         });
       }
     }
@@ -1063,7 +1093,7 @@ async function deliverScheduledIntegration(scheduled, integration, pollCount = 0
       method: scheduled.httpMethod,
       headers,
       body: JSON.stringify(payload),
-      signal: controller.signal
+      signal: controller.signal,
     });
 
     clearTimeout(timer);
@@ -1092,16 +1122,18 @@ async function deliverScheduledIntegration(scheduled, integration, pollCount = 0
     }
 
     // Log HTTP request step
-    await executionLogger.addStep('http_request', {
-      status: deliveryStatus === 'SUCCESS' ? 'success' : 'failed',
-      durationMs: httpDuration,
-      metadata: {
-        statusCode: resp.status,
-        method: scheduled.httpMethod,
-        url: scheduled.targetUrl
-      },
-      error: deliveryStatus === 'SUCCESS' ? null : { message: errorMessage }
-    }).catch(() => {});
+    await executionLogger
+      .addStep('http_request', {
+        status: deliveryStatus === 'SUCCESS' ? 'success' : 'failed',
+        durationMs: httpDuration,
+        metadata: {
+          statusCode: resp.status,
+          method: scheduled.httpMethod,
+          url: scheduled.targetUrl,
+        },
+        error: deliveryStatus === 'SUCCESS' ? null : { message: errorMessage },
+      })
+      .catch(() => {});
 
     // Record delivery log
     await data.recordLog(orgId, {
@@ -1126,7 +1158,7 @@ async function deliverScheduledIntegration(scheduled, integration, pollCount = 0
       messageId,
       timestamp,
       signature: signatureHeaders ? signatureHeaders['X-Integration-Signature'] : null,
-      signatureHeaders
+      signatureHeaders,
     });
 
     const maxRetries = integration.retryCount || 3;
@@ -1141,27 +1173,31 @@ async function deliverScheduledIntegration(scheduled, integration, pollCount = 0
         responseStatus: resp.status,
         errorMessage,
         nextAttemptAt: new Date(Date.now() + delaySeconds * 1000).toISOString(),
-        attemptCount
+        attemptCount,
       };
     }
 
     // Mark execution as success or failure
     if (deliveryStatus === 'SUCCESS') {
-      await executionLogger.success({
-        response: {
-          statusCode: resp.status,
-          body: responseBody
-        }
-      }).catch(() => {});
+      await executionLogger
+        .success({
+          response: {
+            statusCode: resp.status,
+            body: responseBody,
+          },
+        })
+        .catch(() => {});
     } else {
       const error = new Error(errorMessage || `HTTP ${resp.status}`);
       error.code = resp.status === 429 ? 'RATE_LIMIT' : resp.status >= 500 ? 'SERVER_ERROR' : 'CLIENT_ERROR';
       error.statusCode = resp.status;
-      await executionLogger.fail(error, {
-        payload,
-        statusCode: resp.status,
-        response: { statusCode: resp.status, body: responseBody }
-      }).catch(() => {});
+      await executionLogger
+        .fail(error, {
+          payload,
+          statusCode: resp.status,
+          response: { statusCode: resp.status, body: responseBody },
+        })
+        .catch(() => {});
     }
 
     return {
@@ -1169,21 +1205,21 @@ async function deliverScheduledIntegration(scheduled, integration, pollCount = 0
       responseStatus: resp.status,
       errorMessage,
       attemptCount,
-      logId: null // Would need to capture log ID from recordLog
+      logId: null, // Would need to capture log ID from recordLog
     };
   } catch (err) {
     const timeoutMs = integration.timeoutMs || config.worker?.timeoutMs || 10000;
     const responseTimeMs = Date.now() - start;
-    const errorMessage = err.name === 'AbortError'
-      ? `Request timeout after ${timeoutMs}ms`
-      : err.message;
+    const errorMessage = err.name === 'AbortError' ? `Request timeout after ${timeoutMs}ms` : err.message;
 
     // Log HTTP request failure
-    await executionLogger.addStep('http_request', {
-      status: 'failed',
-      durationMs: responseTimeMs,
-      error: { message: err.message, stack: err.stack, code: err.code }
-    }).catch(() => {});
+    await executionLogger
+      .addStep('http_request', {
+        status: 'failed',
+        durationMs: responseTimeMs,
+        error: { message: err.message, stack: err.stack, code: err.code },
+      })
+      .catch(() => {});
 
     // Record failure
     await data.recordLog(orgId, {
@@ -1203,7 +1239,7 @@ async function deliverScheduledIntegration(scheduled, integration, pollCount = 0
       httpMethod: scheduled.httpMethod,
       correlationId: traceId,
       traceId: traceId,
-      requestHeaders: null
+      requestHeaders: null,
     });
 
     const maxRetries = integration.retryCount || 3;
@@ -1218,7 +1254,7 @@ async function deliverScheduledIntegration(scheduled, integration, pollCount = 0
         responseStatus: 500,
         errorMessage,
         nextAttemptAt: new Date(Date.now() + delaySeconds * 1000).toISOString(),
-        attemptCount
+        attemptCount,
       };
     }
 
@@ -1227,21 +1263,23 @@ async function deliverScheduledIntegration(scheduled, integration, pollCount = 0
     error.code = err.code || (err.name === 'AbortError' ? 'TIMEOUT' : 'NETWORK_ERROR');
     error.stack = err.stack;
     error.statusCode = 500;
-    await executionLogger.fail(error, {
-      payload,
-      statusCode: 500
-    }).catch(() => {});
+    await executionLogger
+      .fail(error, {
+        payload,
+        statusCode: 500,
+      })
+      .catch(() => {});
 
     return {
       status: 'FAILED',
       responseStatus: 500,
       errorMessage,
       attemptCount,
-      logId: null
+      logId: null,
     };
   }
 }
 
 module.exports = {
-  startSchedulerWorker
+  startSchedulerWorker,
 };

@@ -3,7 +3,12 @@
  */
 
 const { buildSystemContext } = require('./system-context');
-const { buildPatientObjectDoc, buildVisitObjectDoc, buildApptObjectDoc, buildBillObjectDoc } = require('./data-structures');
+const {
+  buildPatientObjectDoc,
+  buildVisitObjectDoc,
+  buildApptObjectDoc,
+  buildBillObjectDoc,
+} = require('./data-structures');
 const { buildTransformationExamples } = require('./examples');
 const mongodb = require('../../../mongodb');
 
@@ -40,7 +45,7 @@ async function buildTransformationPrompt(inputExample, outputExample, eventType)
       category: eventSchema.category,
       fieldCount: eventSchema.fields?.length || 0,
       fields: eventSchema.fields || [],
-      hasSamplePayload: !!eventSchema.samplePayload
+      hasSamplePayload: !!eventSchema.samplePayload,
     };
 
     eventSpecificContext = `\n**EVENT-SPECIFIC SCHEMA for ${eventType}** (from MongoDB event_types):
@@ -126,5 +131,5 @@ NOW GENERATE THE TRANSFORMATION CODE:`;
 
 module.exports = {
   buildTransformationPrompt,
-  getEventSchema
+  getEventSchema,
 };

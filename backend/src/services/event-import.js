@@ -68,26 +68,23 @@ function parseSpreadsheet(buffer) {
       try {
         // Flexible column name matching (camelCase, snake_case, PascalCase)
         const eventType = row.eventType || row.event_type || row.EventType;
-        const orgId = parseInt(
-          row.orgId || row.org_id || row.OrgId,
-          10
-        );
+        const orgId = parseInt(row.orgId || row.org_id || row.OrgId, 10);
         const payloadRaw = row.payload || row.Payload;
 
         // Validate required fields
         if (!eventType || !orgId || !payloadRaw) {
           errors.push({
             row: rowNum,
-            error: 'Missing required fields: eventType, orgId, payload'
+            error: 'Missing required fields: eventType, orgId, payload',
           });
           return;
         }
 
         // Validate orgId is a valid number
-        if (isNaN(orgId)) {
+        if (Number.isNaN(orgId)) {
           errors.push({
             row: rowNum,
-            error: 'orgId must be a valid number'
+            error: 'orgId must be a valid number',
           });
           return;
         }
@@ -95,13 +92,11 @@ function parseSpreadsheet(buffer) {
         // Parse payload (JSON string or object)
         let payload;
         try {
-          payload = typeof payloadRaw === 'string'
-            ? JSON.parse(payloadRaw)
-            : payloadRaw;
+          payload = typeof payloadRaw === 'string' ? JSON.parse(payloadRaw) : payloadRaw;
         } catch (e) {
           errors.push({
             row: rowNum,
-            error: `Invalid payload JSON: ${e.message}`
+            error: `Invalid payload JSON: ${e.message}`,
           });
           return;
         }
@@ -112,13 +107,12 @@ function parseSpreadsheet(buffer) {
           orgId,
           payload,
           source: row.source || row.Source || 'BULK_IMPORT',
-          sourceId: row.sourceId || row.source_id || row.SourceId
+          sourceId: row.sourceId || row.source_id || row.SourceId,
         });
-
       } catch (error) {
         errors.push({
           row: rowNum,
-          error: error.message
+          error: error.message,
         });
       }
     });
@@ -143,10 +137,10 @@ function generateImportTemplate(format) {
         patientRid: 100,
         doctorId: 50,
         appointmentDate: '2024-03-20',
-        clinicId: 5
+        clinicId: 5,
       }),
       source: 'BULK_IMPORT',
-      sourceId: 'optional-tracking-id'
+      sourceId: 'optional-tracking-id',
     },
     {
       eventType: 'LAB_RESULT',
@@ -155,20 +149,20 @@ function generateImportTemplate(format) {
         patientRid: 100,
         testId: 200,
         status: 'COMPLETED',
-        resultDate: '2024-03-21'
+        resultDate: '2024-03-21',
       }),
       source: 'BULK_IMPORT',
-      sourceId: 'optional-tracking-id-2'
-    }
+      sourceId: 'optional-tracking-id-2',
+    },
   ];
 
   if (format === 'json') {
     // Generate JSON template with example events
     const jsonTemplate = {
-      events: sampleData.map(item => ({
+      events: sampleData.map((item) => ({
         ...item,
-        payload: JSON.parse(item.payload) // Convert payload back to object for JSON
-      }))
+        payload: JSON.parse(item.payload), // Convert payload back to object for JSON
+      })),
     };
     return Buffer.from(JSON.stringify(jsonTemplate, null, 2));
   }
@@ -180,11 +174,11 @@ function generateImportTemplate(format) {
 
   return XLSX.write(wb, {
     type: 'buffer',
-    bookType: format === 'csv' ? 'csv' : 'xlsx'
+    bookType: format === 'csv' ? 'csv' : 'xlsx',
   });
 }
 
 module.exports = {
   parseImportFile,
-  generateImportTemplate
+  generateImportTemplate,
 };

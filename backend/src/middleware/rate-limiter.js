@@ -36,7 +36,7 @@ async function checkRateLimit(integrationConfigId, orgId, limits) {
     {
       integrationConfigId: integrationObjId,
       orgId,
-      windowStart
+      windowStart,
     },
     {
       $inc: { requestCount: 1 },
@@ -45,8 +45,8 @@ async function checkRateLimit(integrationConfigId, orgId, limits) {
         integrationConfigId: integrationObjId,
         orgId,
         windowStart,
-        createdAt: now
-      }
+        createdAt: now,
+      },
     },
     { upsert: true, returnDocument: 'after' }
   );
@@ -60,21 +60,21 @@ async function checkRateLimit(integrationConfigId, orgId, limits) {
       orgId,
       requestCount,
       maxRequests,
-      windowStart
+      windowStart,
     });
 
     return {
       allowed: false,
       remaining: 0,
       resetAt: windowEnd,
-      retryAfter: Math.ceil((windowEnd - now) / 1000) // seconds
+      retryAfter: Math.ceil((windowEnd - now) / 1000), // seconds
     };
   }
 
   return {
     allowed: true,
     remaining: Math.max(0, maxRequests - requestCount),
-    resetAt: windowEnd
+    resetAt: windowEnd,
   };
 }
 
@@ -83,7 +83,7 @@ async function checkRateLimit(integrationConfigId, orgId, limits) {
  * @param {Object} options - Middleware options
  * @returns {Function} Express middleware
  */
-function rateLimitMiddleware(options = {}) {
+function rateLimitMiddleware(_options = {}) {
   return async (req, res, next) => {
     try {
       const integrationConfigId = req.params.id || req.body.integrationConfigId;
@@ -97,7 +97,7 @@ function rateLimitMiddleware(options = {}) {
       const db = await getDbSafe();
       const integration = await db.collection('integration_configs').findOne({
         _id: toObjectId(integrationConfigId),
-        orgId
+        orgId,
       });
 
       if (!integration || !integration.rateLimits || !integration.rateLimits.enabled) {
@@ -111,7 +111,7 @@ function rateLimitMiddleware(options = {}) {
       res.set({
         'X-RateLimit-Limit': integration.rateLimits.maxRequests,
         'X-RateLimit-Remaining': result.remaining,
-        'X-RateLimit-Reset': result.resetAt ? Math.floor(result.resetAt.getTime() / 1000) : ''
+        'X-RateLimit-Reset': result.resetAt ? Math.floor(result.resetAt.getTime() / 1000) : '',
       });
 
       if (!result.allowed) {
@@ -122,7 +122,7 @@ function rateLimitMiddleware(options = {}) {
           code: 'RATE_LIMIT_EXCEEDED',
           message: `Too many requests for this integration. Please try again in ${result.retryAfter} seconds.`,
           retryAfter: result.retryAfter,
-          resetAt: result.resetAt
+          resetAt: result.resetAt,
         });
       }
 
@@ -131,7 +131,7 @@ function rateLimitMiddleware(options = {}) {
       log('error', 'Rate limit middleware error', {
         error: error.message,
         integrationConfigId: req.params.id,
-        orgId: req.orgId
+        orgId: req.orgId,
       });
 
       // Don't block requests on rate limiter errors
@@ -153,7 +153,7 @@ async function getRateLimitStatus(integrationConfigId, orgId) {
   // Get integration configuration
   const integration = await db.collection('integration_configs').findOne({
     _id: toObjectId(integrationConfigId),
-    orgId
+    orgId,
   });
 
   if (!integration || !integration.rateLimits || !integration.rateLimits.enabled) {
@@ -162,7 +162,7 @@ async function getRateLimitStatus(integrationConfigId, orgId) {
       current: 0,
       limit: null,
       remaining: Infinity,
-      resetAt: null
+      resetAt: null,
     };
   }
 
@@ -174,7 +174,7 @@ async function getRateLimitStatus(integrationConfigId, orgId) {
   const rateLimitEntry = await db.collection('rate_limits').findOne({
     integrationConfigId: toObjectId(integrationConfigId),
     orgId,
-    windowStart
+    windowStart,
   });
 
   const current = rateLimitEntry ? rateLimitEntry.requestCount : 0;
@@ -185,7 +185,7 @@ async function getRateLimitStatus(integrationConfigId, orgId) {
     limit: maxRequests,
     remaining: Math.max(0, maxRequests - current),
     resetAt: windowEnd,
-    windowSeconds: integration.rateLimits.windowSeconds
+    windowSeconds: integration.rateLimits.windowSeconds,
   };
 }
 
@@ -199,13 +199,13 @@ async function resetRateLimit(integrationConfigId, orgId) {
 
   const result = await db.collection('rate_limits').deleteMany({
     integrationConfigId: toObjectId(integrationConfigId),
-    orgId
+    orgId,
   });
 
   log('info', 'Rate limit reset', {
     integrationConfigId,
     orgId,
-    deletedCount: result.deletedCount
+    deletedCount: result.deletedCount,
   });
 
   return { success: true, deletedCount: result.deletedCount };
@@ -224,24 +224,27 @@ async function getRateLimitStats(integrationConfigId, orgId, hours = 24) {
   const cutoff = new Date();
   cutoff.setHours(cutoff.getHours() - hours);
 
-  const stats = await db.collection('rate_limits').aggregate([
-    {
-      $match: {
-        integrationConfigId: toObjectId(integrationConfigId),
-        orgId,
-        windowStart: { $gte: cutoff }
-      }
-    },
-    {
-      $group: {
-        _id: null,
-        totalRequests: { $sum: '$requestCount' },
-        peakRequests: { $max: '$requestCount' },
-        avgRequests: { $avg: '$requestCount' },
-        windowCount: { $sum: 1 }
-      }
-    }
-  ]).toArray();
+  const stats = await db
+    .collection('rate_limits')
+    .aggregate([
+      {
+        $match: {
+          integrationConfigId: toObjectId(integrationConfigId),
+          orgId,
+          windowStart: { $gte: cutoff },
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          totalRequests: { $sum: '$requestCount' },
+          peakRequests: { $max: '$requestCount' },
+          avgRequests: { $avg: '$requestCount' },
+          windowCount: { $sum: 1 },
+        },
+      },
+    ])
+    .toArray();
 
   if (stats.length === 0) {
     return {
@@ -249,13 +252,13 @@ async function getRateLimitStats(integrationConfigId, orgId, hours = 24) {
       peakRequests: 0,
       avgRequests: 0,
       windowCount: 0,
-      hoursAnalyzed: hours
+      hoursAnalyzed: hours,
     };
   }
 
   return {
     ...stats[0],
-    hoursAnalyzed: hours
+    hoursAnalyzed: hours,
   };
 }
 
@@ -264,5 +267,5 @@ module.exports = {
   rateLimitMiddleware,
   getRateLimitStatus,
   resetRateLimit,
-  getRateLimitStats
+  getRateLimitStats,
 };

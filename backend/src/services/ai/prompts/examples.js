@@ -95,5 +95,5 @@ return { action: 'unknown' };
 }
 
 module.exports = {
-  buildTransformationExamples
+  buildTransformationExamples,
 };

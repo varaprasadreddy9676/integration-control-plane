@@ -16,9 +16,9 @@ function formatSlackMessage(notification) {
 
   // Color coding based on severity
   const colors = {
-    INFO: '#36a64f',      // Green
-    WARNING: '#ff9900',   // Orange
-    CRITICAL: '#ff0000'   // Red
+    INFO: '#36a64f', // Green
+    WARNING: '#ff9900', // Orange
+    CRITICAL: '#ff0000', // Red
   };
 
   const blocks = [
@@ -27,16 +27,16 @@ function formatSlackMessage(notification) {
       text: {
         type: 'plain_text',
         text: `${severity === 'CRITICAL' ? '🚨 ' : severity === 'WARNING' ? '⚠️ ' : 'ℹ️ '}${title}`,
-        emoji: true
-      }
+        emoji: true,
+      },
     },
     {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: message
-      }
-    }
+        text: message,
+      },
+    },
   ];
 
   // Add integration details if available
@@ -47,21 +47,21 @@ function formatSlackMessage(notification) {
       fields: [
         {
           type: 'mrkdwn',
-          text: `*Integration:*\n${data.integration.name}`
+          text: `*Integration:*\n${data.integration.name}`,
         },
         {
           type: 'mrkdwn',
-          text: `*Target URL:*\n${data.integration.targetUrl}`
+          text: `*Target URL:*\n${data.integration.targetUrl}`,
         },
         {
           type: 'mrkdwn',
-          text: `*Event Type:*\n${data.integration.eventType || 'N/A'}`
+          text: `*Event Type:*\n${data.integration.eventType || 'N/A'}`,
         },
         {
           type: 'mrkdwn',
-          text: `*Org Unit RID:*\n${orgUnitRid}`
-        }
-      ]
+          text: `*Org Unit RID:*\n${orgUnitRid}`,
+        },
+      ],
     });
   }
 
@@ -72,13 +72,13 @@ function formatSlackMessage(notification) {
       fields: [
         {
           type: 'mrkdwn',
-          text: `*Consecutive Failures:*\n${data.failure.consecutiveFailures}`
+          text: `*Consecutive Failures:*\n${data.failure.consecutiveFailures}`,
         },
         {
           type: 'mrkdwn',
-          text: `*Status:*\n${data.failure.status}`
-        }
-      ]
+          text: `*Status:*\n${data.failure.status}`,
+        },
+      ],
     });
 
     if (data.failure.lastError) {
@@ -86,8 +86,8 @@ function formatSlackMessage(notification) {
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text: `*Last Error:*\n\`\`\`${data.failure.lastError}\`\`\``
-        }
+          text: `*Last Error:*\n\`\`\`${data.failure.lastError}\`\`\``,
+        },
       });
     }
   }
@@ -102,12 +102,12 @@ function formatSlackMessage(notification) {
           text: {
             type: 'plain_text',
             text: 'View in Dashboard',
-            emoji: true
+            emoji: true,
           },
           url: data.dashboardLink,
-          style: severity === 'CRITICAL' ? 'danger' : 'primary'
-        }
-      ]
+          style: severity === 'CRITICAL' ? 'danger' : 'primary',
+        },
+      ],
     });
   }
 
@@ -115,9 +115,9 @@ function formatSlackMessage(notification) {
     attachments: [
       {
         color: colors[severity] || colors.INFO,
-        blocks
-      }
-    ]
+        blocks,
+      },
+    ],
   };
 }
 
@@ -147,16 +147,16 @@ async function send(notification, config) {
     log('debug', 'Sending Slack notification', {
       channel,
       type: notification.type,
-      severity: notification.severity
+      severity: notification.severity,
     });
 
     const response = await fetch(integrationUrl, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify(slackMessage),
-      timeout: 10000
+      timeout: 10000,
     });
 
     if (!response.ok) {
@@ -167,7 +167,7 @@ async function send(notification, config) {
     log('info', 'Slack notification sent successfully', {
       channel,
       type: notification.type,
-      severity: notification.severity
+      severity: notification.severity,
     });
 
     return true;
@@ -176,7 +176,7 @@ async function send(notification, config) {
       channel,
       type: notification.type,
       error: error.message,
-      stack: error.stack
+      stack: error.stack,
     });
     return false;
   }
@@ -194,19 +194,19 @@ async function test(config) {
       severity: 'INFO',
       title: 'Slack Channel Test',
       message: 'This is a test notification from Event Gateway. If you can see this, Slack integration is working! 🎉',
-      data: {}
+      data: {},
     };
 
     const success = await send(testNotification, config);
 
     return {
       success,
-      message: success ? 'Test message sent to Slack successfully' : 'Failed to send test message'
+      message: success ? 'Test message sent to Slack successfully' : 'Failed to send test message',
     };
   } catch (error) {
     return {
       success: false,
-      message: error.message
+      message: error.message,
     };
   }
 }
@@ -216,5 +216,5 @@ module.exports = {
   test,
   channelName: 'slack',
   displayName: 'Slack',
-  description: 'Send alerts to Slack channels via integration'
+  description: 'Send alerts to Slack channels via integration',
 };

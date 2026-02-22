@@ -17,7 +17,12 @@ const commonFields = [
   { path: 'datetime', type: 'string', description: 'Event timestamp', example: '27/01/2026 01:21 PM' },
   { path: 'orgUnitRid', type: 'number', description: 'Org unit resource identifier', example: 353 },
   { path: 'entityCode', type: 'string', description: 'Entity code', example: '7635035' },
-  { path: 'entityName', type: 'string', description: 'Entity name', example: 'GarbhaGudi IVF Centre Pvt Ltd - Kalyan Nagar' },
+  {
+    path: 'entityName',
+    type: 'string',
+    description: 'Entity name',
+    example: 'GarbhaGudi IVF Centre Pvt Ltd - Kalyan Nagar',
+  },
   { path: 'entityPhone', type: 'string', description: 'Entity phone number', example: '9886825556' },
   { path: 'entityParentID', type: 'number', description: 'Parent entity identifier', example: 353 },
   { path: 'enterpriseCode', type: 'string', description: 'Enterprise code', example: '7331985' },
@@ -38,7 +43,12 @@ const commonFields = [
   { path: 'visit.sourceAppointmentId', type: 'number', description: 'source system appointment ID', example: 0 },
 
   // Patient object fields
-  { path: 'patient.mrn.documentNumber', type: 'string', description: 'Patient MRN document number', example: '25-26/GGKN/05338' },
+  {
+    path: 'patient.mrn.documentNumber',
+    type: 'string',
+    description: 'Patient MRN document number',
+    example: '25-26/GGKN/05338',
+  },
   { path: 'patient.mrn.sequenceNumber', type: 'number', description: 'Patient MRN sequence number', example: 59071078 },
   { path: 'patient.fullName', type: 'string', description: 'Patient full name', example: 'Leela' },
   { path: 'patient.phone', type: 'string', description: 'Patient phone number', example: '9886106330' },
@@ -51,12 +61,17 @@ const commonFields = [
   { path: 'patient.confidential', type: 'boolean', description: 'Confidential flag', example: false },
   { path: 'patient.notifyBySms', type: 'boolean', description: 'SMS notification preference', example: false },
   { path: 'patient.notifyByEmail', type: 'boolean', description: 'Email notification preference', example: false },
-  { path: 'patient.notifyByWhatsapp', type: 'boolean', description: 'WhatsApp notification preference', example: false },
+  {
+    path: 'patient.notifyByWhatsapp',
+    type: 'boolean',
+    description: 'WhatsApp notification preference',
+    example: false,
+  },
   { path: 'patient.isMobileNoVerified', type: 'boolean', description: 'Mobile verification status', example: false },
   { path: 'patient.valid', type: 'number', description: 'Patient validity status', example: 0 },
   { path: 'patient.sourceSystemId', type: 'number', description: 'source system ID', example: 0 },
   { path: 'patient.referencePatientId', type: 'number', description: 'Reference patient ID', example: 0 },
-  { path: 'patient.updateCount', type: 'number', description: 'Update count', example: 0 }
+  { path: 'patient.updateCount', type: 'number', description: 'Update count', example: 0 },
 ];
 
 /**
@@ -74,11 +89,31 @@ const ivfEventSchemas = [
     isActive: true,
     fields: [
       ...commonFields,
-      { path: 'treatmentAdvise.treatmentType', type: 'string', description: 'Type of treatment advised', example: 'IVF' },
-      { path: 'treatmentAdvise.treatmentAdviseBy', type: 'string', description: 'Name of person who advised treatment', example: 'UBQ Admin' },
-      { path: 'treatmentAdvise.treatmentAdviseId', type: 'number', description: 'Treatment advise record ID', example: 680061 },
-      { path: 'treatmentAdvise.treatmentAdviseDate', type: 'string', description: 'Date when treatment was advised', example: '07/01/2026 12:00 AM' }
-    ]
+      {
+        path: 'treatmentAdvise.treatmentType',
+        type: 'string',
+        description: 'Type of treatment advised',
+        example: 'IVF',
+      },
+      {
+        path: 'treatmentAdvise.treatmentAdviseBy',
+        type: 'string',
+        description: 'Name of person who advised treatment',
+        example: 'UBQ Admin',
+      },
+      {
+        path: 'treatmentAdvise.treatmentAdviseId',
+        type: 'number',
+        description: 'Treatment advise record ID',
+        example: 680061,
+      },
+      {
+        path: 'treatmentAdvise.treatmentAdviseDate',
+        type: 'string',
+        description: 'Date when treatment was advised',
+        example: '07/01/2026 12:00 AM',
+      },
+    ],
   },
 
   {
@@ -95,10 +130,25 @@ const ivfEventSchemas = [
       { path: 'consentReceived.counsellor', type: 'string', description: 'Counsellor name', example: 'Bhuvaneshwari.' },
       { path: 'consentReceived.coordinator', type: 'string', description: 'Coordinator name', example: 'SUMITHRA K' },
       { path: 'consentReceived.treatmentType', type: 'string', description: 'Type of treatment', example: 'IVF' },
-      { path: 'consentReceived.assistantDoctor', type: 'string', description: 'Assistant doctor name', example: 'Dr AVINASH' },
-      { path: 'consentReceived.consentReceivedOn', type: 'string', description: 'Date consent was received', example: '07/01/2026' },
-      { path: 'consentReceived.treatmentAdviseId', type: 'number', description: 'Related treatment advise ID', example: 680061 }
-    ]
+      {
+        path: 'consentReceived.assistantDoctor',
+        type: 'string',
+        description: 'Assistant doctor name',
+        example: 'Dr AVINASH',
+      },
+      {
+        path: 'consentReceived.consentReceivedOn',
+        type: 'string',
+        description: 'Date consent was received',
+        example: '07/01/2026',
+      },
+      {
+        path: 'consentReceived.treatmentAdviseId',
+        type: 'number',
+        description: 'Related treatment advise ID',
+        example: 680061,
+      },
+    ],
   },
 
   {
@@ -111,11 +161,31 @@ const ivfEventSchemas = [
     isActive: true,
     fields: [
       ...commonFields,
-      { path: 'treatmentCycle.doctor', type: 'string', description: 'Doctor managing the cycle', example: 'Dr AVINASH' },
-      { path: 'treatmentCycle.treatmentType', type: 'string', description: 'Type of treatment (IVF, IUI, etc.)', example: 'IVF' },
-      { path: 'treatmentCycle.treatmentStartDate', type: 'string', description: 'Date treatment cycle started', example: '09/01/2026' },
-      { path: 'treatmentCycle.treatmentspecification', type: 'string', description: 'Detailed treatment specification', example: 'IVF (Conventional IVF), Self Ovum (Fresh), Partner Sperm' }
-    ]
+      {
+        path: 'treatmentCycle.doctor',
+        type: 'string',
+        description: 'Doctor managing the cycle',
+        example: 'Dr AVINASH',
+      },
+      {
+        path: 'treatmentCycle.treatmentType',
+        type: 'string',
+        description: 'Type of treatment (IVF, IUI, etc.)',
+        example: 'IVF',
+      },
+      {
+        path: 'treatmentCycle.treatmentStartDate',
+        type: 'string',
+        description: 'Date treatment cycle started',
+        example: '09/01/2026',
+      },
+      {
+        path: 'treatmentCycle.treatmentspecification',
+        type: 'string',
+        description: 'Detailed treatment specification',
+        example: 'IVF (Conventional IVF), Self Ovum (Fresh), Partner Sperm',
+      },
+    ],
   },
 
   {
@@ -129,9 +199,19 @@ const ivfEventSchemas = [
     fields: [
       ...commonFields,
       { path: 'treatmentChart.chartId', type: 'number', description: 'Treatment chart ID', example: 527844 },
-      { path: 'treatmentChart.protocolName', type: 'string', description: 'Stimulation protocol name', example: 'Antagonist' },
-      { path: 'treatmentChart.stimulationStartedOn', type: 'string', description: 'Date stimulation started', example: '09/01/2026' }
-    ]
+      {
+        path: 'treatmentChart.protocolName',
+        type: 'string',
+        description: 'Stimulation protocol name',
+        example: 'Antagonist',
+      },
+      {
+        path: 'treatmentChart.stimulationStartedOn',
+        type: 'string',
+        description: 'Date stimulation started',
+        example: '09/01/2026',
+      },
+    ],
   },
 
   {
@@ -144,13 +224,43 @@ const ivfEventSchemas = [
     isActive: true,
     fields: [
       ...commonFields,
-      { path: 'treatmentChartMedicationEvent.chartId', type: 'number', description: 'Treatment chart ID', example: 527844 },
-      { path: 'treatmentChartMedicationEvent.protocolName', type: 'string', description: 'Stimulation protocol name', example: 'Antagonist' },
-      { path: 'treatmentChartMedicationEvent.stimulationDay', type: 'number', description: 'Day of stimulation cycle', example: 1 },
-      { path: 'treatmentChartMedicationEvent.stimulationDate', type: 'string', description: 'Date of medication', example: '10/01/2026' },
-      { path: 'treatmentChartMedicationEvent.medicationRecorded', type: 'boolean', description: 'Whether medication was recorded', example: true },
-      { path: 'treatmentChartMedicationEvent.stimulationStartedOn', type: 'string', description: 'Stimulation start date', example: '09/01/2026' }
-    ]
+      {
+        path: 'treatmentChartMedicationEvent.chartId',
+        type: 'number',
+        description: 'Treatment chart ID',
+        example: 527844,
+      },
+      {
+        path: 'treatmentChartMedicationEvent.protocolName',
+        type: 'string',
+        description: 'Stimulation protocol name',
+        example: 'Antagonist',
+      },
+      {
+        path: 'treatmentChartMedicationEvent.stimulationDay',
+        type: 'number',
+        description: 'Day of stimulation cycle',
+        example: 1,
+      },
+      {
+        path: 'treatmentChartMedicationEvent.stimulationDate',
+        type: 'string',
+        description: 'Date of medication',
+        example: '10/01/2026',
+      },
+      {
+        path: 'treatmentChartMedicationEvent.medicationRecorded',
+        type: 'boolean',
+        description: 'Whether medication was recorded',
+        example: true,
+      },
+      {
+        path: 'treatmentChartMedicationEvent.stimulationStartedOn',
+        type: 'string',
+        description: 'Stimulation start date',
+        example: '09/01/2026',
+      },
+    ],
   },
 
   {
@@ -164,12 +274,37 @@ const ivfEventSchemas = [
     fields: [
       ...commonFields,
       { path: 'treatmentChartScanEvent.chartId', type: 'number', description: 'Treatment chart ID', example: 527844 },
-      { path: 'treatmentChartScanEvent.protocolName', type: 'string', description: 'Stimulation protocol name', example: 'Antagonist' },
-      { path: 'treatmentChartScanEvent.scanRecorded', type: 'boolean', description: 'Whether scan was recorded', example: true },
-      { path: 'treatmentChartScanEvent.stimulationDay', type: 'number', description: 'Day of stimulation cycle', example: 5 },
-      { path: 'treatmentChartScanEvent.stimulationDate', type: 'string', description: 'Date of scan', example: '14/01/2026' },
-      { path: 'treatmentChartScanEvent.stimulationStartedOn', type: 'string', description: 'Stimulation start date', example: '09/01/2026' }
-    ]
+      {
+        path: 'treatmentChartScanEvent.protocolName',
+        type: 'string',
+        description: 'Stimulation protocol name',
+        example: 'Antagonist',
+      },
+      {
+        path: 'treatmentChartScanEvent.scanRecorded',
+        type: 'boolean',
+        description: 'Whether scan was recorded',
+        example: true,
+      },
+      {
+        path: 'treatmentChartScanEvent.stimulationDay',
+        type: 'number',
+        description: 'Day of stimulation cycle',
+        example: 5,
+      },
+      {
+        path: 'treatmentChartScanEvent.stimulationDate',
+        type: 'string',
+        description: 'Date of scan',
+        example: '14/01/2026',
+      },
+      {
+        path: 'treatmentChartScanEvent.stimulationStartedOn',
+        type: 'string',
+        description: 'Stimulation start date',
+        example: '09/01/2026',
+      },
+    ],
   },
 
   {
@@ -185,17 +320,67 @@ const ivfEventSchemas = [
       { path: 'DUAL_TRIGGER', type: 'number', description: 'Dual trigger identifier', example: 1000703 },
       { path: 'treatmentCycleTrigger.doctor', type: 'string', description: 'Doctor name', example: 'Dr AVINASH' },
       { path: 'treatmentCycleTrigger.cycleId', type: 'number', description: 'Treatment cycle ID', example: 601525 },
-      { path: 'treatmentCycleTrigger.firstTriggeredDate', type: 'string', description: 'First trigger date', example: '15/01/2026' },
-      { path: 'treatmentCycleTrigger.firstTriggeredDose', type: 'string', description: 'First trigger dose', example: null },
-      { path: 'treatmentCycleTrigger.firstTriggeredDrug', type: 'string', description: 'First trigger drug', example: null },
-      { path: 'treatmentCycleTrigger.firstTriggeredTime', type: 'string', description: 'First trigger time', example: '02:35 PM' },
-      { path: 'treatmentCycleTrigger.secondTriggeredDate', type: 'string', description: 'Second trigger date (dual trigger)', example: '27/01/2026' },
-      { path: 'treatmentCycleTrigger.secondTriggeredDose', type: 'string', description: 'Second trigger dose', example: null },
-      { path: 'treatmentCycleTrigger.secondTriggeredDrug', type: 'string', description: 'Second trigger drug', example: null },
-      { path: 'treatmentCycleTrigger.secondTriggeredTime', type: 'string', description: 'Second trigger time', example: '02:35 PM' },
-      { path: 'treatmentCycleTrigger.firstTriggeredOtherDose', type: 'string', description: 'First trigger other dose', example: null },
-      { path: 'treatmentCycleTrigger.secondTriggeredOtherDose', type: 'string', description: 'Second trigger other dose', example: null }
-    ]
+      {
+        path: 'treatmentCycleTrigger.firstTriggeredDate',
+        type: 'string',
+        description: 'First trigger date',
+        example: '15/01/2026',
+      },
+      {
+        path: 'treatmentCycleTrigger.firstTriggeredDose',
+        type: 'string',
+        description: 'First trigger dose',
+        example: null,
+      },
+      {
+        path: 'treatmentCycleTrigger.firstTriggeredDrug',
+        type: 'string',
+        description: 'First trigger drug',
+        example: null,
+      },
+      {
+        path: 'treatmentCycleTrigger.firstTriggeredTime',
+        type: 'string',
+        description: 'First trigger time',
+        example: '02:35 PM',
+      },
+      {
+        path: 'treatmentCycleTrigger.secondTriggeredDate',
+        type: 'string',
+        description: 'Second trigger date (dual trigger)',
+        example: '27/01/2026',
+      },
+      {
+        path: 'treatmentCycleTrigger.secondTriggeredDose',
+        type: 'string',
+        description: 'Second trigger dose',
+        example: null,
+      },
+      {
+        path: 'treatmentCycleTrigger.secondTriggeredDrug',
+        type: 'string',
+        description: 'Second trigger drug',
+        example: null,
+      },
+      {
+        path: 'treatmentCycleTrigger.secondTriggeredTime',
+        type: 'string',
+        description: 'Second trigger time',
+        example: '02:35 PM',
+      },
+      {
+        path: 'treatmentCycleTrigger.firstTriggeredOtherDose',
+        type: 'string',
+        description: 'First trigger other dose',
+        example: null,
+      },
+      {
+        path: 'treatmentCycleTrigger.secondTriggeredOtherDose',
+        type: 'string',
+        description: 'Second trigger other dose',
+        example: null,
+      },
+    ],
   },
 
   {
@@ -211,9 +396,19 @@ const ivfEventSchemas = [
       { path: 'treatmentChart.cycleId', type: 'number', description: 'Treatment cycle ID', example: 601525 },
       { path: 'treatmentChart.treatmentType', type: 'string', description: 'Type of treatment', example: 'IVF' },
       { path: 'treatmentChart.OPUScheduledAt', type: 'string', description: 'OPU scheduled time', example: '01:35 AM' },
-      { path: 'treatmentChart.OPUScheduledBy', type: 'string', description: 'Doctor who scheduled OPU', example: 'Dr AVINASH' },
-      { path: 'treatmentChart.OPUScheduledOn', type: 'string', description: 'OPU scheduled date', example: '17/01/2026' }
-    ]
+      {
+        path: 'treatmentChart.OPUScheduledBy',
+        type: 'string',
+        description: 'Doctor who scheduled OPU',
+        example: 'Dr AVINASH',
+      },
+      {
+        path: 'treatmentChart.OPUScheduledOn',
+        type: 'string',
+        description: 'OPU scheduled date',
+        example: '17/01/2026',
+      },
+    ],
   },
 
   {
@@ -226,8 +421,8 @@ const ivfEventSchemas = [
     isActive: true,
     fields: [
       ...commonFields,
-      { path: 'OPU.opuDoneDate', type: 'string', description: 'Date when OPU was completed', example: '17/01/2026' }
-    ]
+      { path: 'OPU.opuDoneDate', type: 'string', description: 'Date when OPU was completed', example: '17/01/2026' },
+    ],
   },
 
   {
@@ -242,10 +437,15 @@ const ivfEventSchemas = [
       ...commonFields,
       { path: 'etSchedule.cycleId', type: 'number', description: 'Treatment cycle ID', example: 601525 },
       { path: 'etSchedule.ETScheduledAt', type: 'string', description: 'ET scheduled time', example: '01/01/1970' },
-      { path: 'etSchedule.ETScheduledBy', type: 'string', description: 'Doctor who scheduled ET', example: 'Dr AVINASH' },
+      {
+        path: 'etSchedule.ETScheduledBy',
+        type: 'string',
+        description: 'Doctor who scheduled ET',
+        example: 'Dr AVINASH',
+      },
       { path: 'etSchedule.ETScheduledOn', type: 'string', description: 'ET scheduled date', example: '24/01/2026' },
-      { path: 'etSchedule.treatmentType', type: 'string', description: 'Type of treatment', example: 'IVF' }
-    ]
+      { path: 'etSchedule.treatmentType', type: 'string', description: 'Type of treatment', example: 'IVF' },
+    ],
   },
 
   {
@@ -258,8 +458,8 @@ const ivfEventSchemas = [
     isActive: true,
     fields: [
       ...commonFields,
-      { path: 'ET.etDoneDate', type: 'string', description: 'Date when ET was completed', example: '24/01/2026' }
-    ]
+      { path: 'ET.etDoneDate', type: 'string', description: 'Date when ET was completed', example: '24/01/2026' },
+    ],
   },
 
   {
@@ -272,8 +472,8 @@ const ivfEventSchemas = [
     isActive: true,
     fields: [
       ...commonFields,
-      { path: 'betaHCGRecord', type: 'object', description: 'Beta HCG record details', example: {} }
-    ]
+      { path: 'betaHCGRecord', type: 'object', description: 'Beta HCG record details', example: {} },
+    ],
   },
 
   {
@@ -286,9 +486,19 @@ const ivfEventSchemas = [
     isActive: true,
     fields: [
       ...commonFields,
-      { path: 'treatmentCycleCompleted.treatmentType', type: 'string', description: 'Type of treatment', example: 'IVF' },
-      { path: 'treatmentCycleCompleted.treatmentStatus', type: 'string', description: 'Treatment cycle status', example: 'Treatment cycle completed.' }
-    ]
+      {
+        path: 'treatmentCycleCompleted.treatmentType',
+        type: 'string',
+        description: 'Type of treatment',
+        example: 'IVF',
+      },
+      {
+        path: 'treatmentCycleCompleted.treatmentStatus',
+        type: 'string',
+        description: 'Treatment cycle status',
+        example: 'Treatment cycle completed.',
+      },
+    ],
   },
 
   {
@@ -303,10 +513,25 @@ const ivfEventSchemas = [
       ...commonFields,
       { path: 'clinicalPregnancyRecord.sacCount', type: 'number', description: 'Gestational sac count', example: 2 },
       { path: 'clinicalPregnancyRecord.sacLocation', type: 'string', description: 'Sac location', example: 'Ectopic' },
-      { path: 'clinicalPregnancyRecord.sacImplimention', type: 'string', description: 'Sac implantation status', example: 'Successful' },
-      { path: 'clinicalPregnancyRecord.clinicalPregnanyRecordedBy', type: 'string', description: 'Doctor who recorded pregnancy', example: 'Dr CHAITHRA S K' },
-      { path: 'clinicalPregnancyRecord.clinicalPregnanyRecordedOn', type: 'string', description: 'Date pregnancy was recorded', example: '27/01/2026' }
-    ]
+      {
+        path: 'clinicalPregnancyRecord.sacImplimention',
+        type: 'string',
+        description: 'Sac implantation status',
+        example: 'Successful',
+      },
+      {
+        path: 'clinicalPregnancyRecord.clinicalPregnanyRecordedBy',
+        type: 'string',
+        description: 'Doctor who recorded pregnancy',
+        example: 'Dr CHAITHRA S K',
+      },
+      {
+        path: 'clinicalPregnancyRecord.clinicalPregnanyRecordedOn',
+        type: 'string',
+        description: 'Date pregnancy was recorded',
+        example: '27/01/2026',
+      },
+    ],
   },
 
   {
@@ -322,9 +547,19 @@ const ivfEventSchemas = [
       { path: 'liveBirth.birthTerm', type: 'string', description: 'Birth term (Term/Preterm)', example: 'Term' },
       { path: 'liveBirth.birthCount', type: 'number', description: 'Number of babies born', example: 1 },
       { path: 'liveBirth.birthWeight', type: 'string', description: 'Birth weight', example: null },
-      { path: 'liveBirth.birthDetailsRecordedBy', type: 'string', description: 'Doctor who recorded birth', example: 'Dr CHAITHRA S K' },
-      { path: 'liveBirth.birthDetailsRecordedDate', type: 'string', description: 'Date birth was recorded', example: '27/01/2026' }
-    ]
+      {
+        path: 'liveBirth.birthDetailsRecordedBy',
+        type: 'string',
+        description: 'Doctor who recorded birth',
+        example: 'Dr CHAITHRA S K',
+      },
+      {
+        path: 'liveBirth.birthDetailsRecordedDate',
+        type: 'string',
+        description: 'Date birth was recorded',
+        example: '27/01/2026',
+      },
+    ],
   },
 
   {
@@ -340,9 +575,14 @@ const ivfEventSchemas = [
       { path: 'iuiScheduled.cycleId', type: 'number', description: 'Treatment cycle ID', example: 601526 },
       { path: 'iuiScheduled.treatmentType', type: 'string', description: 'Type of treatment', example: 'IUI' },
       { path: 'iuiScheduled.IUIScheduledAt', type: 'string', description: 'IUI scheduled time', example: '11:55 PM' },
-      { path: 'iuiScheduled.IUIScheduledBy', type: 'string', description: 'Doctor who scheduled IUI', example: 'Dr ASHA S VIJAY' },
-      { path: 'iuiScheduled.IUIScheduledOn', type: 'string', description: 'IUI scheduled date', example: '23/01/2026' }
-    ]
+      {
+        path: 'iuiScheduled.IUIScheduledBy',
+        type: 'string',
+        description: 'Doctor who scheduled IUI',
+        example: 'Dr ASHA S VIJAY',
+      },
+      { path: 'iuiScheduled.IUIScheduledOn', type: 'string', description: 'IUI scheduled date', example: '23/01/2026' },
+    ],
   },
 
   {
@@ -357,8 +597,13 @@ const ivfEventSchemas = [
       ...commonFields,
       { path: 'iuiRecord.iuiDoneBy', type: 'string', description: 'Doctor who performed IUI', example: 'Dr AVINASH' },
       { path: 'iuiRecord.iuiDoneDate', type: 'string', description: 'Date IUI was performed', example: '23/01/2026' },
-      { path: 'iuiRecord.iuiDoneAndrologist', type: 'string', description: 'Andrologist involved', example: 'Dr SRINIVAS BV' }
-    ]
+      {
+        path: 'iuiRecord.iuiDoneAndrologist',
+        type: 'string',
+        description: 'Andrologist involved',
+        example: 'Dr SRINIVAS BV',
+      },
+    ],
   },
 
   {
@@ -372,8 +617,13 @@ const ivfEventSchemas = [
     fields: [
       ...commonFields,
       { path: 'pregnancyMiscarriage.treatmentType', type: 'string', description: 'Type of treatment', example: 'IUI' },
-      { path: 'pregnancyMiscarriage.cycleMiscarriageType', type: 'string', description: 'Type of miscarriage', example: 'Biochemical Miscarriage' }
-    ]
+      {
+        path: 'pregnancyMiscarriage.cycleMiscarriageType',
+        type: 'string',
+        description: 'Type of miscarriage',
+        example: 'Biochemical Miscarriage',
+      },
+    ],
   },
 
   {
@@ -386,11 +636,26 @@ const ivfEventSchemas = [
     isActive: true,
     fields: [
       ...commonFields,
-      { path: 'treatmentCycleStopped.treatmentType', type: 'string', description: 'Type of treatment', example: 'Ovum Freezing' },
-      { path: 'treatmentCycleStopped.treatmentStoppedOn', type: 'string', description: 'Date treatment was stopped', example: '27/01/2026' },
-      { path: 'treatmentCycleStopped.treatmentStoppedReason', type: 'string', description: 'Reason for stopping treatment', example: 'Abnormal Blood Reports' }
-    ]
-  }
+      {
+        path: 'treatmentCycleStopped.treatmentType',
+        type: 'string',
+        description: 'Type of treatment',
+        example: 'Ovum Freezing',
+      },
+      {
+        path: 'treatmentCycleStopped.treatmentStoppedOn',
+        type: 'string',
+        description: 'Date treatment was stopped',
+        example: '27/01/2026',
+      },
+      {
+        path: 'treatmentCycleStopped.treatmentStoppedReason',
+        type: 'string',
+        description: 'Reason for stopping treatment',
+        example: 'Abnormal Blood Reports',
+      },
+    ],
+  },
 ];
 
 /**
@@ -416,11 +681,11 @@ async function seedIvfEventSchemas() {
             $set: {
               ...schema,
               orgId: null,
-              updatedAt: new Date()
+              updatedAt: new Date(),
             },
             $setOnInsert: {
-              createdAt: new Date()
-            }
+              createdAt: new Date(),
+            },
           },
           { upsert: true }
         );
@@ -429,14 +694,14 @@ async function seedIvfEventSchemas() {
           created++;
           log('info', `✓ Created schema for ${schema.eventType}`, {
             category: schema.category,
-            fieldCount: schema.fields.length
+            fieldCount: schema.fields.length,
           });
           console.log(`✓ Created: ${schema.eventType} (${schema.fields.length} fields)`);
         } else {
           updated++;
           log('info', `✓ Updated schema for ${schema.eventType}`, {
             category: schema.category,
-            fieldCount: schema.fields.length
+            fieldCount: schema.fields.length,
           });
           console.log(`✓ Updated: ${schema.eventType} (${schema.fields.length} fields)`);
         }
@@ -447,7 +712,7 @@ async function seedIvfEventSchemas() {
       }
     }
 
-    console.log('\n' + '='.repeat(70));
+    console.log(`\n${'='.repeat(70)}`);
     console.log('IVF Event Schema Seeding Summary');
     console.log('='.repeat(70));
     console.log(`Total schemas processed: ${ivfEventSchemas.length}`);
@@ -462,7 +727,7 @@ async function seedIvfEventSchemas() {
       total: ivfEventSchemas.length,
       created,
       updated,
-      errors
+      errors,
     });
 
     await mongodb.close();

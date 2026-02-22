@@ -45,7 +45,7 @@ class SecureVM {
         const script = new vm.Script(wrappedCode, {
           filename: 'transformation-script.js',
           timeout: this.timeout,
-          displayErrors: true
+          displayErrors: true,
         });
 
         // Execute with timeout
@@ -65,14 +65,12 @@ class SecureVM {
           const result = script.runInNewContext(context, {
             timeout: this.timeout,
             displayErrors: true,
-            breakOnSigint: true
+            breakOnSigint: true,
           });
 
           // Handle async results (use duck typing since Promise from sandbox context)
           if (this.allowAsync && result && typeof result.then === 'function') {
-            result
-              .then((value) => finish(resolve, value))
-              .catch((error) => finish(reject, error));
+            result.then((value) => finish(resolve, value)).catch((error) => finish(reject, error));
           } else {
             finish(resolve, result);
           }
@@ -120,7 +118,7 @@ class SecureVM {
       console: {
         log: (...args) => log('debug', 'Script console.log', { message: args.join(' ') }),
         warn: (...args) => log('warn', 'Script console.warn', { message: args.join(' ') }),
-        error: (...args) => log('error', 'Script console.error', { message: args.join(' ') })
+        error: (...args) => log('error', 'Script console.error', { message: args.join(' ') }),
       },
 
       // Promise support for async operations
@@ -133,7 +131,7 @@ class SecureVM {
       clearInterval,
 
       // Add custom sandbox objects
-      ...customSandbox
+      ...customSandbox,
     };
 
     // Freeze all built-in prototypes to prevent pollution
@@ -149,8 +147,8 @@ class SecureVM {
       name: 'SecureSandbox',
       codeGeneration: {
         strings: false, // Disable eval()
-        wasm: false    // Disable WebAssembly
-      }
+        wasm: false, // Disable WebAssembly
+      },
     });
 
     return context;
@@ -168,5 +166,5 @@ function createSecureVM(options = {}) {
 
 module.exports = {
   VM: SecureVM,
-  createSecureVM
+  createSecureVM,
 };

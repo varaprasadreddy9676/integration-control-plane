@@ -14,14 +14,16 @@ async function migrateSearchableText() {
   try {
     await mongodb.connect();
     const db = await mongodb.getDbSafe();
-  const collection = db.collection('execution_logs');
+    const collection = db.collection('execution_logs');
 
     log('info', 'Starting searchableText migration...');
 
     // Get all logs without searchableText field
-    const logsToUpdate = await collection.find({
-      searchableText: { $exists: false }
-    }).toArray();
+    const logsToUpdate = await collection
+      .find({
+        searchableText: { $exists: false },
+      })
+      .toArray();
 
     log('info', `Found ${logsToUpdate.length} logs to update`);
 
@@ -45,15 +47,17 @@ async function migrateSearchableText() {
           profileData.Phone,
           profileData.MRN,
           evtData['Patient Name'],
-          evtData['MRN']
-        ].filter(Boolean).join(' ');
+          evtData.MRN,
+        ]
+          .filter(Boolean)
+          .join(' ');
 
         if (searchableText) {
           bulkOps.push({
             updateOne: {
               filter: { _id: logDoc._id },
-              update: { $set: { searchableText } }
-            }
+              update: { $set: { searchableText } },
+            },
           });
         } else {
           skipped++;
@@ -63,7 +67,10 @@ async function migrateSearchableText() {
       if (bulkOps.length > 0) {
         const result = await collection.bulkWrite(bulkOps);
         updated += result.modifiedCount;
-        log('info', `Progress: ${Math.min(i + 100, logsToUpdate.length)}/${logsToUpdate.length} processed, ${updated} updated`);
+        log(
+          'info',
+          `Progress: ${Math.min(i + 100, logsToUpdate.length)}/${logsToUpdate.length} processed, ${updated} updated`
+        );
       }
     }
 
@@ -71,7 +78,7 @@ async function migrateSearchableText() {
       totalProcessed: logsToUpdate.length,
       updated,
       skipped,
-      reason: skipped > 0 ? 'No patient data found in requestPayload' : null
+      reason: skipped > 0 ? 'No patient data found in requestPayload' : null,
     });
 
     await mongodb.close();

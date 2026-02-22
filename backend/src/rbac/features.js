@@ -28,7 +28,7 @@ const FEATURES = {
   AUDIT_LOGS: 'audit_logs',
   API_KEYS: 'api_keys',
   ALERTS: 'alerts',
-  DAILY_REPORTS: 'daily_reports'
+  DAILY_REPORTS: 'daily_reports',
 };
 
 // ==========================================
@@ -36,12 +36,12 @@ const FEATURES = {
 // ==========================================
 
 const OPERATIONS = {
-  READ: 'read',         // View/List
-  WRITE: 'write',       // Create/Edit
-  DELETE: 'delete',     // Delete/Remove
-  EXECUTE: 'execute',   // Run/Test/Execute
+  READ: 'read', // View/List
+  WRITE: 'write', // Create/Edit
+  DELETE: 'delete', // Delete/Remove
+  EXECUTE: 'execute', // Run/Test/Execute
   CONFIGURE: 'configure', // Configure settings (for AI, Settings, etc.)
-  EXPORT: 'export'      // Export data
+  EXPORT: 'export', // Export data
 };
 
 // ==========================================
@@ -75,8 +75,8 @@ const ROLE_FEATURES = {
       [FEATURES.AUDIT_LOGS]: ['read', 'export'],
       [FEATURES.API_KEYS]: ['read', 'write', 'delete'],
       [FEATURES.ALERTS]: ['read', 'write', 'configure'],
-      [FEATURES.DAILY_REPORTS]: ['read', 'write', 'configure']
-    }
+      [FEATURES.DAILY_REPORTS]: ['read', 'write', 'configure'],
+    },
   },
 
   // ============================================================
@@ -105,8 +105,8 @@ const ROLE_FEATURES = {
       [FEATURES.AUDIT_LOGS]: ['read', 'export'],
       [FEATURES.API_KEYS]: ['read', 'write', 'delete'],
       [FEATURES.ALERTS]: ['read', 'write', 'configure'],
-      [FEATURES.DAILY_REPORTS]: ['read', 'write', 'configure']
-    }
+      [FEATURES.DAILY_REPORTS]: ['read', 'write', 'configure'],
+    },
   },
 
   // ============================================================
@@ -134,8 +134,8 @@ const ROLE_FEATURES = {
       [FEATURES.SYSTEM_HEALTH]: ['read'],
       [FEATURES.API_KEYS]: ['read', 'write', 'delete'],
       [FEATURES.ALERTS]: ['read', 'write', 'configure'],
-      [FEATURES.DAILY_REPORTS]: ['read', 'write', 'configure']
-    }
+      [FEATURES.DAILY_REPORTS]: ['read', 'write', 'configure'],
+    },
   },
 
   // ============================================================
@@ -158,8 +158,8 @@ const ROLE_FEATURES = {
       [FEATURES.AI]: ['read', 'write', 'execute'],
       [FEATURES.ANALYTICS]: ['read'],
       [FEATURES.SYSTEM_HEALTH]: ['read'],
-      [FEATURES.ALERTS]: ['read']
-    }
+      [FEATURES.ALERTS]: ['read'],
+    },
   },
 
   // ============================================================
@@ -180,8 +180,8 @@ const ROLE_FEATURES = {
       [FEATURES.LOOKUP_TABLES]: ['read'],
       [FEATURES.TEMPLATES]: ['read'],
       [FEATURES.ANALYTICS]: ['read'],
-      [FEATURES.SYSTEM_HEALTH]: ['read']
-    }
+      [FEATURES.SYSTEM_HEALTH]: ['read'],
+    },
   },
 
   // ============================================================
@@ -196,8 +196,8 @@ const ROLE_FEATURES = {
       [FEATURES.INTEGRATIONS]: ['read'],
       [FEATURES.LOGS]: ['read'],
       [FEATURES.ANALYTICS]: ['read'],
-      [FEATURES.SYSTEM_HEALTH]: ['read']
-    }
+      [FEATURES.SYSTEM_HEALTH]: ['read'],
+    },
   },
 
   // ============================================================
@@ -209,9 +209,9 @@ const ROLE_FEATURES = {
     scope: 'api',
     features: {
       [FEATURES.INTEGRATIONS]: ['read', 'execute'],
-      [FEATURES.SYSTEM_HEALTH]: ['read']
-    }
-  }
+      [FEATURES.SYSTEM_HEALTH]: ['read'],
+    },
+  },
 };
 
 // ==========================================
@@ -267,7 +267,7 @@ async function getEffectiveRoleFeatures(roleName) {
     // Check if there's a custom role configuration in database
     const customRole = await db.collection('roles').findOne({ role: roleName });
 
-    if (customRole && customRole.features) {
+    if (customRole?.features) {
       // Use custom features from database
       features = customRole.features;
     }
@@ -285,7 +285,7 @@ async function getEffectiveRoleFeatures(roleName) {
   // Cache the result
   roleCache.set(roleName, {
     features,
-    timestamp: Date.now()
+    timestamp: Date.now(),
   });
 
   return { ...features };
@@ -337,7 +337,7 @@ function getRoleInfo(roleName) {
   return {
     name: roleConfig.name,
     description: roleConfig.description,
-    scope: roleConfig.scope
+    scope: roleConfig.scope,
   };
 }
 
@@ -349,7 +349,7 @@ function getAllRoles() {
     acc[key] = {
       name: ROLE_FEATURES[key].name,
       description: ROLE_FEATURES[key].description,
-      scope: ROLE_FEATURES[key].scope
+      scope: ROLE_FEATURES[key].scope,
     };
     return acc;
   }, {});
@@ -381,5 +381,5 @@ module.exports = {
   getAllRoles,
   getAllFeatures,
   getAllOperations,
-  clearRoleCache
+  clearRoleCache,
 };

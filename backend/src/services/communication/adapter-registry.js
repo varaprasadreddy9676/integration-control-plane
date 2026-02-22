@@ -59,7 +59,7 @@ class AdapterRegistry {
     log('info', '[AdapterRegistry] Sending message', {
       channel,
       provider,
-      to: payload.to
+      to: payload.to,
     });
 
     try {
@@ -68,7 +68,7 @@ class AdapterRegistry {
       log('info', '[AdapterRegistry] Message sent successfully', {
         channel,
         provider,
-        messageId: result.messageId
+        messageId: result.messageId,
       });
 
       return result;
@@ -76,7 +76,7 @@ class AdapterRegistry {
       log('error', '[AdapterRegistry] Send failed', {
         channel,
         provider,
-        error: error.message
+        error: error.message,
       });
       throw error;
     }
@@ -87,7 +87,7 @@ class AdapterRegistry {
    * @returns {Array<{channel: string, provider: string}>}
    */
   listAdapters() {
-    return Array.from(this.adapters.keys()).map(key => {
+    return Array.from(this.adapters.keys()).map((key) => {
       const [channel, provider] = key.split(':');
       return { channel, provider };
     });

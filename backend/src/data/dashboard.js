@@ -4,11 +4,7 @@ const { log, logError } = require('../logger');
 const mongodb = require('../mongodb');
 const db = require('../db');
 const config = require('../config');
-const {
-  useMongo,
-  fallbackDisabledError,
-  mapLogFromMongo
-} = require('./helpers');
+const { useMongo, fallbackDisabledError, mapLogFromMongo } = require('./helpers');
 const { listIntegrations } = require('./integrations');
 
 const useMysql = () => db.isConfigured();
@@ -20,33 +16,36 @@ async function getDashboardSummary(orgId) {
       const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
       // Use aggregation pipeline for efficient stats
-      const stats = await dbClient.collection('execution_logs').aggregate([
-        {
-          $match: {
-            orgId,
-            createdAt: { $gte: last24h }
-          }
-        },
-        {
-          $group: {
-            _id: null,
-            total: { $sum: 1 },
-            successful: {
-              $sum: { $cond: [{ $eq: ['$status', 'SUCCESS'] }, 1, 0] }
+      const stats = await dbClient
+        .collection('execution_logs')
+        .aggregate([
+          {
+            $match: {
+              orgId,
+              createdAt: { $gte: last24h },
             },
-            failed: {
-              $sum: { $cond: [{ $in: ['$status', ['FAILED', 'ABANDONED', 'SKIPPED']] }, 1, 0] }
+          },
+          {
+            $group: {
+              _id: null,
+              total: { $sum: 1 },
+              successful: {
+                $sum: { $cond: [{ $eq: ['$status', 'SUCCESS'] }, 1, 0] },
+              },
+              failed: {
+                $sum: { $cond: [{ $in: ['$status', ['FAILED', 'ABANDONED', 'SKIPPED']] }, 1, 0] },
+              },
+              avgResponseTime: { $avg: '$responseTimeMs' },
             },
-            avgResponseTime: { $avg: '$responseTimeMs' }
-          }
-        }
-      ]).toArray();
+          },
+        ])
+        .toArray();
 
       const result = stats[0] || {
         total: 0,
         successful: 0,
         failed: 0,
-        avgResponseTime: 0
+        avgResponseTime: 0,
       };
 
       // Get integration health
@@ -55,14 +54,15 @@ async function getDashboardSummary(orgId) {
         id: wh.id,
         name: wh.name,
         status: wh.isActive ? 'GREEN' : 'RED',
-        failureCount24h: 0 // Will be calculated from logs if needed
+        failureCount24h: 0, // Will be calculated from logs if needed
       }));
 
       // Get recent failures
-      const recentFailures = await dbClient.collection('execution_logs')
+      const recentFailures = await dbClient
+        .collection('execution_logs')
         .find({
           orgId,
-          status: { $nin: ['SUCCESS', 'PENDING'] }
+          status: { $nin: ['SUCCESS', 'PENDING'] },
         })
         .sort({ createdAt: -1 })
         .limit(5)
@@ -70,13 +70,11 @@ async function getDashboardSummary(orgId) {
 
       return {
         totalDeliveries24h: result.total,
-        successRate24h: result.total > 0
-          ? Number(((result.successful / result.total) * 100).toFixed(1))
-          : 100,
+        successRate24h: result.total > 0 ? Number(((result.successful / result.total) * 100).toFixed(1)) : 100,
         failedCount24h: result.failed,
         avgResponseTimeMs24h: Math.round(result.avgResponseTime || 0),
         integrationHealth,
-        recentFailures: recentFailures.map(mapLogFromMongo)
+        recentFailures: recentFailures.map(mapLogFromMongo),
       };
     } catch (err) {
       logError(err, { scope: 'dashboardSummary' });
@@ -96,7 +94,7 @@ function mapOrgUnitDoc(doc) {
     address: doc.address || null,
     tags: Array.isArray(doc.tags) ? doc.tags : [],
     region: doc.region || 'default',
-    timezone: doc.timezone || 'UTC'
+    timezone: doc.timezone || 'UTC',
   };
 }
 
@@ -111,7 +109,7 @@ function mapOrganizationToTenant(orgDoc, units = []) {
     tenantTags: Array.isArray(orgDoc.tags) ? orgDoc.tags : [],
     region: orgDoc.region || 'default',
     timezone: orgDoc.timezone || 'UTC',
-    childEntities: units.map(mapOrgUnitDoc).filter(Boolean)
+    childEntities: units.map(mapOrgUnitDoc).filter(Boolean),
   };
 }
 
@@ -143,7 +141,7 @@ async function getTenant(orgId) {
           tenantTags: Array.isArray(unit.tags) ? unit.tags : [],
           region: unit.region || 'default',
           timezone: unit.timezone || 'UTC',
-          childEntities: []
+          childEntities: [],
         };
       }
     } catch (err) {
@@ -162,9 +160,7 @@ async function getPendingEvents(limit = 5) {
     try {
       const checkpoint = await getWorkerCheckpoint();
       const maxEventAgeDays = Number(config.worker?.maxEventAgeDays ?? 0);
-      const cutoff = maxEventAgeDays > 0
-        ? new Date(Date.now() - maxEventAgeDays * 24 * 60 * 60 * 1000)
-        : null;
+      const cutoff = maxEventAgeDays > 0 ? new Date(Date.now() - maxEventAgeDays * 24 * 60 * 60 * 1000) : null;
       const { getAllowedParentRids } = require('./integrations');
       const allowedParents = await getAllowedParentRids();
 
@@ -197,14 +193,14 @@ async function getPendingEvents(limit = 5) {
 
       log('debug', 'Querying notification_queue for pending events', {
         query,
-        params
+        params,
       });
 
       const [rows] = await db.query(query, params);
 
       log('debug', 'Pending events query result', {
         rowsFound: rows.length,
-        limit
+        limit,
       });
 
       return rows.map((row) => {
@@ -212,7 +208,7 @@ async function getPendingEvents(limit = 5) {
         return {
           id: row.id,
           orgUnitRid: row.entity_rid,
-          orgId: row.entity_parent_rid,      // Renamed from entity_parent_rid
+          orgId: row.entity_parent_rid, // Renamed from entity_parent_rid
           event_type: eventType,
           // Stable idempotency key for all event sources (MySQL, Kafka, SQS)
           eventId: `${row.entity_parent_rid}-${eventType}-${row.id}`,
@@ -225,13 +221,13 @@ async function getPendingEvents(limit = 5) {
               } catch (err) {
                 log('warn', 'Failed to parse event payload JSON', {
                   error: err.message,
-                  rowId: row.id
+                  rowId: row.id,
                 });
                 return {};
               }
             }
             return rawPayload ?? {};
-          })()
+          })(),
         };
       });
     } catch (err) {
@@ -267,13 +263,12 @@ async function getWorkerCheckpoint() {
   if (useMongo()) {
     try {
       const dbClient = await mongodb.getDbSafe();
-      const checkpoint = await dbClient.collection('worker_checkpoint')
-        .findOne({ workerId: 'main_worker' });
+      const checkpoint = await dbClient.collection('worker_checkpoint').findOne({ workerId: 'main_worker' });
       if (!checkpoint && config.worker?.bootstrapCheckpoint) {
         const maxId = await getMaxNotificationQueueId();
         await setWorkerCheckpoint(maxId);
         log('info', 'Bootstrapped worker checkpoint to latest notification_queue id', {
-          maxId
+          maxId,
         });
         return maxId;
       }
@@ -295,8 +290,8 @@ async function setWorkerCheckpoint(lastProcessedId) {
         {
           $set: {
             lastProcessedId,
-            updatedAt: new Date()
-          }
+            updatedAt: new Date(),
+          },
         },
         { upsert: true }
       );
@@ -319,5 +314,5 @@ module.exports = {
   cryptoRandom,
   getMaxNotificationQueueId,
   getWorkerCheckpoint,
-  setWorkerCheckpoint
+  setWorkerCheckpoint,
 };

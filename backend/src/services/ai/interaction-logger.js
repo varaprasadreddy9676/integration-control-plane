@@ -41,7 +41,7 @@ async function logInteraction(data) {
         timestamp: new Date(),
         data: data.request.data || {},
         prompt: data.request.prompt || null, // Full prompt sent to AI
-        systemPrompt: data.request.systemPrompt || null
+        systemPrompt: data.request.systemPrompt || null,
       },
 
       // Response details
@@ -50,7 +50,7 @@ async function logInteraction(data) {
         data: data.response.data || {},
         raw: data.response.raw || null, // Raw AI response
         parsed: data.response.parsed || null, // Parsed/processed response
-        tokenUsage: data.response.tokenUsage || null
+        tokenUsage: data.response.tokenUsage || null,
       },
 
       // Metadata
@@ -59,7 +59,7 @@ async function logInteraction(data) {
         modelName: data.metadata?.modelName || null,
         temperature: data.metadata?.temperature || null,
         maxTokens: data.metadata?.maxTokens || null,
-        ...data.metadata
+        ...data.metadata,
       },
 
       // Status
@@ -67,7 +67,7 @@ async function logInteraction(data) {
       error: data.error || null,
 
       // Timestamps
-      createdAt: new Date()
+      createdAt: new Date(),
     };
 
     await collection.insertOne(interaction);
@@ -75,12 +75,12 @@ async function logInteraction(data) {
     log('debug', 'AI interaction logged', {
       operation: data.operation,
       orgId,
-      success: interaction.success
+      success: interaction.success,
     });
   } catch (error) {
     log('error', 'Failed to log AI interaction', {
       error: error.message,
-      operation: data.operation
+      operation: data.operation,
     });
     // Don't throw - logging failures shouldn't break AI operations
   }
@@ -107,7 +107,7 @@ async function getInteractions(orgId, options = {}) {
   if (!normalizedOrgId) return [];
 
   const query = {
-    $or: [{ orgId: normalizedOrgId }, { entityParentRid: normalizedOrgId }]
+    $or: [{ orgId: normalizedOrgId }, { entityParentRid: normalizedOrgId }],
   };
 
   if (options.operation) {
@@ -145,7 +145,7 @@ async function getStats(orgId, days = 7) {
     return {
       totalRequests: 0,
       totalSuccess: 0,
-      byOperation: {}
+      byOperation: {},
     };
   }
 
@@ -156,20 +156,20 @@ async function getStats(orgId, days = 7) {
     {
       $match: {
         $or: [{ orgId: normalizedOrgId }, { entityParentRid: normalizedOrgId }],
-        createdAt: { $gte: since }
-      }
+        createdAt: { $gte: since },
+      },
     },
     {
       $group: {
         _id: '$operation',
         count: { $sum: 1 },
         successCount: {
-          $sum: { $cond: ['$success', 1, 0] }
+          $sum: { $cond: ['$success', 1, 0] },
         },
         avgLatencyMs: { $avg: '$metadata.latencyMs' },
-        totalTokens: { $sum: '$response.tokenUsage.totalTokens' }
-      }
-    }
+        totalTokens: { $sum: '$response.tokenUsage.totalTokens' },
+      },
+    },
   ];
 
   const results = await collection.aggregate(pipeline).toArray();
@@ -182,10 +182,10 @@ async function getStats(orgId, days = 7) {
         count: r.count,
         successRate: r.count > 0 ? (r.successCount / r.count) * 100 : 0,
         avgLatencyMs: Math.round(r.avgLatencyMs || 0),
-        totalTokens: r.totalTokens || 0
+        totalTokens: r.totalTokens || 0,
       };
       return acc;
-    }, {})
+    }, {}),
   };
 }
 
@@ -211,5 +211,5 @@ module.exports = {
   logInteraction,
   getInteractions,
   getStats,
-  createIndexes
+  createIndexes,
 };

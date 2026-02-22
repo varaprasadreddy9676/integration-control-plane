@@ -1,10 +1,7 @@
 'use strict';
 const { log, logError } = require('../logger');
 const mongodb = require('../mongodb');
-const {
-  useMongo,
-  fallbackDisabledError
-} = require('./helpers');
+const { useMongo, fallbackDisabledError } = require('./helpers');
 
 async function getUserByEmail(email) {
   if (!useMongo()) {
@@ -48,7 +45,7 @@ async function createUser(user) {
     orgId: user.orgId || null,
     isActive: user.isActive !== false,
     createdAt: now,
-    updatedAt: now
+    updatedAt: now,
   };
 
   const dbClient = await mongodb.getDbSafe();
@@ -72,10 +69,7 @@ async function updateUser(userId, updates) {
   }
 
   const dbClient = await mongodb.getDbSafe();
-  const result = await dbClient.collection('users').updateOne(
-    { _id: objectId },
-    { $set: updatePayload }
-  );
+  const result = await dbClient.collection('users').updateOne({ _id: objectId }, { $set: updatePayload });
 
   if (!result.matchedCount) {
     return null;
@@ -121,7 +115,7 @@ async function listUsers(filter = {}) {
 
   const [users, total] = await Promise.all([
     collection.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).toArray(),
-    collection.countDocuments(query)
+    collection.countDocuments(query),
   ]);
 
   return { users, total, page, limit };
@@ -161,5 +155,5 @@ module.exports = {
   updateUser,
   setUserLastLogin,
   listUsers,
-  countUsers
+  countUsers,
 };

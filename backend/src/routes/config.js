@@ -17,7 +17,7 @@ router.get('/ui', async (req, res) => {
       return res.status(503).json({
         error: 'Service unavailable',
         message: 'Database connection required',
-        code: 'DB_NOT_CONNECTED'
+        code: 'DB_NOT_CONNECTED',
       });
     }
 
@@ -26,13 +26,12 @@ router.get('/ui', async (req, res) => {
 
     log('debug', 'UI config fetched from MongoDB', { orgId });
     res.json(uiConfig);
-
   } catch (err) {
     logError(err, { scope: 'UI Config fetch' });
     res.status(500).json({
       error: 'Failed to retrieve UI configuration',
       message: err.message,
-      code: 'CONFIG_FETCH_ERROR'
+      code: 'CONFIG_FETCH_ERROR',
     });
   }
 });
@@ -45,7 +44,7 @@ router.get('/ui/entity', async (req, res) => {
       return res.status(503).json({
         error: 'Service unavailable',
         message: 'Database connection required',
-        code: 'DB_NOT_CONNECTED'
+        code: 'DB_NOT_CONNECTED',
       });
     }
 
@@ -61,7 +60,7 @@ router.get('/ui/entity', async (req, res) => {
     res.status(500).json({
       error: 'Failed to retrieve UI configuration override',
       message: err.message,
-      code: 'CONFIG_FETCH_ERROR'
+      code: 'CONFIG_FETCH_ERROR',
     });
   }
 });
@@ -74,7 +73,7 @@ router.patch('/ui/entity', async (req, res) => {
       return res.status(503).json({
         error: 'Service unavailable',
         message: 'Database connection required',
-        code: 'DB_NOT_CONNECTED'
+        code: 'DB_NOT_CONNECTED',
       });
     }
 
@@ -111,7 +110,7 @@ router.patch('/ui/entity', async (req, res) => {
     if (!override.notifications && !override.worker && !override.dashboard) {
       return res.status(400).json({
         error: 'No supported override fields provided',
-        code: 'VALIDATION_ERROR'
+        code: 'VALIDATION_ERROR',
       });
     }
 
@@ -127,7 +126,7 @@ router.patch('/ui/entity', async (req, res) => {
     res.status(500).json({
       error: 'Failed to update UI configuration override',
       message: err.message,
-      code: 'CONFIG_UPDATE_ERROR'
+      code: 'CONFIG_UPDATE_ERROR',
     });
   }
 });
@@ -140,7 +139,7 @@ router.delete('/ui/entity', async (req, res) => {
       return res.status(503).json({
         error: 'Service unavailable',
         message: 'Database connection required',
-        code: 'DB_NOT_CONNECTED'
+        code: 'DB_NOT_CONNECTED',
       });
     }
 
@@ -160,14 +159,14 @@ router.delete('/ui/entity', async (req, res) => {
     res.status(500).json({
       error: 'Failed to clear UI configuration override',
       message: err.message,
-      code: 'CONFIG_UPDATE_ERROR'
+      code: 'CONFIG_UPDATE_ERROR',
     });
   }
 });
 
 // Worker checkpoint/offset endpoints
 // Returns different data based on event source type (MySQL vs Kafka)
-router.get('/checkpoint', async (req, res) => {
+router.get('/checkpoint', async (_req, res) => {
   try {
     const config = require('../config');
     const sourceType = config.eventSource?.type;
@@ -175,7 +174,7 @@ router.get('/checkpoint', async (req, res) => {
     if (!sourceType) {
       return res.json({
         eventSource: 'none',
-        message: 'No global event source configured. Configure per organization via /event-sources.'
+        message: 'No global event source configured. Configure per organization via /event-sources.',
       });
     }
 
@@ -190,10 +189,9 @@ router.get('/checkpoint', async (req, res) => {
         eventSource: 'mysql',
         checkpoint: {
           lastProcessedId: checkpoint,
-          updatedAt: new Date()
-        }
+          updatedAt: new Date(),
+        },
       });
-
     } else if (sourceType === 'kafka') {
       // Kafka: Return consumer group offsets
       try {
@@ -201,7 +199,7 @@ router.get('/checkpoint', async (req, res) => {
 
         const kafka = new Kafka({
           clientId: config.kafka?.clientId || 'integration-gateway',
-          brokers: config.kafka?.brokers || ['localhost:9092']
+          brokers: config.kafka?.brokers || ['localhost:9092'],
         });
 
         const admin = kafka.admin();
@@ -220,16 +218,16 @@ router.get('/checkpoint', async (req, res) => {
 
         // Calculate lag for each partition
         const partitions = offsets.map((offset) => {
-          const metadata = partitionMetadata.find(p => p.partitionId === offset.partition);
+          const metadata = partitionMetadata.find((p) => p.partitionId === offset.partition);
           const highWatermark = metadata?.high || 0;
-          const currentOffset = parseInt(offset.offset) || 0;
+          const currentOffset = parseInt(offset.offset, 10) || 0;
           const lag = Math.max(0, highWatermark - currentOffset);
 
           return {
             partition: offset.partition,
             offset: currentOffset,
             highWatermark,
-            lag
+            lag,
           };
         });
 
@@ -240,9 +238,8 @@ router.get('/checkpoint', async (req, res) => {
           consumerGroup: groupId,
           topic,
           partitions,
-          totalLag: partitions.reduce((sum, p) => sum + p.lag, 0)
+          totalLag: partitions.reduce((sum, p) => sum + p.lag, 0),
         });
-
       } catch (kafkaError) {
         log('error', 'Failed to fetch Kafka consumer group info', { error: kafkaError.message });
 
@@ -252,18 +249,16 @@ router.get('/checkpoint', async (req, res) => {
           consumerGroup: config.kafka?.groupId || 'integration-processor',
           topic: config.kafka?.topic || 'integration-events',
           error: 'Unable to fetch consumer group offsets',
-          message: kafkaError.message
+          message: kafkaError.message,
         });
       }
-
     } else {
       res.status(400).json({
         error: 'Unknown event source type',
         eventSource: sourceType,
-        code: 'INVALID_EVENT_SOURCE'
+        code: 'INVALID_EVENT_SOURCE',
       });
     }
-
   } catch (err) {
     logError(err, { scope: 'checkpoint get' });
     res.status(500).json({ error: 'Failed to retrieve checkpoint', message: err.message, code: 'CHECKPOINT_ERROR' });
@@ -279,7 +274,7 @@ router.patch('/checkpoint', async (req, res) => {
       return res.status(400).json({
         error: 'No global event source configured',
         message: 'Use per-organization event source configuration via /event-sources.',
-        code: 'EVENT_SOURCE_NOT_CONFIGURED'
+        code: 'EVENT_SOURCE_NOT_CONFIGURED',
       });
     }
 
@@ -297,24 +292,21 @@ router.patch('/checkpoint', async (req, res) => {
       await data.setWorkerCheckpoint(Number(lastProcessedId));
       log('info', 'Worker checkpoint updated via API', { lastProcessedId: Number(lastProcessedId) });
       res.json({ message: 'Checkpoint updated', lastProcessedId: Number(lastProcessedId) });
-
     } else if (sourceType === 'kafka') {
       // Kafka: Offsets are managed by Kafka, cannot be manually updated via API
       res.status(400).json({
         error: 'Kafka offsets cannot be manually updated',
         message: 'Consumer group offsets are managed by Kafka. Use Kafka admin tools to reset offsets if needed.',
         code: 'KAFKA_OFFSET_READONLY',
-        suggestion: 'Use kafka-consumer-groups --reset-offsets command'
+        suggestion: 'Use kafka-consumer-groups --reset-offsets command',
       });
-
     } else {
       res.status(400).json({
         error: 'Unknown event source type',
         eventSource: sourceType,
-        code: 'INVALID_EVENT_SOURCE'
+        code: 'INVALID_EVENT_SOURCE',
       });
     }
-
   } catch (err) {
     logError(err, { scope: 'checkpoint update' });
     res.status(500).json({ error: 'Failed to update checkpoint', message: err.message, code: 'CHECKPOINT_ERROR' });

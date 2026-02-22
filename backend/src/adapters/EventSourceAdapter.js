@@ -32,7 +32,7 @@ class EventSourceAdapter {
    *
    * @returns {Promise<void>}
    */
-  async start(handler) {
+  async start(_handler) {
     throw new Error('EventSourceAdapter.start() must be implemented by subclass');
   }
 

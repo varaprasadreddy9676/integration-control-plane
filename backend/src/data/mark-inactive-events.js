@@ -15,7 +15,7 @@ const ACTIVE_EVENT_TYPES = [
   'APPOINTMENT_CANCELLATION',
   'APPOINTMENT_RESCHEDULED',
   'BILL_CREATED',
-  'OP_REFERRAL_DOCTOR_EVENT'
+  'OP_REFERRAL_DOCTOR_EVENT',
 ];
 
 async function markInactiveEvents() {
@@ -34,7 +34,7 @@ async function markInactiveEvents() {
 
     log('info', 'Marked production events as active', {
       matched: activeResult.matchedCount,
-      modified: activeResult.modifiedCount
+      modified: activeResult.modifiedCount,
     });
 
     // Then, mark all other events as inactive
@@ -45,7 +45,7 @@ async function markInactiveEvents() {
 
     log('info', 'Marked non-production events as inactive', {
       matched: inactiveResult.matchedCount,
-      modified: inactiveResult.modifiedCount
+      modified: inactiveResult.modifiedCount,
     });
 
     // Get counts
@@ -56,12 +56,12 @@ async function markInactiveEvents() {
     log('info', 'Event status summary', {
       active: activeCount,
       inactive: inactiveCount,
-      total: totalCount
+      total: totalCount,
     });
 
     // List active events
     const activeEvents = await collection.find({ isActive: true }, { eventType: 1, label: 1, _id: 0 }).toArray();
-    log('info', 'Active events:', { events: activeEvents.map(e => e.eventType) });
+    log('info', 'Active events:', { events: activeEvents.map((e) => e.eventType) });
 
     await mongodb.close();
 
@@ -69,7 +69,7 @@ async function markInactiveEvents() {
       active: activeCount,
       inactive: inactiveCount,
       total: totalCount,
-      activeEvents: activeEvents.map(e => e.eventType)
+      activeEvents: activeEvents.map((e) => e.eventType),
     };
   } catch (error) {
     log('error', 'Failed to mark inactive events', { error: error.message });
@@ -86,7 +86,7 @@ if (require.main === module) {
       console.log(`Inactive events: ${result.inactive}`);
       console.log(`Total events: ${result.total}`);
       console.log('\nActive event types:');
-      result.activeEvents.forEach(e => console.log(`  - ${e}`));
+      result.activeEvents.forEach((e) => console.log(`  - ${e}`));
       process.exit(0);
     })
     .catch((error) => {

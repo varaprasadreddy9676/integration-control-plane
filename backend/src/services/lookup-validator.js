@@ -17,13 +17,12 @@ function validateLookupConfig(lookupConfig) {
   const validBehaviors = ['PASSTHROUGH', 'FAIL', 'DEFAULT'];
   if (unmappedBehavior && !validBehaviors.includes(unmappedBehavior)) {
     throw new Error(
-      `Invalid unmappedBehavior: "${unmappedBehavior}". ` +
-      `Must be one of: ${validBehaviors.join(', ')}`
+      `Invalid unmappedBehavior: "${unmappedBehavior}". ` + `Must be one of: ${validBehaviors.join(', ')}`
     );
   }
 
   // Validation 3: DEFAULT requires defaultValue
-  if (unmappedBehavior === 'DEFAULT' && !lookupConfig.hasOwnProperty('defaultValue')) {
+  if (unmappedBehavior === 'DEFAULT' && !Object.hasOwn(lookupConfig, 'defaultValue')) {
     throw new Error('unmappedBehavior=DEFAULT requires defaultValue to be set');
   }
 
@@ -34,7 +33,7 @@ function validateLookupConfig(lookupConfig) {
   if (sourceIsArray !== targetIsArray) {
     throw new Error(
       `Invalid lookup config: sourceField="${sourceField}" and targetField="${targetField}" ` +
-      `must both use [] notation or both omit it. Cannot map array to scalar or vice versa.`
+        `must both use [] notation or both omit it. Cannot map array to scalar or vice versa.`
     );
   }
 
@@ -46,16 +45,16 @@ function validateLookupConfig(lookupConfig) {
     if (!arrayPattern.test(sourceField)) {
       throw new Error(
         `Invalid sourceField format: "${sourceField}". ` +
-        `Array notation must follow pattern: "arrayPath[].fieldName" ` +
-        `(e.g., "items[].code", "data.orders[].serviceId", "lab-items[].test-code")`
+          `Array notation must follow pattern: "arrayPath[].fieldName" ` +
+          `(e.g., "items[].code", "data.orders[].serviceId", "lab-items[].test-code")`
       );
     }
 
     if (!arrayPattern.test(targetField)) {
       throw new Error(
         `Invalid targetField format: "${targetField}". ` +
-        `Array notation must follow pattern: "arrayPath[].fieldName" ` +
-        `(e.g., "items[].code", "data.orders[].serviceId", "lab-items[].test-code")`
+          `Array notation must follow pattern: "arrayPath[].fieldName" ` +
+          `(e.g., "items[].code", "data.orders[].serviceId", "lab-items[].test-code")`
       );
     }
 
@@ -78,7 +77,7 @@ function validateLookupConfig(lookupConfig) {
     if (sourceArrayPath !== targetArrayPath) {
       throw new Error(
         `Array path mismatch: sourceField uses "${sourceArrayPath}[]" but ` +
-        `targetField uses "${targetArrayPath}[]". Array paths must be identical.`
+          `targetField uses "${targetArrayPath}[]". Array paths must be identical.`
       );
     }
   }
@@ -173,7 +172,7 @@ function validateBulkImport(lookups) {
       duplicates.push({
         row: i + 1,
         sourceId: lookup.source.id,
-        type: lookup.type
+        type: lookup.type,
       });
     }
     sourceIds.add(key);
@@ -181,7 +180,7 @@ function validateBulkImport(lookups) {
 
   if (duplicates.length > 0) {
     throw new Error(
-      `Import contains duplicate source IDs: ${duplicates.map(d => `row ${d.row} (${d.type}: ${d.sourceId})`).join(', ')}`
+      `Import contains duplicate source IDs: ${duplicates.map((d) => `row ${d.row} (${d.type}: ${d.sourceId})`).join(', ')}`
     );
   }
 
@@ -192,5 +191,5 @@ module.exports = {
   validateLookupConfig,
   validateLookupConfigs,
   validateLookupEntry,
-  validateBulkImport
+  validateBulkImport,
 };

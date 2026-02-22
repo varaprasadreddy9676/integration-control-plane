@@ -15,8 +15,8 @@ let state = {
   apiKeys: [],
   eventTypes: [],
   workerState: {
-    lastProcessedId: 0
-  }
+    lastProcessedId: 0,
+  },
 };
 
 async function initStore() {
@@ -31,7 +31,7 @@ async function initStore() {
       deliveryLogs: seed.deliveryLogs,
       apiKeys: seed.apiKeys,
       eventTypes: seed.eventTypes,
-      workerState: { lastProcessedId: 0 }
+      workerState: { lastProcessedId: 0 },
     };
     await persistState();
   }
@@ -97,7 +97,7 @@ async function addIntegration(orgId, payload) {
     sourceEntityName: payload.sourceEntityName,
     metadata: payload.metadata || {},
     createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
+    updatedAt: new Date().toISOString(),
   };
   state.integrations.push(integration);
   await persistState();
@@ -114,7 +114,7 @@ async function updateIntegration(orgId, id, patch) {
     id: existing.id,
     orgUnitRid: patch.orgUnitRid || patch.entityRid || existing.orgUnitRid || existing.entityRid,
     entityName: patch.entityName || existing.entityName,
-    updatedAt: new Date().toISOString()
+    updatedAt: new Date().toISOString(),
   };
   state.integrations[idx] = updated;
   await persistState();
@@ -141,16 +141,14 @@ function listLogs(orgId, filters = {}) {
     const integration = getIntegration(log.__KEEP___KEEP_integrationConfig__Id__);
     if (!integration || !allowed.has(getIntegrationOrgUnitRid(integration))) return false;
     if (filters.status && log.status !== filters.status) return false;
-    if (filters.__KEEP___KEEP_integrationConfig__Id__ && log.__KEEP___KEEP_integrationConfig__Id__ !== filters.__KEEP___KEEP_integrationConfig__Id__) return false;
+    if (
+      filters.__KEEP___KEEP_integrationConfig__Id__ &&
+      log.__KEEP___KEEP_integrationConfig__Id__ !== filters.__KEEP___KEEP_integrationConfig__Id__
+    )
+      return false;
     if (filters.search) {
       const needle = filters.search.toLowerCase();
-      const haystacks = [
-        log.__KEEP_integrationName__,
-        log.eventType,
-        log.errorMessage,
-        log.responseBody,
-        log.targetUrl
-      ]
+      const haystacks = [log.__KEEP_integrationName__, log.eventType, log.errorMessage, log.responseBody, log.targetUrl]
         .filter(Boolean)
         .map((v) => String(v).toLowerCase());
 
@@ -166,12 +164,12 @@ function getLogById(orgId, id) {
   return listLogs(orgId).find((log) => log.id === id);
 }
 
-async function recordLog(orgId, log) {
+async function recordLog(_orgId, log) {
   const logId = log.id || `log_${randomUUID()}`;
   state.deliveryLogs.unshift({
     ...log,
     id: logId,
-    createdAt: log.createdAt || new Date().toISOString()
+    createdAt: log.createdAt || new Date().toISOString(),
   });
   await persistState();
   return logId;
@@ -192,7 +190,7 @@ function listApiKeys(orgId) {
       const { key: rawKey, ...rest } = key;
       return {
         ...rest,
-        maskedKey: maskKey(rawKey)
+        maskedKey: maskKey(rawKey),
       };
     });
 }
@@ -217,7 +215,7 @@ async function addApiKey(orgId, description) {
     description,
     key: keyValue,
     isActive: true,
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
   };
   state.apiKeys.unshift(newKey);
   await persistState();
@@ -239,7 +237,7 @@ function getPendingEvents(limit = 5) {
     id: evt.id,
     entity_rid: evt.orgId,
     event_type: evt.event_type,
-    payload: evt.payload
+    payload: evt.payload,
   }));
 }
 
@@ -252,12 +250,16 @@ function getDashboardSummary(orgId) {
     ? Math.round(logs.reduce((sum, log) => sum + (log.responseTimeMs || 0), 0) / logs.length)
     : 0;
 
-  const integrationHealth = listIntegrations(orgId).slice(0, 5).map((wh, idx) => ({
-    id: wh.id,
-    name: wh.name,
-    status: ['GREEN', 'YELLOW', 'RED'][idx % 3],
-    failureCount24h: logs.filter((log) => log.__KEEP___KEEP_integrationConfig__Id__ === wh.id && log.status !== 'SUCCESS').length
-  }));
+  const integrationHealth = listIntegrations(orgId)
+    .slice(0, 5)
+    .map((wh, idx) => ({
+      id: wh.id,
+      name: wh.name,
+      status: ['GREEN', 'YELLOW', 'RED'][idx % 3],
+      failureCount24h: logs.filter(
+        (log) => log.__KEEP___KEEP_integrationConfig__Id__ === wh.id && log.status !== 'SUCCESS'
+      ).length,
+    }));
 
   return {
     totalDeliveries24h: total,
@@ -265,7 +267,7 @@ function getDashboardSummary(orgId) {
     failedCount24h: failedCount,
     avgResponseTimeMs24h: avgResponseTime,
     integrationHealth,
-    recentFailures: logs.filter((log) => log.status !== 'SUCCESS').slice(0, 5)
+    recentFailures: logs.filter((log) => log.status !== 'SUCCESS').slice(0, 5),
   };
 }
 
@@ -280,7 +282,7 @@ async function setWorkerCheckpoint(lastProcessedId) {
 }
 
 async function markEventComplete(eventId, status, message) {
-  const logIndex = state.deliveryLogs.findIndex(log => log.id === eventId);
+  const logIndex = state.deliveryLogs.findIndex((log) => log.id === eventId);
   if (logIndex !== -1) {
     state.deliveryLogs[logIndex].status = status;
     state.deliveryLogs[logIndex].message = message;
@@ -291,26 +293,23 @@ async function markEventComplete(eventId, status, message) {
 
 function getFailedLogsForRetry(batchSize = 5) {
   return state.deliveryLogs
-    .filter(log =>
-      ['FAILED', 'RETRYING'].includes(log.status) &&
-      log.attemptCount < (log.retryCount || 3)
-    )
+    .filter((log) => ['FAILED', 'RETRYING'].includes(log.status) && log.attemptCount < (log.retryCount || 3))
     .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
     .slice(0, batchSize)
-    .map(log => ({
+    .map((log) => ({
       ...log,
       id: log.id,
       __KEEP___KEEP_integrationConfig__Id__: log.__KEEP___KEEP_integrationConfig__Id__,
-      eventType: log.eventType
+      eventType: log.eventType,
     }));
 }
 
 function getIntegrationById(integrationId) {
-  return state.integrations.find(integration => integration.id === integrationId);
+  return state.integrations.find((integration) => integration.id === integrationId);
 }
 
 async function markLogAsAbandoned(logId, reason = 'Abandoned after retry limit') {
-  const logIndex = state.deliveryLogs.findIndex(log => log.id === logId);
+  const logIndex = state.deliveryLogs.findIndex((log) => log.id === logId);
   if (logIndex !== -1) {
     state.deliveryLogs[logIndex].status = 'ABANDONED';
     state.deliveryLogs[logIndex].errorMessage = reason;
@@ -323,7 +322,6 @@ module.exports = {
   initStore,
   persistState,
   getTenant,
-  findTenantByChildRid,
   getPermittedEntityRids: getPermittedOrgUnitRids,
   listIntegrations,
   getIntegration,
@@ -347,5 +345,5 @@ module.exports = {
   markEventComplete,
   getFailedLogsForRetry,
   getIntegrationById,
-  markLogAsAbandoned
+  markLogAsAbandoned,
 };

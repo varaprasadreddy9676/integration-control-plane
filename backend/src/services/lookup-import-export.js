@@ -31,7 +31,7 @@ function parseImportFile(buffer, type, orgId, orgUnitRid = null, importedFrom = 
         if (!sourceId || !targetId) {
           errors.push({
             row: rowNum,
-            error: 'Missing required fields: source_id and target_id'
+            error: 'Missing required fields: source_id and target_id',
           });
           continue;
         }
@@ -45,10 +45,12 @@ function parseImportFile(buffer, type, orgId, orgUnitRid = null, importedFrom = 
         // Additional source metadata
         const sourceMetadata = {};
         if (row.source_supplier_code || row.sourceSupplierCode || row['Source Supplier Code']) {
-          sourceMetadata.supplierCode = row.source_supplier_code || row.sourceSupplierCode || row['Source Supplier Code'];
+          sourceMetadata.supplierCode =
+            row.source_supplier_code || row.sourceSupplierCode || row['Source Supplier Code'];
         }
         if (row.source_supplier_name || row.sourceSupplierName || row['Source Supplier Name']) {
-          sourceMetadata.supplierName = row.source_supplier_name || row.sourceSupplierName || row['Source Supplier Name'];
+          sourceMetadata.supplierName =
+            row.source_supplier_name || row.sourceSupplierName || row['Source Supplier Name'];
         }
 
         const lookup = {
@@ -58,23 +60,23 @@ function parseImportFile(buffer, type, orgId, orgUnitRid = null, importedFrom = 
           source: {
             id: String(sourceId).trim(),
             name: sourceName ? String(sourceName).trim() : null,
-            ...sourceMetadata
+            ...sourceMetadata,
           },
           target: {
             id: String(targetId).trim(),
-            name: targetName ? String(targetName).trim() : null
+            name: targetName ? String(targetName).trim() : null,
           },
           description,
           category,
           importedFrom,
-          importedAt: new Date()
+          importedAt: new Date(),
         };
 
         lookups.push(lookup);
       } catch (err) {
         errors.push({
           row: rowNum,
-          error: err.message
+          error: err.message,
         });
       }
     }
@@ -82,13 +84,13 @@ function parseImportFile(buffer, type, orgId, orgUnitRid = null, importedFrom = 
     log('info', 'Import file parsed', {
       totalRows: rows.length,
       validLookups: lookups.length,
-      errors: errors.length
+      errors: errors.length,
     });
 
     return {
       lookups,
       errors,
-      totalRows: rows.length
+      totalRows: rows.length,
     };
   } catch (err) {
     throw new Error(`Failed to parse import file: ${err.message}`);
@@ -101,22 +103,22 @@ function parseImportFile(buffer, type, orgId, orgUnitRid = null, importedFrom = 
 function generateExportFile(lookups, format = 'xlsx') {
   try {
     // Transform lookups to flat structure for Excel
-    const rows = lookups.map(lookup => ({
+    const rows = lookups.map((lookup) => ({
       'Source ID': lookup.source.id,
       'Source Name': lookup.source.name || '',
       'Source Supplier Code': lookup.source.supplierCode || '',
       'Source Supplier Name': lookup.source.supplierName || '',
       'Target ID': lookup.target.id,
       'Target Name': lookup.target.name || '',
-      'Type': lookup.type,
-      'Category': lookup.category || '',
-      'Description': lookup.description || '',
-      'Scope': (lookup.orgUnitRid ?? lookup.entityRid) ? `Org Unit ${lookup.orgUnitRid ?? lookup.entityRid}` : 'Parent',
+      Type: lookup.type,
+      Category: lookup.category || '',
+      Description: lookup.description || '',
+      Scope: (lookup.orgUnitRid ?? lookup.entityRid) ? `Org Unit ${lookup.orgUnitRid ?? lookup.entityRid}` : 'Parent',
       'Usage Count': lookup.usageCount || 0,
       'Last Used': lookup.lastUsedAt || '',
-      'Active': lookup.isActive ? 'Yes' : 'No',
-      'Created': lookup.createdAt || '',
-      'Updated': lookup.updatedAt || ''
+      Active: lookup.isActive ? 'Yes' : 'No',
+      Created: lookup.createdAt || '',
+      Updated: lookup.updatedAt || '',
     }));
 
     // Create workbook
@@ -136,9 +138,9 @@ function generateExportFile(lookups, format = 'xlsx') {
       { wch: 12 }, // Scope
       { wch: 12 }, // Usage Count
       { wch: 20 }, // Last Used
-      { wch: 8 },  // Active
+      { wch: 8 }, // Active
       { wch: 20 }, // Created
-      { wch: 20 }  // Updated
+      { wch: 20 }, // Updated
     ];
     worksheet['!cols'] = colWidths;
 
@@ -150,7 +152,7 @@ function generateExportFile(lookups, format = 'xlsx') {
 
     log('info', 'Export file generated', {
       format,
-      rowCount: rows.length
+      rowCount: rows.length,
     });
 
     return buffer;
@@ -164,16 +166,16 @@ function generateExportFile(lookups, format = 'xlsx') {
  */
 function generateSimpleCSV(lookups) {
   try {
-    const rows = lookups.map(lookup => ({
+    const rows = lookups.map((lookup) => ({
       source_id: lookup.source.id,
-      target_id: lookup.target.id
+      target_id: lookup.target.id,
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(rows);
     const csv = XLSX.utils.sheet_to_csv(worksheet);
 
     log('info', 'Simple CSV generated', {
-      rowCount: rows.length
+      rowCount: rows.length,
     });
 
     return Buffer.from(csv, 'utf-8');
@@ -187,7 +189,7 @@ function generateSimpleCSV(lookups) {
  */
 function generateImportTemplate() {
   const headers = [
-    { 'Source ID': '', 'Target ID': '', 'Source Name': '', 'Target Name': '', 'Description': '', 'Category': '' }
+    { 'Source ID': '', 'Target ID': '', 'Source Name': '', 'Target Name': '', Description: '', Category: '' },
   ];
 
   const worksheet = XLSX.utils.json_to_sheet(headers);
@@ -199,7 +201,7 @@ function generateImportTemplate() {
     { wch: 25 }, // Source Name
     { wch: 25 }, // Target Name
     { wch: 30 }, // Description
-    { wch: 15 }  // Category
+    { wch: 15 }, // Category
   ];
 
   const workbook = XLSX.utils.book_new();
@@ -214,5 +216,5 @@ module.exports = {
   parseImportFile,
   generateExportFile,
   generateSimpleCSV,
-  generateImportTemplate
+  generateImportTemplate,
 };

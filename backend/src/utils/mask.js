@@ -20,21 +20,34 @@ function maskSensitiveData(data) {
 
   // Handle arrays
   if (Array.isArray(data)) {
-    return data.map(item => maskSensitiveData(item));
+    return data.map((item) => maskSensitiveData(item));
   }
 
   // Handle objects
   const masked = {};
   const sensitiveKeys = [
-    'password', 'secret', 'token', 'apikey', 'api_key', 'apiKey',
-    'authorization', 'auth', 'key', 'privatekey', 'private_key',
-    'accesstoken', 'access_token', 'refreshtoken', 'refresh_token',
-    'credentials', 'credential'
+    'password',
+    'secret',
+    'token',
+    'apikey',
+    'api_key',
+    'apiKey',
+    'authorization',
+    'auth',
+    'key',
+    'privatekey',
+    'private_key',
+    'accesstoken',
+    'access_token',
+    'refreshtoken',
+    'refresh_token',
+    'credentials',
+    'credential',
   ];
 
   for (const [key, value] of Object.entries(data)) {
     const lowerKey = key.toLowerCase();
-    const isSensitive = sensitiveKeys.some(sk => lowerKey.includes(sk));
+    const isSensitive = sensitiveKeys.some((sk) => lowerKey.includes(sk));
 
     if (isSensitive && typeof value === 'string') {
       masked[key] = maskKey(value);

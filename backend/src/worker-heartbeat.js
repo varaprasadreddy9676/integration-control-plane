@@ -5,7 +5,7 @@
 
 const heartbeats = {
   deliveryWorker: null,
-  schedulerWorker: null
+  schedulerWorker: null,
 };
 
 /**
@@ -26,15 +26,15 @@ function checkWorkers() {
 
   return {
     deliveryWorker: {
-      alive: heartbeats.deliveryWorker && (now - heartbeats.deliveryWorker) < threshold,
+      alive: heartbeats.deliveryWorker && now - heartbeats.deliveryWorker < threshold,
       lastHeartbeat: heartbeats.deliveryWorker,
-      timeSinceLastMs: heartbeats.deliveryWorker ? now - heartbeats.deliveryWorker : null
+      timeSinceLastMs: heartbeats.deliveryWorker ? now - heartbeats.deliveryWorker : null,
     },
     schedulerWorker: {
-      alive: heartbeats.schedulerWorker && (now - heartbeats.schedulerWorker) < threshold,
+      alive: heartbeats.schedulerWorker && now - heartbeats.schedulerWorker < threshold,
       lastHeartbeat: heartbeats.schedulerWorker,
-      timeSinceLastMs: heartbeats.schedulerWorker ? now - heartbeats.schedulerWorker : null
-    }
+      timeSinceLastMs: heartbeats.schedulerWorker ? now - heartbeats.schedulerWorker : null,
+    },
   };
 }
 
@@ -50,5 +50,5 @@ function areWorkersHealthy() {
 module.exports = {
   updateHeartbeat,
   checkWorkers,
-  areWorkersHealthy
+  areWorkersHealthy,
 };

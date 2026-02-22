@@ -15,7 +15,7 @@ function errorHandler(err, req, res, _next) {
   let statusCode = 500;
   let errorCode = 'INTERNAL_ERROR';
   let message = 'Internal Server Error';
-  let details = undefined;
+  let details;
 
   // Handle different error types
   if (err.name === 'ValidationError') {
@@ -63,7 +63,7 @@ function errorHandler(err, req, res, _next) {
     query: req.query,
     body: req.method !== 'GET' ? sanitizeBody(req.body) : undefined,
     userAgent: req.headers['user-agent'],
-    ip: req.ip || req.connection.remoteAddress
+    ip: req.ip || req.connection.remoteAddress,
   });
 
   // Build error response
@@ -71,7 +71,7 @@ function errorHandler(err, req, res, _next) {
     error: message,
     code: errorCode,
     requestId,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   };
 
   // Add details in development mode

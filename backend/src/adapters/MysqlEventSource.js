@@ -65,17 +65,17 @@ class MysqlEventSource extends EventSourceAdapter {
     super();
 
     if (!config.orgId) throw new Error('MysqlEventSource: orgId is required');
-    if (!config.pool)  throw new Error('MysqlEventSource: pool is required');
+    if (!config.pool) throw new Error('MysqlEventSource: pool is required');
 
-    this.orgId          = config.orgId;
-    this.pool           = config.pool;
+    this.orgId = config.orgId;
+    this.pool = config.pool;
     this.pollIntervalMs = config.pollIntervalMs || 5000;
-    this.batchSize      = config.batchSize      || 10;
-    this.dbTimeoutMs    = config.dbTimeoutMs    || 30000;
+    this.batchSize = config.batchSize || 10;
+    this.dbTimeoutMs = config.dbTimeoutMs || 30000;
 
     // columnMapping comes entirely from event_source_configs (set per org via admin UI).
     // No hardcoded fallback — each org must declare their own schema.
-    this.table   = config.table;
+    this.table = config.table;
     this.mapping = config.columnMapping || {};
 
     this._validateMapping();
@@ -83,9 +83,9 @@ class MysqlEventSource extends EventSourceAdapter {
     // Stable key for source_checkpoints lookup (table + orgId)
     this.sourceIdentifier = `${this.table}:${this.orgId}`;
 
-    this.timer     = null;
-    this.running   = false;
-    this.stopped   = false;
+    this.timer = null;
+    this.running = false;
+    this.stopped = false;
     this.pollCount = 0;
   }
 
@@ -99,14 +99,14 @@ class MysqlEventSource extends EventSourceAdapter {
       return;
     }
 
-    this.stopped  = false;
+    this.stopped = false;
     this.pollCount = 0;
 
     log('info', `[MySQL:${this.orgId}] Starting`, {
       table: this.table,
       mapping: this.mapping,
       pollIntervalMs: this.pollIntervalMs,
-      batchSize: this.batchSize
+      batchSize: this.batchSize,
     });
 
     this.timer = setInterval(async () => {
@@ -138,7 +138,7 @@ class MysqlEventSource extends EventSourceAdapter {
 
     const deadline = Date.now() + 30_000;
     while (this.running && Date.now() < deadline) {
-      await new Promise(r => setTimeout(r, 100));
+      await new Promise((r) => setTimeout(r, 100));
     }
 
     if (this.running) {
@@ -157,28 +157,21 @@ class MysqlEventSource extends EventSourceAdapter {
   // ---------------------------------------------------------------------------
 
   async _pollCycle(handler) {
-    const checkpoint = await withTimeout(
-      this._getCheckpoint(),
-      this.dbTimeoutMs,
-      `getCheckpoint[${this.orgId}]`
-    );
+    const checkpoint = await withTimeout(this._getCheckpoint(), this.dbTimeoutMs, `getCheckpoint[${this.orgId}]`);
 
-    const rows = await withTimeout(
-      this._fetchRows(checkpoint),
-      this.dbTimeoutMs,
-      `fetchRows[${this.orgId}]`
-    );
+    const rows = await withTimeout(this._fetchRows(checkpoint), this.dbTimeoutMs, `fetchRows[${this.orgId}]`);
 
     if (rows.length === 0) return;
 
     log('info', `[MySQL:${this.orgId}] Poll #${this.pollCount}: ${rows.length} events`, {
-      checkpoint, batchSize: this.batchSize
+      checkpoint,
+      batchSize: this.batchSize,
     });
 
     for (const row of rows) {
       if (this.stopped) break;
       const event = this._normalizeRow(row);
-      const ctx   = this._createContext(event);
+      const ctx = this._createContext(event);
       await handler(event, ctx);
     }
   }
@@ -221,28 +214,31 @@ class MysqlEventSource extends EventSourceAdapter {
   // ---------------------------------------------------------------------------
 
   _normalizeRow(row) {
-    const id        = row._id;
-    const orgId     = row._orgId;
+    const id = row._id;
+    const orgId = row._orgId;
     const eventType = row._eventType || '';
-    const payload   = this._parsePayload(row._payload);
+    const payload = this._parsePayload(row._payload);
 
     return {
       id,
       orgId,
-      orgUnitRid:  row._orgUnitId  ?? null,
-      event_type:  eventType,
+      orgUnitRid: row._orgUnitId ?? null,
+      event_type: eventType,
       payload,
-      eventId:     `mysql-${orgId}-${eventType}-${id}`,
-      source:      'mysql',
-      created_at:  row._timestamp  ?? new Date()
+      eventId: `mysql-${orgId}-${eventType}-${id}`,
+      source: 'mysql',
+      created_at: row._timestamp ?? new Date(),
     };
   }
 
   _parsePayload(raw) {
     if (raw === null || raw === undefined) return {};
     if (typeof raw === 'object') return raw;
-    try { return JSON.parse(raw); }
-    catch { return {}; }
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return {};
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -250,11 +246,11 @@ class MysqlEventSource extends EventSourceAdapter {
   // ---------------------------------------------------------------------------
 
   async _getCheckpoint() {
-    const db  = await mongodb.getDbSafe();
+    const db = await mongodb.getDbSafe();
     const doc = await db.collection('source_checkpoints').findOne({
-      source:           'mysql',
+      source: 'mysql',
       sourceIdentifier: this.sourceIdentifier,
-      orgId:            this.orgId
+      orgId: this.orgId,
     });
 
     if (doc) return doc.lastProcessedId ?? 0;
@@ -271,8 +267,8 @@ class MysqlEventSource extends EventSourceAdapter {
     await db.collection('source_checkpoints').updateOne(
       { source: 'mysql', sourceIdentifier: this.sourceIdentifier, orgId: this.orgId },
       {
-        $set:         { lastProcessedId, updatedAt: new Date() },
-        $setOnInsert: { createdAt: new Date() }
+        $set: { lastProcessedId, updatedAt: new Date() },
+        $setOnInsert: { createdAt: new Date() },
       },
       { upsert: true }
     );
@@ -300,7 +296,7 @@ class MysqlEventSource extends EventSourceAdapter {
         // Advance checkpoint anyway — retry handled by execution_logs DLQ worker
         await this._setCheckpoint(event.id);
         log('warn', `[MySQL:${this.orgId}] Nacked event id=${event.id} (retry via DLQ)`);
-      }
+      },
     };
   }
 
@@ -312,8 +308,7 @@ class MysqlEventSource extends EventSourceAdapter {
     for (const field of REQUIRED_MAPPING_FIELDS) {
       if (!this.mapping[field]) {
         throw new Error(
-          `MysqlEventSource: columnMapping.${field} is required. ` +
-          `Got mapping: ${JSON.stringify(this.mapping)}`
+          `MysqlEventSource: columnMapping.${field} is required. ` + `Got mapping: ${JSON.stringify(this.mapping)}`
         );
       }
     }

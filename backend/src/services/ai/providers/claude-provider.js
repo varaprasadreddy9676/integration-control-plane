@@ -13,7 +13,7 @@ const {
   buildSchedulingScriptPrompt,
   buildErrorAnalysisPrompt,
   buildExplainTransformationPrompt,
-  getSystemPrompt
+  getSystemPrompt,
 } = require('../prompts');
 
 class ClaudeProvider extends BaseAIProvider {
@@ -25,15 +25,19 @@ class ClaudeProvider extends BaseAIProvider {
       try {
         const Anthropic = require('@anthropic-ai/sdk');
         this.client = new Anthropic({ apiKey: config.apiKey });
-      } catch (error) {
+      } catch (_error) {
         log('warn', 'Claude SDK not installed. Run: npm install @anthropic-ai/sdk');
       }
     }
   }
 
-  getName() { return 'claude'; }
+  getName() {
+    return 'claude';
+  }
 
-  get model() { return this.config.model || 'claude-3-5-sonnet-20241022'; }
+  get model() {
+    return this.config.model || 'claude-3-5-sonnet-20241022';
+  }
 
   /**
    * Core completion method.
@@ -53,7 +57,7 @@ class ClaudeProvider extends BaseAIProvider {
       model: this.model,
       max_tokens: maxTokens,
       temperature,
-      messages: [{ role: 'user', content: userContent }]
+      messages: [{ role: 'user', content: userContent }],
     };
     if (systemContent) params.system = systemContent;
     const response = await this.client.messages.create(params);
@@ -136,9 +140,7 @@ class ClaudeProvider extends BaseAIProvider {
 
   async chat(messages, entityContext) {
     // Merge system + entity context into a single system string (Anthropic spec)
-    const systemContent = entityContext
-      ? `${getSystemPrompt()}\n\n${entityContext}`
-      : getSystemPrompt();
+    const systemContent = entityContext ? `${getSystemPrompt()}\n\n${entityContext}` : getSystemPrompt();
 
     if (!this.client) throw new Error('Claude provider not configured or SDK not installed');
     try {
@@ -147,7 +149,7 @@ class ClaudeProvider extends BaseAIProvider {
         max_tokens: 2048,
         temperature: 0.2,
         system: systemContent,
-        messages
+        messages,
       });
       return response.content[0].text.trim();
     } catch (error) {

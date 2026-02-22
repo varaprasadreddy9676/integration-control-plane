@@ -10,12 +10,12 @@ const {
   addOrgScope,
   fallbackDisabledError,
   getCollection,
-  mapIntegrationFromMongo
+  mapIntegrationFromMongo,
 } = require('./helpers');
 
 const allowedParentsCache = {
   values: null,
-  fetchedAt: 0
+  fetchedAt: 0,
 };
 
 async function getAllowedParentRids() {
@@ -36,7 +36,7 @@ async function getAllowedParentRids() {
   const dbClient = await mongodb.getDbSafe();
   const [orgParents, legacyParents] = await Promise.all([
     dbClient.collection('integration_configs').distinct('orgId', { isActive: true }),
-    dbClient.collection('integration_configs').distinct('orgId', { isActive: true })
+    dbClient.collection('integration_configs').distinct('orgId', { isActive: true }),
   ]);
   allowedParentsCache.values = Array.from(new Set([...orgParents, ...legacyParents].filter(Boolean)));
   allowedParentsCache.fetchedAt = now;
@@ -50,7 +50,8 @@ async function listIntegrations(orgId) {
   if (useMongo()) {
     try {
       const db = await mongodb.getDbSafe();
-      const integrations = await db.collection('integration_configs')
+      const integrations = await db
+        .collection('integration_configs')
         .find(integrationOrgQuery(normalizedOrgId))
         .sort({ updatedAt: -1 })
         .toArray();
@@ -69,14 +70,14 @@ async function listIntegrationsForDelivery(orgId, eventType = null) {
   log('debug', 'Starting integration matching', {
     scope: 'listIntegrationsForDelivery:START',
     orgId: normalizedOrgId,
-    eventType
+    eventType,
   });
 
   const parentRid = await getParentRidForEntity(normalizedOrgId);
   log('debug', 'Got parent RID', {
     scope: 'listIntegrationsForDelivery:PARENT',
     orgId: normalizedOrgId,
-    parentRid
+    parentRid,
   });
 
   const direct = await listIntegrations(normalizedOrgId);
@@ -84,7 +85,13 @@ async function listIntegrationsForDelivery(orgId, eventType = null) {
     scope: 'listIntegrationsForDelivery:DIRECT',
     orgId: normalizedOrgId,
     directCount: direct.length,
-    directIntegrations: direct.map(w => ({ id: w.id, name: w.name, type: w.type, direction: w.direction, isActive: w.isActive }))
+    directIntegrations: direct.map((w) => ({
+      id: w.id,
+      name: w.name,
+      type: w.type,
+      direction: w.direction,
+      isActive: w.isActive,
+    })),
   });
 
   if (parentRid && parentRid !== normalizedOrgId) {
@@ -104,7 +111,7 @@ async function listIntegrationsForDelivery(orgId, eventType = null) {
             integrationId: wh.id,
             __KEEP_integrationName__: wh.name,
             orgId: normalizedOrgId,
-            excludedEntityRids: wh.excludedEntityRids
+            excludedEntityRids: wh.excludedEntityRids,
           });
           return false;
         }
@@ -117,22 +124,29 @@ async function listIntegrationsForDelivery(orgId, eventType = null) {
     log('debug', 'Combined parent and direct hooks', {
       scope: 'listIntegrationsForDelivery:PARENT_HOOKS',
       parentHooksCount: parentHooks.length,
-      allHooksCount: allHooks.length
+      allHooksCount: allHooks.length,
     });
 
     // Filter by event type if provided - Only OUTBOUND integrations for delivery
     if (eventType) {
-      const filtered = allHooks.filter((wh) =>
-        wh.isActive &&
-        (wh.direction === 'OUTBOUND' || !wh.direction) && // Include configs without direction for backward compatibility
-        (wh.type === eventType || wh.type === '*')
+      const filtered = allHooks.filter(
+        (wh) =>
+          wh.isActive &&
+          (wh.direction === 'OUTBOUND' || !wh.direction) && // Include configs without direction for backward compatibility
+          (wh.type === eventType || wh.type === '*')
       );
       log('debug', 'Filtered by event type and active status', {
         scope: 'listIntegrationsForDelivery:FILTERED',
         eventType,
         beforeFilter: allHooks.length,
         afterFilter: filtered.length,
-        filtered: filtered.map(w => ({ id: w.id, name: w.name, type: w.type, direction: w.direction, isActive: w.isActive }))
+        filtered: filtered.map((w) => ({
+          id: w.id,
+          name: w.name,
+          type: w.type,
+          direction: w.direction,
+          isActive: w.isActive,
+        })),
       });
       return filtered;
     }
@@ -141,17 +155,24 @@ async function listIntegrationsForDelivery(orgId, eventType = null) {
 
   // Filter by event type if provided - Only OUTBOUND integrations for delivery
   if (eventType) {
-    const filtered = direct.filter((wh) =>
-      wh.isActive &&
-      (wh.direction === 'OUTBOUND' || !wh.direction) && // Include configs without direction for backward compatibility
-      (wh.type === eventType || wh.type === '*')
+    const filtered = direct.filter(
+      (wh) =>
+        wh.isActive &&
+        (wh.direction === 'OUTBOUND' || !wh.direction) && // Include configs without direction for backward compatibility
+        (wh.type === eventType || wh.type === '*')
     );
     log('debug', 'Filtered direct integrations by event type', {
       scope: 'listIntegrationsForDelivery:DIRECT_FILTERED',
       eventType,
       beforeFilter: direct.length,
       afterFilter: filtered.length,
-      filtered: filtered.map(w => ({ id: w.id, name: w.name, type: w.type, direction: w.direction, isActive: w.isActive }))
+      filtered: filtered.map((w) => ({
+        id: w.id,
+        name: w.name,
+        type: w.type,
+        direction: w.direction,
+        isActive: w.isActive,
+      })),
     });
     return filtered;
   }
@@ -160,7 +181,7 @@ async function listIntegrationsForDelivery(orgId, eventType = null) {
   log('debug', 'Filtered by active status and direction=OUTBOUND', {
     scope: 'listIntegrationsForDelivery:ACTIVE',
     beforeFilter: direct.length,
-    afterFilter: active.length
+    afterFilter: active.length,
   });
   return active;
 }
@@ -170,18 +191,12 @@ async function getParentRidForEntity(orgId) {
     try {
       const dbClient = await mongodb.getDbSafe();
 
-      const org = await dbClient.collection('organizations').findOne(
-        { orgId },
-        { projection: { orgId: 1 } }
-      );
+      const org = await dbClient.collection('organizations').findOne({ orgId }, { projection: { orgId: 1 } });
       if (org?.orgId) {
         return org.orgId;
       }
 
-      const unit = await dbClient.collection('org_units').findOne(
-        { rid: orgId },
-        { projection: { orgId: 1 } }
-      );
+      const unit = await dbClient.collection('org_units').findOne({ rid: orgId }, { projection: { orgId: 1 } });
       if (unit?.orgId) {
         return unit.orgId;
       }
@@ -205,25 +220,24 @@ async function getIntegration(id) {
         originalId: id,
         originalIdType: typeof id,
         isObjectId: id instanceof mongodb.ObjectId,
-        convertedObjectId: objectId ? objectId.toString() : null
+        convertedObjectId: objectId ? objectId.toString() : null,
       });
 
       if (!objectId) {
         log('error', 'CRITICAL: Failed to convert integration ID to ObjectId', {
           id,
           idType: typeof id,
-          idValue: String(id)
+          idValue: String(id),
         });
         return undefined;
       }
 
-      const integration = await db.collection('integration_configs')
-        .findOne({ _id: objectId });
+      const integration = await db.collection('integration_configs').findOne({ _id: objectId });
 
       if (!integration) {
         log('warn', 'Integration not found in database', {
           searchedId: objectId.toString(),
-          originalId: id
+          originalId: id,
         });
       }
 
@@ -251,7 +265,7 @@ async function addIntegration(orgId, payload) {
         compatibilityMode = 'BACKWARD_COMPATIBLE',
         isDefault = false,
         autoIncrement = false,
-        versionStrategy = 'SEMANTIC'
+        versionStrategy = 'SEMANTIC',
       } = payload.metadata || {};
 
       // Generate signing secret for integration security
@@ -297,10 +311,10 @@ async function addIntegration(orgId, payload) {
         autoIncrement,
         versionStrategy,
         // Integration signing configuration (opt-in security feature)
-        signingSecret,                          // Current active secret (generated for future use)
-        signingSecrets: [signingSecret],        // Array of active secrets (for rotation)
-        enableSigning: false,                   // Signing disabled by default (opt-in)
-        signatureVersion: 'v1',                 // Signature scheme version
+        signingSecret, // Current active secret (generated for future use)
+        signingSecrets: [signingSecret], // Array of active secrets (for rotation)
+        enableSigning: false, // Signing disabled by default (opt-in)
+        signatureVersion: 'v1', // Signature scheme version
         // Scheduling configuration (MVP for delayed/recurring integrations)
         deliveryMode: payload.deliveryMode || 'IMMEDIATE', // Default to immediate for backward compatibility
         schedulingConfig: payload.schedulingConfig || null, // { script, timezone, description }
@@ -312,17 +326,17 @@ async function addIntegration(orgId, payload) {
             compatibilityMode,
             isDefault,
             autoIncrement,
-            versionStrategy
-          }
+            versionStrategy,
+          },
         },
         createdAt: now,
-        updatedAt: now
+        updatedAt: now,
       };
 
       log('info', 'Generated signing secret for new integration', {
         __KEEP_integrationName__: payload.name,
         secretPrefix: signingSecret.substring(0, 10) + '...',
-        enableSigning: true
+        enableSigning: true,
       });
 
       const result = await db.collection('integration_configs').insertOne(integration);
@@ -362,7 +376,7 @@ async function updateIntegration(orgId, id, patch) {
         excludedEntityRids: updateDoc.excludedEntityRids,
         scope: updateDoc.scope,
         type: updateDoc.type,
-        eventType: updateDoc.eventType
+        eventType: updateDoc.eventType,
       });
 
       // Don't stringify objects - MongoDB stores them natively
@@ -371,7 +385,7 @@ async function updateIntegration(orgId, id, patch) {
       await db.collection('integration_configs').updateOne(
         {
           _id: mongodb.toObjectId(id),
-          ...integrationOrgQuery(normalizedOrgId)
+          ...integrationOrgQuery(normalizedOrgId),
         },
         { $set: updateDoc }
       );
@@ -383,7 +397,7 @@ async function updateIntegration(orgId, id, patch) {
         scope: 'updateIntegration:retrieved',
         id: updated?.id,
         excludedEntityRids: updated?.excludedEntityRids,
-        type: updated?.type
+        type: updated?.type,
       });
 
       return updated && updated.orgId === normalizedOrgId ? updated : undefined;
@@ -409,7 +423,7 @@ async function getIntegrationByTypeAndDirection(orgId, type, direction) {
         ...integrationOrgQuery(normalizedOrgId),
         type: type,
         direction: direction,
-        isActive: true
+        isActive: true,
       });
 
       if (!doc) {
@@ -433,7 +447,7 @@ async function deleteIntegration(orgId, id) {
       const db = await mongodb.getDbSafe();
       const result = await db.collection('integration_configs').deleteOne({
         _id: mongodb.toObjectId(id),
-        ...integrationOrgQuery(normalizedOrgId)
+        ...integrationOrgQuery(normalizedOrgId),
       });
       return result.deletedCount > 0;
     } catch (err) {
@@ -475,7 +489,7 @@ async function bulkUpdateIntegrations(orgId, ids, patch) {
       const result = await db.collection('integration_configs').updateMany(
         {
           _id: { $in: objectIds },
-          ...integrationOrgQuery(normalizedOrgId)
+          ...integrationOrgQuery(normalizedOrgId),
         },
         { $set: updateDoc }
       );
@@ -484,12 +498,12 @@ async function bulkUpdateIntegrations(orgId, ids, patch) {
         scope: 'bulkUpdateIntegrations',
         requested: ids.length,
         updated: result.modifiedCount,
-        failed: failedIds.length
+        failed: failedIds.length,
       });
 
       return {
         updatedCount: result.modifiedCount,
-        failedIds
+        failedIds,
       };
     } catch (err) {
       logError(err, { scope: 'bulkUpdateIntegrations' });
@@ -529,19 +543,19 @@ async function bulkDeleteIntegrations(orgId, ids) {
       // Delete documents
       const result = await db.collection('integration_configs').deleteMany({
         _id: { $in: objectIds },
-        ...integrationOrgQuery(normalizedOrgId)
+        ...integrationOrgQuery(normalizedOrgId),
       });
 
       log('info', 'Bulk delete completed', {
         scope: 'bulkDeleteIntegrations',
         requested: ids.length,
         deleted: result.deletedCount,
-        failed: failedIds.length
+        failed: failedIds.length,
       });
 
       return {
         deletedCount: result.deletedCount,
-        failedIds
+        failedIds,
       };
     } catch (err) {
       logError(err, { scope: 'bulkDeleteIntegrations' });
@@ -558,10 +572,9 @@ async function listEventTypes(orgId) {
     try {
       const collection = await getCollection('event_types');
       // Return org-specific UNION global templates (orgId:null)
-      const query = orgId
-        ? { $or: [{ orgId }, { orgId: null }] }
-        : { orgId: null };
-      const docs = await collection.find(query, { projection: { type: 1, eventType: 1, orgId: 1, _id: 0 } })
+      const query = orgId ? { $or: [{ orgId }, { orgId: null }] } : { orgId: null };
+      const docs = await collection
+        .find(query, { projection: { type: 1, eventType: 1, orgId: 1, _id: 0 } })
         .sort({ type: 1, eventType: 1 })
         .toArray();
       // Deduplicate: org-specific wins over global template on same key
@@ -575,13 +588,13 @@ async function listEventTypes(orgId) {
           if (!aIsOrg && bIsOrg) return 1;
           return 0;
         })
-        .filter(d => {
+        .filter((d) => {
           const k = d.type || d.eventType;
           if (!k || seen.has(k)) return false;
           seen.add(k);
           return true;
         });
-      return deduped.map(d => d.type || d.eventType).filter(Boolean);
+      return deduped.map((d) => d.type || d.eventType).filter(Boolean);
     } catch (err) {
       logError(err, { scope: 'listEventTypes' });
       throw err;
@@ -594,7 +607,8 @@ async function getIntegrationById(integrationId) {
   try {
     if (useMongo()) {
       const db = await mongodb.getDbSafe();
-      const integration = await db.collection('integration_configs')
+      const integration = await db
+        .collection('integration_configs')
         .findOne({ _id: mongodb.toObjectId(integrationId) });
       return integration ? mapIntegrationFromMongo(integration) : null;
     }
@@ -619,5 +633,5 @@ module.exports = {
   bulkUpdateIntegrations,
   bulkDeleteIntegrations,
   listEventTypes,
-  getIntegrationById
+  getIntegrationById,
 };

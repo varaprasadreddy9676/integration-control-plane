@@ -39,19 +39,19 @@ class KafkaEventSource extends EventSourceAdapter {
 
     if (!config.orgId) throw new Error('KafkaEventSource: orgId is required');
 
-    this.orgId             = config.orgId;
-    this.brokers           = config.brokers    || ['localhost:9092'];
-    this.topic             = config.topic      || 'integration-events';
-    this.groupId           = config.groupId    || `ig-org-${config.orgId}`;
-    this.clientId          = config.clientId   || 'integration-gateway';
-    this.fromBeginning     = config.fromBeginning ?? false;
-    this.sessionTimeout    = config.sessionTimeout    || 30_000;
+    this.orgId = config.orgId;
+    this.brokers = config.brokers || ['localhost:9092'];
+    this.topic = config.topic || 'integration-events';
+    this.groupId = config.groupId || `ig-org-${config.orgId}`;
+    this.clientId = config.clientId || 'integration-gateway';
+    this.fromBeginning = config.fromBeginning ?? false;
+    this.sessionTimeout = config.sessionTimeout || 30_000;
     this.heartbeatInterval = config.heartbeatInterval || 3_000;
 
-    this.stopped      = false;
+    this.stopped = false;
     this.reconnecting = false;
-    this.consumer     = null;
-    this.handler      = null;
+    this.consumer = null;
+    this.handler = null;
   }
 
   // ---------------------------------------------------------------------------
@@ -92,19 +92,19 @@ class KafkaEventSource extends EventSourceAdapter {
 
     try {
       const kafka = new Kafka({
-        clientId:          this.clientId,
-        brokers:           this.brokers,
-        logLevel:          2, // INFO
-        retry:             { initialRetryTime: 100, retries: 8, maxRetryTime: 30_000, multiplier: 2 },
+        clientId: this.clientId,
+        brokers: this.brokers,
+        logLevel: 2, // INFO
+        retry: { initialRetryTime: 100, retries: 8, maxRetryTime: 30_000, multiplier: 2 },
         connectionTimeout: 10_000,
-        requestTimeout:    30_000
+        requestTimeout: 30_000,
       });
 
       this.consumer = kafka.consumer({
-        groupId:           this.groupId,
-        sessionTimeout:    this.sessionTimeout,
+        groupId: this.groupId,
+        sessionTimeout: this.sessionTimeout,
         heartbeatInterval: this.heartbeatInterval,
-        retry:             { retries: 5, initialRetryTime: 300 }
+        retry: { retries: 5, initialRetryTime: 300 },
       });
 
       this._setupErrorHandlers();
@@ -118,11 +118,10 @@ class KafkaEventSource extends EventSourceAdapter {
         autoCommit: false, // Manual commit for at-least-once delivery
         eachMessage: async ({ topic, partition, message }) => {
           await this._handleMessage(topic, partition, message);
-        }
+        },
       });
 
       this.reconnecting = false;
-
     } catch (err) {
       logError(err, { scope: `KafkaEventSource[${this.orgId}].connect` });
 
@@ -164,20 +163,23 @@ class KafkaEventSource extends EventSourceAdapter {
       event = this._parseMessage(message);
 
       log('info', `[Kafka:${this.orgId}] Received message`, {
-        topic, partition, offset: message.offset,
-        eventId: event.eventId, eventType: event.event_type
+        topic,
+        partition,
+        offset: message.offset,
+        eventId: event.eventId,
+        eventType: event.event_type,
       });
 
       const ctx = this._createContext(topic, partition, message.offset);
       await this.handler(event, ctx);
-
     } catch (err) {
       logError(err, {
-        scope:     `KafkaEventSource[${this.orgId}].handleMessage`,
-        topic, partition,
-        offset:    message.offset,
-        eventId:   event?.eventId,
-        eventType: event?.event_type
+        scope: `KafkaEventSource[${this.orgId}].handleMessage`,
+        topic,
+        partition,
+        offset: message.offset,
+        eventId: event?.eventId,
+        eventType: event?.event_type,
       });
       // Not committing offset → message redelivered on next restart/rebalance
     }
@@ -187,24 +189,28 @@ class KafkaEventSource extends EventSourceAdapter {
     const raw = JSON.parse(message.value.toString());
 
     // Resolve orgId: prefer explicit field, fall back to message key
-    const orgId = raw.orgId ?? raw.org_id ?? raw.entity_parent_rid ?? raw.entityParentRid
-      ?? (message.key ? parseInt(message.key.toString(), 10) : null)
-      ?? this.orgId; // final fallback — this adapter is already scoped to orgId
+    const orgId =
+      raw.orgId ??
+      raw.org_id ??
+      raw.entity_parent_rid ??
+      raw.entityParentRid ??
+      (message.key ? parseInt(message.key.toString(), 10) : null) ??
+      this.orgId; // final fallback — this adapter is already scoped to orgId
 
     const eventType = raw.eventType ?? raw.event_type ?? raw.transaction_type ?? raw.type ?? '';
-    const payload   = raw.payload   ?? raw.data ?? raw;
-    const id        = raw.id        ?? `kafka-${message.offset}`;
-    const eventId   = raw.eventId   ?? `kafka-${orgId}-${eventType}-${message.offset}`;
+    const payload = raw.payload ?? raw.data ?? raw;
+    const id = raw.id ?? `kafka-${message.offset}`;
+    const eventId = raw.eventId ?? `kafka-${orgId}-${eventType}-${message.offset}`;
 
     return {
       id,
       orgId,
-      orgUnitRid:  raw.orgUnitId ?? raw.org_unit_rid ?? raw.orgUnitRid ?? raw.entity_rid ?? null,
-      event_type:  eventType,
+      orgUnitRid: raw.orgUnitId ?? raw.org_unit_rid ?? raw.orgUnitRid ?? raw.entity_rid ?? null,
+      event_type: eventType,
       payload,
       eventId,
-      source:      'kafka',
-      created_at:  raw.createdAt ?? raw.created_at ?? new Date().toISOString()
+      source: 'kafka',
+      created_at: raw.createdAt ?? raw.created_at ?? new Date().toISOString(),
     };
   }
 
@@ -216,9 +222,7 @@ class KafkaEventSource extends EventSourceAdapter {
     return {
       ack: async () => {
         try {
-          await this.consumer.commitOffsets([
-            { topic, partition, offset: (parseInt(offset, 10) + 1).toString() }
-          ]);
+          await this.consumer.commitOffsets([{ topic, partition, offset: (parseInt(offset, 10) + 1).toString() }]);
           log('debug', `[Kafka:${this.orgId}] Committed offset`, { partition, offset });
         } catch (err) {
           logError(err, { scope: `KafkaEventSource[${this.orgId}].ack`, partition, offset });
@@ -229,7 +233,7 @@ class KafkaEventSource extends EventSourceAdapter {
       nack: async (_retryDelayMs = 0) => {
         // Not committing offset → redelivered on next restart/rebalance
         log('warn', `[Kafka:${this.orgId}] Nacked offset`, { partition, offset });
-      }
+      },
     };
   }
 }

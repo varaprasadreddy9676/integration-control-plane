@@ -23,7 +23,7 @@ function isEventProcessed(eventKey) {
   const lastProcessed = processedEvents.get(eventKey);
   if (!lastProcessed) return false;
 
-  return (now - lastProcessed) < DEDUP_WINDOW_MS;
+  return now - lastProcessed < DEDUP_WINDOW_MS;
 }
 
 function markEventProcessed(eventKey) {
@@ -39,7 +39,7 @@ function markEventProcessed(eventKey) {
     }
     log('info', 'Cleaned event deduplication cache', {
       size: processedEvents.size,
-      cutoff
+      cutoff,
     });
   }
 }
@@ -56,5 +56,5 @@ module.exports = {
   cleanupDedupCache,
   isEventProcessed,
   markEventProcessed,
-  getProcessedEventsMap
+  getProcessedEventsMap,
 };

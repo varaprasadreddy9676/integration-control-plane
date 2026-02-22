@@ -36,7 +36,7 @@ class AIRateLimiter {
     // Count usage for today
     const usage = await collection.countDocuments({
       $or: [{ orgId: normalizedOrgId }, { entityParentRid: normalizedOrgId }],
-      createdAt: { $gte: today, $lt: tomorrow }
+      createdAt: { $gte: today, $lt: tomorrow },
     });
 
     // Read daily limit from entity's DB config; 0 means unlimited; default 100
@@ -47,14 +47,16 @@ class AIRateLimiter {
       if (entityConfig && typeof entityConfig.dailyLimit === 'number') {
         limit = entityConfig.dailyLimit === 0 ? Infinity : entityConfig.dailyLimit;
       }
-    } catch (_err) { /* non-fatal — use default */ }
+    } catch (_err) {
+      /* non-fatal — use default */
+    }
 
     const displayLimit = limit === Infinity ? 0 : limit; // 0 = unlimited for API clients
     return {
       allowed: usage < limit,
       usage,
       limit: displayLimit,
-      remaining: limit === Infinity ? null : Math.max(0, limit - usage)
+      remaining: limit === Infinity ? null : Math.max(0, limit - usage),
     };
   }
 
@@ -76,13 +78,13 @@ class AIRateLimiter {
       orgId: normalizedOrgId,
       operation,
       metadata,
-      createdAt: new Date()
+      createdAt: new Date(),
     });
 
     log('info', 'AI usage recorded', {
       orgId: normalizedOrgId,
       operation,
-      timestamp: new Date()
+      timestamp: new Date(),
     });
   }
 
@@ -99,7 +101,7 @@ class AIRateLimiter {
         totalUsage: 0,
         byOperation: {},
         byDay: {},
-        period: `${days} days`
+        period: `${days} days`,
       };
     }
 
@@ -112,7 +114,7 @@ class AIRateLimiter {
     const usageRecords = await collection
       .find({
         $or: [{ orgId: normalizedOrgId }, { entityParentRid: normalizedOrgId }],
-        createdAt: { $gte: startDate }
+        createdAt: { $gte: startDate },
       })
       .toArray();
 
@@ -134,7 +136,7 @@ class AIRateLimiter {
       totalUsage: usageRecords.length,
       byOperation,
       byDay,
-      period: `${days} days`
+      period: `${days} days`,
     };
   }
 
@@ -151,12 +153,12 @@ class AIRateLimiter {
     const collection = db.collection(this.collectionName);
 
     const result = await collection.deleteMany({
-      $or: [{ orgId: normalizedOrgId }, { entityParentRid: normalizedOrgId }]
+      $or: [{ orgId: normalizedOrgId }, { entityParentRid: normalizedOrgId }],
     });
 
     log('info', 'AI usage reset', {
       orgId: normalizedOrgId,
-      deletedCount: result.deletedCount
+      deletedCount: result.deletedCount,
     });
 
     return result.deletedCount;
@@ -176,12 +178,12 @@ class AIRateLimiter {
     cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
 
     const result = await collection.deleteMany({
-      createdAt: { $lt: cutoffDate }
+      createdAt: { $lt: cutoffDate },
     });
 
     log('info', 'AI usage cleanup completed', {
       retentionDays,
-      deletedCount: result.deletedCount
+      deletedCount: result.deletedCount,
     });
 
     return result.deletedCount;

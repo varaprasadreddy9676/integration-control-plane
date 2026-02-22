@@ -100,10 +100,7 @@ async function initDataLayer() {
     // Create TTL index for error_logs collection (30 days retention)
     try {
       const mongoDb = await mongodb.getDbSafe();
-      await mongoDb.collection('error_logs').createIndex(
-        { createdAt: 1 },
-        { expireAfterSeconds: 30 * 24 * 60 * 60 }
-      );
+      await mongoDb.collection('error_logs').createIndex({ createdAt: 1 }, { expireAfterSeconds: 30 * 24 * 60 * 60 });
       log('info', 'TTL index created for error_logs collection (30 days retention)');
     } catch (indexErr) {
       log('warn', 'Failed to create TTL index for error_logs', { error: indexErr.message });
@@ -119,7 +116,10 @@ async function initDataLayer() {
       log('info', 'MySQL connected for notification_queue');
       startMysqlReconnection(30000);
     } else {
-      log('warn', 'Global MySQL source ping failed - shared-pool MySQL adapters will remain unavailable until connection is restored');
+      log(
+        'warn',
+        'Global MySQL source ping failed - shared-pool MySQL adapters will remain unavailable until connection is restored'
+      );
       log('warn', 'API and UI will continue to work normally');
       startMysqlReconnection(30000);
     }
@@ -156,7 +156,7 @@ function mapLegacyWebhook(integration) {
     authType: integration.authType || integration.outgoingAuthType,
     authConfig: integration.authConfig || integration.outgoingAuthConfig,
     transformMode: integration.transformMode || integration.transformationMode,
-    transformConfig: integration.transformConfig || integration.transformation
+    transformConfig: integration.transformConfig || integration.transformation,
   };
 }
 
@@ -166,16 +166,19 @@ function mapLegacyScheduledIntegration(integration) {
   }
   return {
     ...integration,
-    webhookConfigId: integration.webhookConfigId || integration.integrationConfigId || integration.__KEEP___KEEP_integrationConfig__Id__,
+    webhookConfigId:
+      integration.webhookConfigId ||
+      integration.integrationConfigId ||
+      integration.__KEEP___KEEP_integrationConfig__Id__,
     webhookName: integration.webhookName || integration.integrationName || integration.__KEEP_integrationName__,
-    entityRid: integration.entityRid || integration.orgUnitRid || integration.orgId
+    entityRid: integration.entityRid || integration.orgUnitRid || integration.orgId,
   };
 }
 
 async function addWebhook(orgId, payload) {
   const integration = await integrations.addIntegration(orgId, {
     ...payload,
-    orgId: payload?.orgId || orgId
+    orgId: payload?.orgId || orgId,
   });
   return integration?.id;
 }
@@ -207,10 +210,11 @@ async function deleteWebhook(orgId, id) {
 async function createScheduledWebhook(data) {
   const scheduled = await scheduledIntegrations.createScheduledIntegration({
     ...data,
-    __KEEP___KEEP_integrationConfig__Id__: data.__KEEP___KEEP_integrationConfig__Id__ || data.integrationConfigId || data.webhookConfigId,
+    __KEEP___KEEP_integrationConfig__Id__:
+      data.__KEEP___KEEP_integrationConfig__Id__ || data.integrationConfigId || data.webhookConfigId,
     __KEEP_integrationName__: data.__KEEP_integrationName__ || data.integrationName || data.webhookName,
     orgId: data.orgId || data.orgUnitRid || data.entityRid,
-    orgUnitRid: data.orgUnitRid || data.entityRid || data.orgId
+    orgUnitRid: data.orgUnitRid || data.entityRid || data.orgId,
   });
   return mapLegacyScheduledIntegration(scheduled);
 }
@@ -218,7 +222,7 @@ async function createScheduledWebhook(data) {
 async function listScheduledWebhooks(orgId, filters = {}) {
   const scheduled = await scheduledIntegrations.listScheduledIntegrations(orgId, {
     ...filters,
-    integrationConfigId: filters.integrationConfigId || filters.webhookConfigId
+    integrationConfigId: filters.integrationConfigId || filters.webhookConfigId,
   });
   return scheduled.map(mapLegacyScheduledIntegration);
 }
@@ -288,5 +292,5 @@ module.exports = {
   ...users,
 
   // Organizations
-  ...organizations
+  ...organizations,
 };

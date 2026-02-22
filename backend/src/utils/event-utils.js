@@ -9,7 +9,7 @@ function generateCorrelationId() {
 }
 
 function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function generateEventKey(eventType, payload, orgId) {
@@ -38,5 +38,5 @@ module.exports = {
   sleep,
   generateEventKey,
   isTestEvent,
-  safeRead
+  safeRead,
 };

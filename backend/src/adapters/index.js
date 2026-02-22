@@ -12,6 +12,6 @@ const { MysqlEventSource } = require('./MysqlEventSource');
 
 module.exports = {
   EventSourceAdapter,
-  MysqlEventSource
+  MysqlEventSource,
   // KafkaEventSource - Uncomment when kafkajs dependency is added
 };

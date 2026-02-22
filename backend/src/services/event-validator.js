@@ -12,7 +12,7 @@ const config = require('../config');
  * @param {Number} index - Array index for error reporting
  * @returns {Object} { valid: Boolean, errors: Array, event: Object }
  */
-function validateEvent(event, index) {
+function validateEvent(event, _index) {
   const errors = [];
 
   // Required fields validation
@@ -42,10 +42,10 @@ function validateEvent(event, index) {
         errors.push({
           message: `Payload size ${payloadSize} bytes exceeds maximum ${maxSize} bytes`,
           code: 'PAYLOAD_TOO_LARGE',
-          details: { payloadSize, maxSize }
+          details: { payloadSize, maxSize },
         });
       }
-    } catch (e) {
+    } catch (_e) {
       errors.push('Payload contains non-serializable data');
     }
   }
@@ -71,7 +71,7 @@ function validateEvent(event, index) {
   return {
     valid: errors.length === 0,
     errors,
-    event // Return sanitized event
+    event, // Return sanitized event
   };
 }
 
@@ -85,19 +85,21 @@ function sanitizeString(str) {
     return str;
   }
 
-  return String(str)
-    // Remove script tags
-    .replace(/<script[^>]*>.*?<\/script>/gi, '')
-    // Remove iframe tags
-    .replace(/<iframe[^>]*>.*?<\/iframe>/gi, '')
-    // Remove javascript: protocol
-    .replace(/javascript:/gi, '')
-    // Remove event handlers
-    .replace(/on\w+\s*=/gi, '')
-    // Remove data: protocol
-    .replace(/data:text\/html/gi, '')
-    .trim()
-    .substring(0, 10000); // Max string length
+  return (
+    String(str)
+      // Remove script tags
+      .replace(/<script[^>]*>.*?<\/script>/gi, '')
+      // Remove iframe tags
+      .replace(/<iframe[^>]*>.*?<\/iframe>/gi, '')
+      // Remove javascript: protocol
+      .replace(/javascript:/gi, '')
+      // Remove event handlers
+      .replace(/on\w+\s*=/gi, '')
+      // Remove data: protocol
+      .replace(/data:text\/html/gi, '')
+      .trim()
+      .substring(0, 10000)
+  ); // Max string length
 }
 
 /**
@@ -111,7 +113,7 @@ function sanitizeObject(obj) {
   }
 
   if (Array.isArray(obj)) {
-    return obj.map(item => sanitizeObject(item));
+    return obj.map((item) => sanitizeObject(item));
   }
 
   if (obj && typeof obj === 'object') {
@@ -156,5 +158,5 @@ module.exports = {
   validateEvent,
   validateEventCount,
   sanitizeObject,
-  sanitizeString
+  sanitizeString,
 };

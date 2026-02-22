@@ -56,5 +56,5 @@ NOW GENERATE THE FIELD MAPPINGS:`;
 }
 
 module.exports = {
-  buildFieldMappingPrompt
+  buildFieldMappingPrompt,
 };

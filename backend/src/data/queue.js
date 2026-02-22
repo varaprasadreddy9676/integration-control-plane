@@ -8,8 +8,8 @@ let queue = [
     payload: {
       patientRID: 9991,
       patientName: 'Queue Sample',
-      appointmentDateTime: new Date().toISOString()
-    }
+      appointmentDateTime: new Date().toISOString(),
+    },
   },
   {
     id: 2,
@@ -18,9 +18,9 @@ let queue = [
     payload: {
       billId: 'BILL-1001',
       patientRID: 8888,
-      amount: 250
-    }
-  }
+      amount: 250,
+    },
+  },
 ];
 
 function take(limit = 5) {

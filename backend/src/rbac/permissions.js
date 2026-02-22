@@ -81,11 +81,11 @@ const PERMISSIONS = {
   'api_keys:revoke': 'Revoke API keys',
 
   // Event Source (inbound data source configuration)
-  'event_source:view':   'View event source configs',
+  'event_source:view': 'View event source configs',
   'event_source:manage': 'Create / update / delete event source configs (MySQL, Kafka, HTTP Push)',
 
   // Event Catalogue (per-org event type definitions)
-  'event_catalogue:view':   'View event catalogue',
+  'event_catalogue:view': 'View event catalogue',
   'event_catalogue:manage': 'Create / update / delete org-specific event types',
 
   // System & Admin
@@ -111,7 +111,7 @@ const ROLES = {
     description: 'Full system access across all organizations',
     permissions: Object.keys(PERMISSIONS), // ALL permissions
     scope: 'global',
-    isSystemRole: true
+    isSystemRole: true,
   },
 
   // ============================================================
@@ -120,9 +120,9 @@ const ROLES = {
   ADMIN: {
     name: 'Admin',
     description: 'Full system access across all organizations (cannot create super admins)',
-    permissions: Object.keys(PERMISSIONS).filter(p => p !== 'admin:impersonate'), // ALL except impersonate
+    permissions: Object.keys(PERMISSIONS).filter((p) => p !== 'admin:impersonate'), // ALL except impersonate
     scope: 'global',
-    isSystemRole: true
+    isSystemRole: true,
   },
 
   // ============================================================
@@ -211,10 +211,10 @@ const ROLES = {
       'admin:audit_logs',
 
       // System
-      'system:health'
+      'system:health',
     ],
     scope: 'organization',
-    isSystemRole: true
+    isSystemRole: true,
   },
 
   // ============================================================
@@ -267,10 +267,10 @@ const ROLES = {
       'event_catalogue:view',
 
       // System
-      'system:health'
+      'system:health',
     ],
     scope: 'organization',
-    isSystemRole: true
+    isSystemRole: true,
   },
 
   // ============================================================
@@ -307,10 +307,10 @@ const ROLES = {
       'event_catalogue:view',
 
       // System
-      'system:health'
+      'system:health',
     ],
     scope: 'organization',
-    isSystemRole: true
+    isSystemRole: true,
   },
 
   // ============================================================
@@ -332,10 +332,10 @@ const ROLES = {
       'dashboard:view',
 
       // System
-      'system:health'
+      'system:health',
     ],
     scope: 'organization',
-    isSystemRole: true
+    isSystemRole: true,
   },
 
   // ============================================================
@@ -345,13 +345,13 @@ const ROLES = {
     name: 'API Key',
     description: 'Technical role for API access',
     permissions: [
-      'integration:view',  // Call runtime integrations
-      'system:health'      // Health checks
+      'integration:view', // Call runtime integrations
+      'system:health', // Health checks
     ],
     scope: 'api',
     isSystemRole: true,
-    isApiRole: true
-  }
+    isApiRole: true,
+  },
 };
 
 // ==========================================
@@ -452,5 +452,5 @@ module.exports = {
   userHasPermission,
   getUserPermissions,
   canAccessAllOrgs,
-  getRoleScope
+  getRoleScope,
 };

@@ -23,12 +23,7 @@ class DashboardCaptureService {
     try {
       this.browser = await puppeteer.launch({
         headless: 'new',
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--disable-gpu'
-        ]
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
       });
 
       log('info', '[DashboardCapture] Browser initialized successfully');
@@ -70,7 +65,7 @@ class DashboardCaptureService {
       await page.setViewport({
         width: 1920,
         height: 1080,
-        deviceScaleFactor: 2 // High DPI for better quality
+        deviceScaleFactor: 2, // High DPI for better quality
       });
 
       // Construct dashboard URL from config
@@ -87,7 +82,7 @@ class DashboardCaptureService {
       // Navigate to dashboard
       await page.goto(dashboardUrl, {
         waitUntil: 'networkidle2',
-        timeout: 60000
+        timeout: 60000,
       });
 
       // Wait for dashboard container to be visible
@@ -119,8 +114,8 @@ class DashboardCaptureService {
           top: '20px',
           right: '20px',
           bottom: '20px',
-          left: '20px'
-        }
+          left: '20px',
+        },
       });
 
       log('info', `[DashboardCapture] Dashboard captured successfully for org ${resolvedOrgId}`);
@@ -155,7 +150,7 @@ class DashboardCaptureService {
       await page.setViewport({
         width: 1920,
         height: 1080,
-        deviceScaleFactor: 2
+        deviceScaleFactor: 2,
       });
 
       const frontendUrl = config.frontendUrl || process.env.FRONTEND_URL || 'http://localhost:5174';
@@ -167,7 +162,7 @@ class DashboardCaptureService {
 
       await page.goto(dashboardUrl, {
         waitUntil: 'networkidle2',
-        timeout: 60000
+        timeout: 60000,
       });
 
       await page.waitForSelector('[data-dashboard-container]', { timeout: 30000 });
@@ -182,7 +177,7 @@ class DashboardCaptureService {
       // Capture as PNG
       const pngBuffer = await dashboardElement.screenshot({
         type: 'png',
-        omitBackground: false
+        omitBackground: false,
       });
 
       log('info', `[DashboardCapture] Dashboard PNG captured successfully for org ${resolvedOrgId}`);
@@ -221,7 +216,7 @@ class DashboardCaptureService {
         successfulDeliveries: (dashboardData?.totalDeliveries24h || 0) - (dashboardData?.failedCount24h || 0),
         failedDeliveries: dashboardData?.failedCount24h || 0,
         successRate: dashboardData?.successRate24h || 0,
-        avgLatency: dashboardData?.avgResponseTimeMs24h || 0
+        avgLatency: dashboardData?.avgResponseTimeMs24h || 0,
       };
 
       return summary;
@@ -232,7 +227,7 @@ class DashboardCaptureService {
         successfulDeliveries: 0,
         failedDeliveries: 0,
         successRate: 0,
-        avgLatency: 0
+        avgLatency: 0,
       };
     }
   }

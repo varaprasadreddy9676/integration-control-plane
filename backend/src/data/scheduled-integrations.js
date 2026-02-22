@@ -6,7 +6,7 @@ const {
   normalizeOrgId,
   scheduledOrgQuery,
   fallbackDisabledError,
-  mapScheduledIntegrationFromMongo
+  mapScheduledIntegrationFromMongo,
 } = require('./helpers');
 
 /**
@@ -22,7 +22,8 @@ async function createScheduledIntegration(data) {
   try {
     const db = await mongodb.getDbSafe();
     const now = new Date();
-    const integrationConfigId = data.__KEEP___KEEP_integrationConfig__Id__ || data.integrationConfigId || data.webhookConfigId;
+    const integrationConfigId =
+      data.__KEEP___KEEP_integrationConfig__Id__ || data.integrationConfigId || data.webhookConfigId;
     const integrationName = data.__KEEP_integrationName__ || data.integrationName || data.webhookName;
     const orgId = normalizeOrgId(data.orgId || data.orgUnitRid || data.entityRid);
     if (!orgId) throw new Error('orgId is required for scheduled integration');
@@ -53,7 +54,7 @@ async function createScheduledIntegration(data) {
       // Recurring integration metadata
       recurringConfig: data.recurringConfig || null, // { interval, count, endDate, occurrenceNumber }
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
     };
 
     const result = await db.collection('scheduled_integrations').insertOne(scheduledIntegration);
@@ -63,7 +64,7 @@ async function createScheduledIntegration(data) {
       id: result.insertedId.toString(),
       __KEEP_integrationName__: integrationName,
       scheduledFor: data.scheduledFor,
-      eventType: data.eventType
+      eventType: data.eventType,
     });
 
     return {
@@ -72,7 +73,7 @@ async function createScheduledIntegration(data) {
       scheduledFor: scheduledIntegration.scheduledFor.toISOString(),
       orgId: scheduledIntegration.orgId,
       createdAt: now.toISOString(),
-      updatedAt: now.toISOString()
+      updatedAt: now.toISOString(),
     };
   } catch (err) {
     logError(err, { scope: 'createScheduledIntegration' });
@@ -114,7 +115,8 @@ async function listScheduledIntegrations(orgId, filters = {}) {
 
       const limit = filters.limit || 500;
 
-      const integrations = await db.collection('scheduled_integrations')
+      const integrations = await db
+        .collection('scheduled_integrations')
         .find(query)
         .sort({ scheduledFor: 1 })
         .limit(limit)
@@ -147,24 +149,23 @@ async function getPendingScheduledIntegrations(limit = 10) {
     // ATOMIC CLAIM: Use findOneAndUpdate to atomically claim each integration
     // This prevents race conditions where multiple worker cycles process the same integration
     for (let i = 0; i < limit; i++) {
-      const result = await db.collection('scheduled_integrations')
-        .findOneAndUpdate(
-          {
-            status: { $in: ['PENDING', 'OVERDUE'] },
-            scheduledFor: { $lte: now }
+      const result = await db.collection('scheduled_integrations').findOneAndUpdate(
+        {
+          status: { $in: ['PENDING', 'OVERDUE'] },
+          scheduledFor: { $lte: now },
+        },
+        {
+          $set: {
+            status: 'PROCESSING',
+            processingStartedAt: new Date(),
+            updatedAt: new Date(),
           },
-          {
-            $set: {
-              status: 'PROCESSING',
-              processingStartedAt: new Date(),
-              updatedAt: new Date()
-            }
-          },
-          {
-            sort: { scheduledFor: 1 },
-            returnDocument: 'after'
-          }
-        );
+        },
+        {
+          sort: { scheduledFor: 1 },
+          returnDocument: 'after',
+        }
+      );
 
       // No more pending integrations found
       // MongoDB findOneAndUpdate returns {value: document} structure
@@ -175,9 +176,14 @@ async function getPendingScheduledIntegrations(limit = 10) {
       const doc = result.value;
       claimedIntegrations.push({
         id: doc._id.toString(),
-        integrationConfigId: doc.integrationConfigId?.toString() || doc.__KEEP___KEEP_integrationConfig__Id__?.toString(),
-        webhookConfigId: doc.webhookConfigId?.toString?.() || doc.integrationConfigId?.toString() || doc.__KEEP___KEEP_integrationConfig__Id__?.toString(),
-        __KEEP___KEEP_integrationConfig__Id__: doc.__KEEP___KEEP_integrationConfig__Id__?.toString() || doc.integrationConfigId?.toString(),
+        integrationConfigId:
+          doc.integrationConfigId?.toString() || doc.__KEEP___KEEP_integrationConfig__Id__?.toString(),
+        webhookConfigId:
+          doc.webhookConfigId?.toString?.() ||
+          doc.integrationConfigId?.toString() ||
+          doc.__KEEP___KEEP_integrationConfig__Id__?.toString(),
+        __KEEP___KEEP_integrationConfig__Id__:
+          doc.__KEEP___KEEP_integrationConfig__Id__?.toString() || doc.integrationConfigId?.toString(),
         integrationName: doc.integrationName || doc.__KEEP_integrationName__,
         webhookName: doc.webhookName || doc.integrationName || doc.__KEEP_integrationName__,
         __KEEP_integrationName__: doc.__KEEP_integrationName__,
@@ -194,13 +200,13 @@ async function getPendingScheduledIntegrations(limit = 10) {
         recurringConfig: doc.recurringConfig,
         cancellationInfo: doc.cancellationInfo,
         createdAt: doc.createdAt?.toISOString(),
-        attemptCount: doc.attemptCount || 0
+        attemptCount: doc.attemptCount || 0,
       });
     }
 
     log('debug', `Atomically claimed ${claimedIntegrations.length} scheduled integrations`, {
       claimed: claimedIntegrations.length,
-      requestedLimit: limit
+      requestedLimit: limit,
     });
 
     return claimedIntegrations;
@@ -226,7 +232,7 @@ async function updateScheduledIntegrationStatus(id, status, details = {}) {
     const db = await mongodb.getDbSafe();
     const updateDoc = {
       status,
-      updatedAt: new Date()
+      updatedAt: new Date(),
     };
 
     if (details.errorMessage) {
@@ -247,7 +253,7 @@ async function updateScheduledIntegrationStatus(id, status, details = {}) {
       log('debug', 'Rescheduling integration with backoff', {
         id,
         newScheduledFor: details.scheduledFor,
-        attemptCount: details.attemptCount
+        attemptCount: details.attemptCount,
       });
     }
 
@@ -267,16 +273,13 @@ async function updateScheduledIntegrationStatus(id, status, details = {}) {
       query.status = 'PROCESSING';
     }
 
-    const result = await db.collection('scheduled_integrations').updateOne(
-      query,
-      { $set: updateDoc }
-    );
+    const result = await db.collection('scheduled_integrations').updateOne(query, { $set: updateDoc });
 
     if (result.matchedCount === 0) {
       log('warn', 'Scheduled integration status update failed - integration not in expected state', {
         id,
         newStatus: status,
-        details
+        details,
       });
       return false;
     }
@@ -308,16 +311,16 @@ async function resetStuckProcessingIntegrations(timeoutMinutes = 10) {
     const result = await db.collection('scheduled_integrations').updateMany(
       {
         status: 'PROCESSING',
-        processingStartedAt: { $lt: stuckThreshold }
+        processingStartedAt: { $lt: stuckThreshold },
       },
       {
         $set: {
           status: 'PENDING',
-          updatedAt: new Date()
+          updatedAt: new Date(),
         },
         $unset: {
-          processingStartedAt: ''
-        }
+          processingStartedAt: '',
+        },
       }
     );
 
@@ -325,7 +328,7 @@ async function resetStuckProcessingIntegrations(timeoutMinutes = 10) {
       log('warn', `Reset ${result.modifiedCount} stuck PROCESSING integrations back to PENDING`, {
         modifiedCount: result.modifiedCount,
         timeoutMinutes,
-        stuckThreshold: stuckThreshold.toISOString()
+        stuckThreshold: stuckThreshold.toISOString(),
       });
     }
 
@@ -354,7 +357,7 @@ async function cancelScheduledIntegrationsByMatch(orgId, matchCriteria) {
     const db = await mongodb.getDbSafe();
     const query = {
       ...scheduledOrgQuery(normalizedOrgId),
-      status: 'PENDING' // Only cancel pending integrations
+      status: 'PENDING', // Only cancel pending integrations
     };
 
     // Match by patientRid
@@ -368,26 +371,23 @@ async function cancelScheduledIntegrationsByMatch(orgId, matchCriteria) {
       const tolerance = 60 * 60 * 1000; // 1 hour in ms
       query['cancellationInfo.scheduledDateTime'] = {
         $gte: new Date(targetTime.getTime() - tolerance).toISOString(),
-        $lte: new Date(targetTime.getTime() + tolerance).toISOString()
+        $lte: new Date(targetTime.getTime() + tolerance).toISOString(),
       };
     }
 
-    const result = await db.collection('scheduled_integrations').updateMany(
-      query,
-      {
-        $set: {
-          status: 'CANCELLED',
-          cancelledAt: new Date(),
-          cancelReason: matchCriteria.reason || 'Auto-cancelled by matching event',
-          updatedAt: new Date()
-        }
-      }
-    );
+    const result = await db.collection('scheduled_integrations').updateMany(query, {
+      $set: {
+        status: 'CANCELLED',
+        cancelledAt: new Date(),
+        cancelReason: matchCriteria.reason || 'Auto-cancelled by matching event',
+        updatedAt: new Date(),
+      },
+    });
 
     log('info', 'Scheduled integrations cancelled by match', {
       orgId: normalizedOrgId,
       matchCriteria,
-      cancelledCount: result.modifiedCount
+      cancelledCount: result.modifiedCount,
     });
 
     return result.modifiedCount;
@@ -422,7 +422,7 @@ async function updateScheduledIntegration(orgId, id, updates) {
     // Prepare update document
     const updateDoc = {
       ...updates,
-      updatedAt: new Date()
+      updatedAt: new Date(),
     };
 
     // If scheduledFor is being updated, recalculate status
@@ -437,10 +437,7 @@ async function updateScheduledIntegration(orgId, id, updates) {
       }
     }
 
-    const result = await db.collection('scheduled_integrations').updateOne(
-      query,
-      { $set: updateDoc }
-    );
+    const result = await db.collection('scheduled_integrations').updateOne(query, { $set: updateDoc });
 
     return result.modifiedCount > 0;
   } catch (err) {
@@ -470,17 +467,14 @@ async function deleteScheduledIntegration(orgId, id) {
       query.$or = scheduledOrgQuery(normalizedOrgId).$or;
     }
 
-    const result = await db.collection('scheduled_integrations').updateOne(
-      query,
-      {
-        $set: {
-          status: 'CANCELLED',
-          cancelledAt: new Date(),
-          cancelReason: 'Manual cancellation',
-          updatedAt: new Date()
-        }
-      }
-    );
+    const result = await db.collection('scheduled_integrations').updateOne(query, {
+      $set: {
+        status: 'CANCELLED',
+        cancelledAt: new Date(),
+        cancelReason: 'Manual cancellation',
+        updatedAt: new Date(),
+      },
+    });
 
     log('info', 'Scheduled integration cancelled', { id, orgId: normalizedOrgId });
     return result.modifiedCount > 0;
@@ -498,5 +492,5 @@ module.exports = {
   resetStuckProcessingIntegrations,
   cancelScheduledIntegrationsByMatch,
   updateScheduledIntegration,
-  deleteScheduledIntegration
+  deleteScheduledIntegration,
 };

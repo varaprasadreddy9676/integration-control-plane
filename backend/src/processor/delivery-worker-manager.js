@@ -63,7 +63,7 @@ class DeliveryWorkerManager {
     }
 
     const stops = Array.from(this.adapters.values()).map(({ adapter }) =>
-      adapter.stop().catch(err => logError(err, { scope: 'DeliveryWorkerManager.stop' }))
+      adapter.stop().catch((err) => logError(err, { scope: 'DeliveryWorkerManager.stop' }))
     );
     await Promise.all(stops);
     this.adapters.clear();
@@ -98,7 +98,7 @@ class DeliveryWorkerManager {
       log('warn', 'Could not load event_source_configs; using global defaults', { error: err.message });
     }
 
-    const configByOrg = new Map(explicitConfigs.map(c => [c.orgId, c]));
+    const configByOrg = new Map(explicitConfigs.map((c) => [c.orgId, c]));
 
     // 3. Determine desired state (orgId → effective config)
     const desired = new Map();
@@ -119,9 +119,7 @@ class DeliveryWorkerManager {
     for (const [orgId, entry] of this.adapters) {
       if (!desired.has(orgId)) {
         log('info', `Stopping adapter for removed org ${orgId}`);
-        await entry.adapter.stop().catch(err =>
-          logError(err, { scope: `DeliveryWorkerManager.stop[${orgId}]` })
-        );
+        await entry.adapter.stop().catch((err) => logError(err, { scope: `DeliveryWorkerManager.stop[${orgId}]` }));
         this.adapters.delete(orgId);
       }
     }
@@ -136,9 +134,9 @@ class DeliveryWorkerManager {
       if (existing) {
         // Config changed — stop old, start new
         log('info', `Config changed for org ${orgId}, restarting adapter`);
-        await existing.adapter.stop().catch(err =>
-          logError(err, { scope: `DeliveryWorkerManager.restart[${orgId}]` })
-        );
+        await existing.adapter
+          .stop()
+          .catch((err) => logError(err, { scope: `DeliveryWorkerManager.restart[${orgId}]` }));
         this.adapters.delete(orgId);
       }
 
@@ -175,35 +173,35 @@ class DeliveryWorkerManager {
     switch (type) {
       case 'mysql': {
         const safeSourceConfig = sanitizeMysqlSourceConfig(sourceConfig || {});
-        const pool = safeSourceConfig.useSharedPool !== false
-          ? db.getPool()
-          : this._createMysqlPool(safeSourceConfig);
+        const pool = safeSourceConfig.useSharedPool !== false ? db.getPool() : this._createMysqlPool(safeSourceConfig);
 
         if (!pool) {
-          throw new Error(`MySQL not configured for org ${orgId}. Configure the shared pool or provide dedicated credentials.`);
+          throw new Error(
+            `MySQL not configured for org ${orgId}. Configure the shared pool or provide dedicated credentials.`
+          );
         }
 
         return new MysqlEventSource({
           orgId,
           pool,
-          table:          safeSourceConfig.table,
-          columnMapping:  safeSourceConfig.columnMapping, // fully declared by org via admin UI
+          table: safeSourceConfig.table,
+          columnMapping: safeSourceConfig.columnMapping, // fully declared by org via admin UI
           pollIntervalMs: safeSourceConfig.pollIntervalMs || config.worker?.intervalMs,
-          batchSize:      safeSourceConfig.batchSize || config.worker?.batchSize,
-          dbTimeoutMs:    safeSourceConfig.dbTimeoutMs || config.worker?.dbOperationTimeoutMs
+          batchSize: safeSourceConfig.batchSize || config.worker?.batchSize,
+          dbTimeoutMs: safeSourceConfig.dbTimeoutMs || config.worker?.dbOperationTimeoutMs,
         });
       }
 
       case 'kafka':
         return new KafkaEventSource({
           orgId,
-          brokers:           sourceConfig.brokers           || config.kafka?.brokers,
-          topic:             sourceConfig.topic             || config.kafka?.topic,
-          groupId:           sourceConfig.groupId           || `ig-org-${orgId}`,
-          clientId:          sourceConfig.clientId          || config.kafka?.clientId,
-          fromBeginning:     sourceConfig.fromBeginning     ?? config.kafka?.fromBeginning,
-          sessionTimeout:    sourceConfig.sessionTimeout    || config.kafka?.sessionTimeout,
-          heartbeatInterval: sourceConfig.heartbeatInterval || config.kafka?.heartbeatInterval
+          brokers: sourceConfig.brokers || config.kafka?.brokers,
+          topic: sourceConfig.topic || config.kafka?.topic,
+          groupId: sourceConfig.groupId || `ig-org-${orgId}`,
+          clientId: sourceConfig.clientId || config.kafka?.clientId,
+          fromBeginning: sourceConfig.fromBeginning ?? config.kafka?.fromBeginning,
+          sessionTimeout: sourceConfig.sessionTimeout || config.kafka?.sessionTimeout,
+          heartbeatInterval: sourceConfig.heartbeatInterval || config.kafka?.heartbeatInterval,
         });
 
       case 'http_push':
@@ -221,10 +219,10 @@ class DeliveryWorkerManager {
     }
     if (this.globalSourceType === 'kafka') {
       return {
-        brokers:       config.kafka?.brokers,
-        topic:         config.kafka?.topic,
-        clientId:      config.kafka?.clientId,
-        fromBeginning: config.kafka?.fromBeginning
+        brokers: config.kafka?.brokers,
+        topic: config.kafka?.topic,
+        clientId: config.kafka?.clientId,
+        fromBeginning: config.kafka?.fromBeginning,
       };
     }
     return {};
@@ -236,18 +234,18 @@ class DeliveryWorkerManager {
     const safePoolConfig = sanitizePoolConfig(sourceConfig, 'dedicated');
 
     return mysql.createPool({
-      host:            sourceConfig.host,
-      port:            sourceConfig.port || 3306,
-      user:            sourceConfig.user,
-      password:        sourceConfig.password,
-      database:        sourceConfig.database,
+      host: sourceConfig.host,
+      port: sourceConfig.port || 3306,
+      user: sourceConfig.user,
+      password: sourceConfig.password,
+      database: sourceConfig.database,
       waitForConnections: true,
-      connectionLimit:   safePoolConfig.connectionLimit,
-      queueLimit:        safePoolConfig.queueLimit,
+      connectionLimit: safePoolConfig.connectionLimit,
+      queueLimit: safePoolConfig.queueLimit,
       namedPlaceholders: true,
-      connectTimeout:    sourceConfig.dbTimeoutMs || config.worker?.dbOperationTimeoutMs || 30000,
-      enableKeepAlive:   true,
-      keepAliveInitialDelay: 10000
+      connectTimeout: sourceConfig.dbTimeoutMs || config.worker?.dbOperationTimeoutMs || 30000,
+      enableKeepAlive: true,
+      keepAliveInitialDelay: 10000,
     });
   }
 

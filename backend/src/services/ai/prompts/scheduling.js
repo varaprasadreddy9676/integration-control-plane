@@ -16,9 +16,9 @@ async function buildSchedulingScriptPrompt(description, mode, eventType) {
   let eventSpecificContext = '';
 
   if (eventSchema) {
-    const fieldPaths = eventSchema.fields?.map(f => f.path).join(', ') || '';
+    const fieldPaths = eventSchema.fields?.map((f) => f.path).join(', ') || '';
     eventSpecificContext = `\n**EVENT-SPECIFIC CONTEXT for ${eventType}** (from MongoDB event_types):
-${eventSchema.description || eventSchema.label || 'Event type: ' + eventType}
+${eventSchema.description || eventSchema.label || `Event type: ${eventType}`}
 Category: ${eventSchema.category || 'N/A'}
 Available fields in payload: ${fieldPaths || 'See sample below'}
 `;
@@ -137,5 +137,5 @@ NOW GENERATE THE SCHEDULING SCRIPT:`;
 }
 
 module.exports = {
-  buildSchedulingScriptPrompt
+  buildSchedulingScriptPrompt,
 };

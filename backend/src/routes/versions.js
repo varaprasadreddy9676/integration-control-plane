@@ -6,7 +6,7 @@ const { auditVersion } = require('../middleware/audit');
 const router = express.Router();
 
 // Helper function to generate semantic version numbers
-function generateSemanticVersion(major = 1, minor = 0, patch = 0, prerelease = null) {
+function _generateSemanticVersion(major = 1, minor = 0, patch = 0, prerelease = null) {
   let version = `${major}.${minor}.${patch}`;
   if (prerelease) {
     version += `-${prerelease}`;
@@ -28,9 +28,9 @@ function parseSemanticVersion(version) {
   const baseVersion = prereleaseMatch ? prereleaseMatch[1] : cleanVersion;
 
   const parts = baseVersion.split('.');
-  const major = parseInt(parts[0]) || 0;
-  const minor = parseInt(parts[1]) || 0;
-  const patch = parseInt(parts[2]) || 0;
+  const major = parseInt(parts[0], 10) || 0;
+  const minor = parseInt(parts[1], 10) || 0;
+  const patch = parseInt(parts[2], 10) || 0;
 
   return {
     version: cleanVersion,
@@ -38,7 +38,7 @@ function parseSemanticVersion(version) {
     minor,
     patch,
     prerelease: prereleaseMatch ? prereleaseMatch[2] : null,
-    isPrerelease: !!prereleaseMatch
+    isPrerelease: !!prereleaseMatch,
   };
 }
 
@@ -71,8 +71,7 @@ function isValidVersion(version) {
 }
 
 function isInOrg(integration, orgId) {
-  return integration?.orgId === orgId ||
-    integration?.orgUnitRid === orgId;
+  return integration?.orgId === orgId || integration?.orgUnitRid === orgId;
 }
 
 // Create integration with version tracking
@@ -85,18 +84,18 @@ router.post('/', async (req, res) => {
       isPrerelease = false,
       isDefault = false,
       compatibilityMode = 'BACKWARD_COMPATIBLE', // BACKWARD_COMPATIBLE, STRICT, NONE
-      tags = []
+      tags = [],
     } = req.body;
 
     // Validate integration data
     const required = ['name', 'eventType', 'targetUrl', 'httpMethod'];
-    const missing = required.filter(field => !integrationData[field]);
+    const missing = required.filter((field) => !integrationData[field]);
 
     if (missing.length > 0) {
       return res.status(400).json({
         error: 'Missing required fields',
         code: 'VALIDATION_ERROR',
-        missing
+        missing,
       });
     }
 
@@ -105,22 +104,20 @@ router.post('/', async (req, res) => {
       return res.status(400).json({
         error: 'Invalid version format',
         code: 'INVALID_VERSION',
-        details: 'Version must follow semantic versioning (e.g., 1.0.0, 2.1.1-beta)'
+        details: 'Version must follow semantic versioning (e.g., 1.0.0, 2.1.1-beta)',
       });
     }
 
     // Check for duplicate version if not prerelease
     if (!isPrerelease) {
       const existingVersions = await getIntegrationVersions(req.orgId, integrationData.name || 'unnamed');
-      const duplicate = existingVersions.find(v =>
-        v.version === version && !v.isPrerelease
-      );
+      const duplicate = existingVersions.find((v) => v.version === version && !v.isPrerelease);
 
       if (duplicate) {
         return res.status(409).json({
           error: 'Version already exists',
           code: 'DUPLICATE_VERSION',
-          existingVersion: duplicate.version
+          existingVersion: duplicate.version,
         });
       }
     }
@@ -145,10 +142,10 @@ router.post('/', async (req, res) => {
           autoIncrement: false,
           major: parseSemanticVersion(version).major,
           minor: parseSemanticVersion(version).minor,
-          patch: parseSemanticVersion(version).patch
-        }
+          patch: parseSemanticVersion(version).patch,
+        },
       },
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
     };
 
     const createdIntegration = await data.createIntegration(req.orgId, integrationPayload);
@@ -157,36 +154,30 @@ router.post('/', async (req, res) => {
       integrationId: createdIntegration.id,
       name: integrationData.name,
       version,
-      compatibilityMode
+      compatibilityMode,
     });
 
     await auditVersion.created(req, createdIntegration);
 
     // If this is marked as default, update other integrations of same name to not be default
     if (isDefault) {
-      await updateDefaultVersionForName(
-        req.orgId,
-        integrationData.name,
-        version,
-        createdIntegration.id
-      );
+      await updateDefaultVersionForName(req.orgId, integrationData.name, version, createdIntegration.id);
     }
 
     res.status(201).json({
       message: 'Integration version created successfully',
       integration: createdIntegration,
-      version
+      version,
     });
-
   } catch (error) {
     log('error', 'Integration version creation failed', {
       error: error.message,
-      __KEEP_integrationName__: req.body.integrationData?.name
+      __KEEP_integrationName__: req.body.integrationData?.name,
     });
 
     res.status(500).json({
       error: 'Failed to create integration version',
-      code: 'VERSION_CREATE_ERROR'
+      code: 'VERSION_CREATE_ERROR',
     });
   }
 });
@@ -199,11 +190,8 @@ router.get('/integration/:__KEEP_integrationName__/versions', async (req, res) =
 
     const integrations = await data.listIntegrations(req.orgId);
     const integrationVersions = integrations
-      .filter(integration =>
-        isInOrg(integration, req.orgId) &&
-        integration.name === __KEEP_integrationName__
-      )
-      .map(integration => ({
+      .filter((integration) => isInOrg(integration, req.orgId) && integration.name === __KEEP_integrationName__)
+      .map((integration) => ({
         id: integration.id,
         name: integration.name,
         version: integration.metadata?.version || '1.0.0',
@@ -217,10 +205,10 @@ router.get('/integration/:__KEEP_integrationName__/versions', async (req, res) =
         updatedAt: integration.updatedAt,
         metadata: {
           versioning: integration.metadata?.versioning,
-          templateId: integration.metadata?.templateId
-        }
+          templateId: integration.metadata?.templateId,
+        },
       }))
-      .filter(version => {
+      .filter((version) => {
         if (!includePrerelease && version.isPrerelease) return false;
         if (!includeInactive && !version.isActive) return false;
         return true;
@@ -245,33 +233,32 @@ router.get('/integration/:__KEEP_integrationName__/versions', async (req, res) =
         // Compare patch if major and minor are equal
         return versionB.patch - versionA.patch;
       })
-      .slice(0, parseInt(limit));
+      .slice(0, parseInt(limit, 10));
 
     const summary = {
       __KEEP_integrationName__,
       totalVersions: integrationVersions.length,
-      activeVersions: integrationVersions.filter(v => v.isActive).length,
-      defaultVersion: integrationVersions.find(v => v.isDefault)
+      activeVersions: integrationVersions.filter((v) => v.isActive).length,
+      defaultVersion: integrationVersions.find((v) => v.isDefault),
     };
 
     res.json({
       versions: integrationVersions,
       summary,
       pagination: {
-        limit: parseInt(limit),
-        hasMore: integrationVersions.length > parseInt(limit)
-      }
+        limit: parseInt(limit, 10),
+        hasMore: integrationVersions.length > parseInt(limit, 10),
+      },
     });
-
   } catch (error) {
     log('error', 'Failed to retrieve integration versions', {
       error: error.message,
-      __KEEP_integrationName__: req.params.__KEEP_integrationName__
+      __KEEP_integrationName__: req.params.__KEEP_integrationName__,
     });
 
     res.status(500).json({
       error: 'Failed to retrieve integration versions',
-      code: 'VERSION_LIST_ERROR'
+      code: 'VERSION_LIST_ERROR',
     });
   }
 });
@@ -282,33 +269,33 @@ router.get('/integration/:__KEEP_integrationName__/version/:version', async (req
     const { __KEEP_integrationName__, version } = req.params;
 
     const integrations = await data.listIntegrations(req.orgId);
-    const targetIntegration = integrations.find(integration =>
-      isInOrg(integration, req.orgId) &&
-      integration.name === __KEEP_integrationName__ &&
-      integration.metadata?.version === version
+    const targetIntegration = integrations.find(
+      (integration) =>
+        isInOrg(integration, req.orgId) &&
+        integration.name === __KEEP_integrationName__ &&
+        integration.metadata?.version === version
     );
 
     if (!targetIntegration) {
       return res.status(404).json({
         error: 'Integration version not found',
-        code: 'VERSION_NOT_FOUND'
+        code: 'VERSION_NOT_FOUND',
       });
     }
 
     res.json({
-      integration: targetIntegration
+      integration: targetIntegration,
     });
-
   } catch (error) {
     log('error', 'Failed to retrieve integration version', {
       error: error.message,
       __KEEP_integrationName__: req.params.__KEEP_integrationName__,
-      version: req.params.version
+      version: req.params.version,
     });
 
     res.status(500).json({
       error: 'Failed to retrieve integration version',
-      code: 'VERSION_GET_ERROR'
+      code: 'VERSION_GET_ERROR',
     });
   }
 });
@@ -324,20 +311,19 @@ router.put('/integration/:__KEEP_integrationName__/version/:version', async (req
       compatibilityMode,
       tags,
       deactivationMode = 'IMMEDIATE', // IMMEDIATE, SCHEDULED, NEVER
-      deactivationDelay = 0 // seconds
+      deactivationDelay = 0, // seconds
     } = req.body;
 
     const integrations = await data.listIntegrations(req.orgId);
-    const currentIntegration = integrations.find(integration =>
-      isInOrg(integration, req.orgId) &&
-      integration.name === __KEEP_integrationName__ &&
-      integration.isActive
+    const currentIntegration = integrations.find(
+      (integration) =>
+        isInOrg(integration, req.orgId) && integration.name === __KEEP_integrationName__ && integration.isActive
     );
 
     if (!currentIntegration) {
       return res.status(404).json({
         error: 'Active integration not found',
-        code: 'WEBHOOK_NOT_FOUND'
+        code: 'WEBHOOK_NOT_FOUND',
       });
     }
 
@@ -371,43 +357,41 @@ router.put('/integration/:__KEEP_integrationName__/version/:version', async (req
           autoIncrement: false,
           major: parseSemanticVersion(version).major,
           minor: parseSemanticVersion(version).minor,
-          patch: parseSemanticVersion(version).patch
-        }
+          patch: parseSemanticVersion(version).patch,
+        },
       },
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
     };
 
     // Handle deactivation of previous version
     if (deactivationMode === 'IMMEDIATE') {
       // Deactivate current version immediately
-      const deactivatedIntegration = await data.updateIntegration(
-        req.orgId,
-        currentIntegration.id,
-        { isActive: false }
-      );
+      const deactivatedIntegration = await data.updateIntegration(req.orgId, currentIntegration.id, {
+        isActive: false,
+      });
 
       if (deactivatedIntegration) {
         log('info', 'Previous integration version deactivated', {
           integrationId: currentIntegration.id,
           __KEEP_integrationName__,
           oldVersion: currentIntegration.metadata?.version,
-          newVersion: version
+          newVersion: version,
         });
       } else {
         log('warn', 'Failed to deactivate previous integration version', {
           integrationId: currentIntegration.id,
-          __KEEP_integrationName__
+          __KEEP_integrationName__,
         });
       }
     } else if (deactivationMode === 'SCHEDULED') {
       // Schedule deactivation for later
-      const deactivationTime = new Date(Date.now() + (deactivationDelay * 1000));
+      const deactivationTime = new Date(Date.now() + deactivationDelay * 1000);
 
       log('info', 'Scheduled integration version deactivation', {
         integrationId: currentIntegration.id,
         __KEEP_integrationName__,
         deactivationTime: deactivationTime.toISOString(),
-        delay: deactivationDelay
+        delay: deactivationDelay,
       });
 
       // This would require a background job system
@@ -423,38 +407,38 @@ router.put('/integration/:__KEEP_integrationName__/version/:version', async (req
       __KEEP_integrationName__,
       oldVersion: currentIntegration.metadata?.version,
       newVersion: version,
-      deactivationMode
+      deactivationMode,
     });
 
     await auditVersion.updated(req, currentIntegration.id, {
       before: currentIntegration,
       after: createdIntegration,
       fromVersion: currentIntegration.metadata?.version,
-      toVersion: version
+      toVersion: version,
     });
 
     res.json({
       message: 'Integration version updated successfully',
       previousIntegration: {
         id: currentIntegration.id,
-        isDeactivated: deactivationMode === 'IMMEDIATE'
-          ? !(await data.getIntegrationById(req.orgId, currentIntegration.id))?.isActive
-          : false
+        isDeactivated:
+          deactivationMode === 'IMMEDIATE'
+            ? !(await data.getIntegrationById(req.orgId, currentIntegration.id))?.isActive
+            : false,
       },
       newIntegration: createdIntegration,
-      version
+      version,
     });
-
   } catch (error) {
     log('error', 'Failed to update integration version', {
       error: error.message,
       __KEEP_integrationName__: req.params.__KEEP_integrationName__,
-      version: req.params.version
+      version: req.params.version,
     });
 
     res.status(500).json({
       error: 'Failed to update integration version',
-      code: 'VERSION_UPDATE_ERROR'
+      code: 'VERSION_UPDATE_ERROR',
     });
   }
 });
@@ -468,35 +452,32 @@ router.patch('/integration/:__KEEP_integrationName__/version/:version/status', a
     if (typeof isActive !== 'boolean') {
       return res.status(400).json({
         error: 'isActive must be a boolean',
-        code: 'INVALID_STATUS'
+        code: 'INVALID_STATUS',
       });
     }
 
     const integrations = await data.listIntegrations(req.orgId);
-    const targetIntegration = integrations.find(integration =>
-      isInOrg(integration, req.orgId) &&
-      integration.name === __KEEP_integrationName__ &&
-      integration.metadata?.version === version
+    const targetIntegration = integrations.find(
+      (integration) =>
+        isInOrg(integration, req.orgId) &&
+        integration.name === __KEEP_integrationName__ &&
+        integration.metadata?.version === version
     );
 
     if (!targetIntegration) {
       return res.status(404).json({
         error: 'Integration version not found',
-        code: 'VERSION_NOT_FOUND'
+        code: 'VERSION_NOT_FOUND',
       });
     }
 
-    const updatedIntegration = await data.updateIntegration(
-      req.orgId,
-      targetIntegration.id,
-      { isActive }
-    );
+    const updatedIntegration = await data.updateIntegration(req.orgId, targetIntegration.id, { isActive });
 
     log('info', 'Integration version status updated', {
       integrationId: targetIntegration.id,
       __KEEP_integrationName__,
       version,
-      status: isActive ? 'activated' : 'deactivated'
+      status: isActive ? 'activated' : 'deactivated',
     });
 
     await auditVersion.statusChanged(req, targetIntegration.id, { isActive, version, name: __KEEP_integrationName__ });
@@ -504,19 +485,18 @@ router.patch('/integration/:__KEEP_integrationName__/version/:version/status', a
     res.json({
       message: `Integration version ${isActive ? 'activated' : 'deactivated'} successfully`,
       integration: updatedIntegration,
-      version
+      version,
     });
-
   } catch (error) {
     log('error', 'Failed to update integration version status', {
       error: error.message,
       __KEEP_integrationName__: req.params.__KEEP_integrationName__,
-      version: req.params.version
+      version: req.params.version,
     });
 
     res.status(500).json({
       error: 'Failed to update integration version status',
-      code: 'VERSION_STATUS_ERROR'
+      code: 'VERSION_STATUS_ERROR',
     });
   }
 });
@@ -530,14 +510,14 @@ router.put('/integration/:__KEEP_integrationName__/default', async (req, res) =>
     if (!version) {
       return res.status(400).json({
         error: 'Version is required',
-        code: 'VERSION_REQUIRED'
+        code: 'VERSION_REQUIRED',
       });
     }
 
     if (!isValidVersion(version)) {
       return res.status(400).json({
         error: 'Invalid version format',
-        code: 'INVALID_VERSION'
+        code: 'INVALID_VERSION',
       });
     }
 
@@ -545,7 +525,7 @@ router.put('/integration/:__KEEP_integrationName__/default', async (req, res) =>
 
     log('info', 'Default integration version updated', {
       __KEEP_integrationName__,
-      version
+      version,
     });
 
     await auditVersion.defaultSet(req, __KEEP_integrationName__, version);
@@ -553,18 +533,17 @@ router.put('/integration/:__KEEP_integrationName__/default', async (req, res) =>
     res.json({
       message: 'Default integration version updated successfully',
       __KEEP_integrationName__,
-      version
+      version,
     });
-
   } catch (error) {
     log('error', 'Failed to update default integration version', {
       error: error.message,
-      __KEEP_integrationName__: req.params.__KEEP_integrationName__
+      __KEEP_integrationName__: req.params.__KEEP_integrationName__,
     });
 
     res.status(500).json({
       error: 'Failed to update default integration version',
-      code: 'DEFAULT_VERSION_ERROR'
+      code: 'DEFAULT_VERSION_ERROR',
     });
   }
 });
@@ -576,16 +555,17 @@ router.delete('/integration/:__KEEP_integrationName__/version/:version', async (
     const { force = false } = req.query;
 
     const integrations = await data.listIntegrations(req.orgId);
-    const targetIntegration = integrations.find(integration =>
-      isInOrg(integration, req.orgId) &&
-      integration.name === __KEEP_integrationName__ &&
-      integration.metadata?.version === version
+    const targetIntegration = integrations.find(
+      (integration) =>
+        isInOrg(integration, req.orgId) &&
+        integration.name === __KEEP_integrationName__ &&
+        integration.metadata?.version === version
     );
 
     if (!targetIntegration) {
       return res.status(404).json({
         error: 'Integration version not found',
-        code: 'VERSION_NOT_FOUND'
+        code: 'VERSION_NOT_FOUND',
       });
     }
 
@@ -594,7 +574,7 @@ router.delete('/integration/:__KEEP_integrationName__/version/:version', async (
       return res.status(409).json({
         error: 'Cannot delete default version',
         code: 'CANNOT_DELETE_DEFAULT',
-        details: 'Use ?force=true to override this restriction'
+        details: 'Use ?force=true to override this restriction',
       });
     }
 
@@ -605,7 +585,7 @@ router.delete('/integration/:__KEEP_integrationName__/version/:version', async (
         integrationId: targetIntegration.id,
         __KEEP_integrationName__,
         version,
-        isDefault: targetIntegration.metadata?.isDefault || false
+        isDefault: targetIntegration.metadata?.isDefault || false,
       });
 
       await auditVersion.deleted(req, targetIntegration.id, targetIntegration);
@@ -614,25 +594,24 @@ router.delete('/integration/:__KEEP_integrationName__/version/:version', async (
         message: 'Integration version deleted successfully',
         integrationId: targetIntegration.id,
         __KEEP_integrationName__,
-        version
+        version,
       });
     } else {
       res.status(500).json({
         error: 'Failed to delete integration version',
-        code: 'VERSION_DELETE_ERROR'
+        code: 'VERSION_DELETE_ERROR',
       });
     }
-
   } catch (error) {
     log('error', 'Failed to delete integration version', {
       error: error.message,
       __KEEP_integrationName__: req.params.__KEEP_integrationName__,
-      version: req.params.version
+      version: req.params.version,
     });
 
     res.status(500).json({
       error: 'Failed to delete integration version',
-      code: 'VERSION_DELETE_ERROR'
+      code: 'VERSION_DELETE_ERROR',
     });
   }
 });
@@ -643,22 +622,24 @@ router.get('/integration/:__KEEP_integrationName__/compare/:v1/:v2', async (req,
     const { __KEEP_integrationName__, v1, v2 } = req.params;
 
     const integrations = await data.listIntegrations(req.orgId);
-    const integration1 = integrations.find(integration =>
-      isInOrg(integration, req.orgId) &&
-      integration.name === __KEEP_integrationName__ &&
-      integration.metadata?.version === v1
+    const integration1 = integrations.find(
+      (integration) =>
+        isInOrg(integration, req.orgId) &&
+        integration.name === __KEEP_integrationName__ &&
+        integration.metadata?.version === v1
     );
 
-    const integration2 = integrations.find(integration =>
-      isInOrg(integration, req.orgId) &&
-      integration.name === __KEEP_integrationName__ &&
-      integration.metadata?.version === v2
+    const integration2 = integrations.find(
+      (integration) =>
+        isInOrg(integration, req.orgId) &&
+        integration.name === __KEEP_integrationName__ &&
+        integration.metadata?.version === v2
     );
 
     if (!integration1 || !integration2) {
       return res.status(404).json({
         error: 'One or both integration versions not found',
-        code: 'VERSION_NOT_FOUND'
+        code: 'VERSION_NOT_FOUND',
       });
     }
 
@@ -676,8 +657,8 @@ router.get('/integration/:__KEEP_integrationName__/compare/:v1/:v2', async (req,
             name: integration1.name,
             isActive: integration1.isActive,
             createdAt: integration1.createdAt,
-            updatedAt: integration1.updatedAt
-          }
+            updatedAt: integration1.updatedAt,
+          },
         },
         v2: {
           version: v2,
@@ -687,29 +668,28 @@ router.get('/integration/:__KEEP_integrationName__/compare/:v1/:v2', async (req,
             name: integration2.name,
             isActive: integration2.isActive,
             createdAt: integration2.createdAt,
-            updatedAt: integration2.updatedAt
-          }
-        }
+            updatedAt: integration2.updatedAt,
+          },
+        },
       },
       comparison: {
         direction: compareVersions(v1, v2) > 0 ? 'v2 is newer' : 'v1 is newer or equal',
         difference: Math.abs(compareVersions(v1, v2)),
-        compatibility: checkCompatibility(parsed1, parsed2)
-      }
+        compatibility: checkCompatibility(parsed1, parsed2),
+      },
     };
 
     res.json(comparison);
-
   } catch (error) {
     log('error', 'Failed to compare integration versions', {
       error: error.message,
       __KEEP_integrationName__: req.params.__KEEP_integrationName__,
-      versions: [req.params.v1, req.params.v2]
+      versions: [req.params.v1, req.params.v2],
     });
 
     res.status(500).json({
       error: 'Failed to compare integration versions',
-      code: 'VERSION_COMPARE_ERROR'
+      code: 'VERSION_COMPARE_ERROR',
     });
   }
 });
@@ -721,10 +701,7 @@ router.get('/integration/:__KEEP_integrationName__/compatibility/:version', asyn
 
     const integrations = await data.listIntegrations(req.orgId);
     const integrationVersions = integrations
-      .filter(integration =>
-        isInOrg(integration, req.orgId) &&
-        integration.name === __KEEP_integrationName__
-      )
+      .filter((integration) => isInOrg(integration, req.orgId) && integration.name === __KEEP_integrationName__)
       .sort((a, b) => {
         const versionA = parseSemanticVersion(a.metadata?.version || '1.0.0');
         const versionB = parseSemanticVersion(b.metadata?.version || '1.0.0');
@@ -732,23 +709,23 @@ router.get('/integration/:__KEEP_integrationName__/compatibility/:version', asyn
       })
       .reverse();
 
-    const targetVersion = integrationVersions.find(w => w.metadata?.version === version);
+    const targetVersion = integrationVersions.find((w) => w.metadata?.version === version);
     if (!targetVersion) {
       return res.status(404).json({
         error: 'Integration version not found',
-        code: 'VERSION_NOT_FOUND'
+        code: 'VERSION_NOT_FOUND',
       });
     }
 
     const targetParsed = parseSemanticVersion(version);
 
     // Check backward compatibility
-    const compatibleVersions = integrationVersions.filter(w => {
+    const compatibleVersions = integrationVersions.filter((w) => {
       const wp = parseSemanticVersion(w.metadata?.version || '1.0.0');
       return isBackwardCompatible(wp, targetParsed);
     });
 
-    const incompatibleVersions = integrationVersions.filter(w => {
+    const incompatibleVersions = integrationVersions.filter((w) => {
       const wp = parseSemanticVersion(w.metadata?.version || '1.0.0');
       return !isBackwardCompatible(wp, targetParsed);
     });
@@ -757,35 +734,31 @@ router.get('/integration/:__KEEP_integrationName__/compatibility/:version', asyn
       targetVersion: version,
       targetParsed,
       totalVersions: integrationVersions.length,
-      compatibleVersions: compatibleVersions.map(w => w.metadata?.version),
-      incompatibleVersions: incompatibleVersions.map(w => w.metadata?.version),
+      compatibleVersions: compatibleVersions.map((w) => w.metadata?.version),
+      incompatibleVersions: incompatibleVersions.map((w) => w.metadata?.version),
       isDefault: targetVersion?.metadata?.isDefault || false,
-      compatibilityMode: targetVersion?.metadata?.compatibilityMode || 'BACKWARD_COMPATIBLE'
+      compatibilityMode: targetVersion?.metadata?.compatibilityMode || 'BACKWARD_COMPATIBLE',
     };
 
     res.json({
       __KEEP_integrationName__,
       compatibility,
-      allVersions: integrationVersions.map(w => ({
+      allVersions: integrationVersions.map((w) => ({
         version: w.metadata?.version || '1.0.0',
         parsed: parseSemanticVersion(w.metadata?.version || '1.0.0'),
-        isCompatible: isBackwardCompatible(
-          parseSemanticVersion(w.metadata?.version || '1.0.0'),
-          targetParsed
-        )
-      }))
+        isCompatible: isBackwardCompatible(parseSemanticVersion(w.metadata?.version || '1.0.0'), targetParsed),
+      })),
     });
-
   } catch (error) {
     log('error', 'Failed to check version compatibility', {
       error: error.message,
       __KEEP_integrationName__: req.params.__KEEP_integrationName__,
-      version: req.params.version
+      version: req.params.version,
     });
 
     res.status(500).json({
       error: 'Failed to check version compatibility',
-      code: 'COMPATIBILITY_CHECK_ERROR'
+      code: 'COMPATIBILITY_CHECK_ERROR',
     });
   }
 });
@@ -797,30 +770,30 @@ router.post('/integration/:__KEEP_integrationName__/rollback/:version', async (r
     const { rollbackReason, force = false } = req.body;
 
     const integrations = await data.listIntegrations(req.orgId);
-    const targetIntegration = integrations.find(integration =>
-      isInOrg(integration, req.orgId) &&
-      integration.name === __KEEP_integrationName__ &&
-      integration.metadata?.version === version
+    const targetIntegration = integrations.find(
+      (integration) =>
+        isInOrg(integration, req.orgId) &&
+        integration.name === __KEEP_integrationName__ &&
+        integration.metadata?.version === version
     );
 
     if (!targetIntegration) {
       return res.status(404).json({
         error: 'Integration version not found',
-        code: 'VERSION_NOT_FOUND'
+        code: 'VERSION_NOT_FOUND',
       });
     }
 
     // Find the current active version
-    const currentActiveVersion = integrations.find(integration =>
-      isInOrg(integration, req.orgId) &&
-      integration.name === __KEEP_integrationName__ &&
-      integration.isActive
+    const currentActiveVersion = integrations.find(
+      (integration) =>
+        isInOrg(integration, req.orgId) && integration.name === __KEEP_integrationName__ && integration.isActive
     );
 
     if (!currentActiveVersion) {
       return res.status(409).json({
         error: 'No active integration version found to rollback from',
-        code: 'NO_ACTIVE_VERSION'
+        code: 'NO_ACTIVE_VERSION',
       });
     }
 
@@ -833,14 +806,14 @@ router.post('/integration/:__KEEP_integrationName__/rollback/:version', async (r
       return res.status(409).json({
         error: 'Cannot rollback to newer version',
         code: 'CANNOT_ROLLBACK_TO_NEWER',
-        details: 'Target version is newer than current active version. Use ?force=true to override.'
+        details: 'Target version is newer than current active version. Use ?force=true to override.',
       });
     }
 
     // Activate the rollback version and deactivate current
     const [rollbackIntegration, deactivatedIntegration] = await Promise.all([
       data.updateIntegration(req.orgId, targetIntegration.id, { isActive: true }),
-      data.updateIntegration(req.orgId, currentActiveVersion.id, { isActive: false })
+      data.updateIntegration(req.orgId, currentActiveVersion.id, { isActive: false }),
     ]);
 
     log('info', 'Integration version rollback completed', {
@@ -849,13 +822,13 @@ router.post('/integration/:__KEEP_integrationName__/rollback/:version', async (r
       fromVersion: currentActiveVersion.metadata?.version,
       toVersion: version,
       rollbackReason,
-      forced: isRollbackToOlder
+      forced: isRollbackToOlder,
     });
 
     await auditVersion.rolledBack(req, targetIntegration.id, {
       fromVersion: currentActiveVersion.metadata?.version,
       toVersion: version,
-      rollbackReason
+      rollbackReason,
     });
 
     res.json({
@@ -864,20 +837,19 @@ router.post('/integration/:__KEEP_integrationName__/rollback/:version', async (r
         fromVersion: currentActiveVersion.metadata?.version,
         toVersion: version,
         rollbackIntegration,
-        deactivatedIntegration
-      }
+        deactivatedIntegration,
+      },
     });
-
   } catch (error) {
     log('error', 'Failed to rollback integration version', {
       error: error.message,
       __KEEP_integrationName__: req.params.__KEEP_integrationName__,
-      version: req.params.version
+      version: req.params.version,
     });
 
     res.status(500).json({
       error: 'Failed to rollback integration version',
-      code: 'ROLLBACK_ERROR'
+      code: 'ROLLBACK_ERROR',
     });
   }
 });
@@ -887,17 +859,16 @@ async function getIntegrationVersions(orgId, __KEEP_integrationName__) {
   try {
     const integrations = await data.listIntegrations(orgId);
     return integrations
-      .filter(integration => isInOrg(integration, orgId) && integration.name === __KEEP_integrationName__)
-      .map(integration => ({
+      .filter((integration) => isInOrg(integration, orgId) && integration.name === __KEEP_integrationName__)
+      .map((integration) => ({
         version: integration.metadata?.version || '1.0.0',
-        isPrerelease: integration.metadata?.isPrerelease || false
+        isPrerelease: integration.metadata?.isPrerelease || false,
       }))
-      .filter(meta => meta.version && isValidVersion(meta.version));
-
+      .filter((meta) => meta.version && isValidVersion(meta.version));
   } catch (error) {
     log('error', 'Failed to get integration versions', {
       error: error.message,
-      __KEEP_integrationName__
+      __KEEP_integrationName__,
     });
     return [];
   }
@@ -909,30 +880,32 @@ async function updateDefaultVersionForName(orgId, __KEEP_integrationName__, vers
 
     // Clear existing default flag
     const updates = integrations
-      .filter(integration =>
-        isInOrg(integration, orgId) &&
-        integration.name === __KEEP_integrationName__ &&
-        integration.metadata?.isDefault &&
-        integration.id !== excludeIntegrationId
+      .filter(
+        (integration) =>
+          isInOrg(integration, orgId) &&
+          integration.name === __KEEP_integrationName__ &&
+          integration.metadata?.isDefault &&
+          integration.id !== excludeIntegrationId
       )
-      .map(integration => ({
+      .map((integration) => ({
         id: integration.id,
         isDefault: false,
-        metadata: { ...(integration.metadata || {}), isDefault: false }
+        metadata: { ...(integration.metadata || {}), isDefault: false },
       }));
 
     // Set new default
-    const newDefaultIntegration = integrations.find(integration =>
-      isInOrg(integration, orgId) &&
-      integration.name === __KEEP_integrationName__ &&
-      integration.metadata?.version === version
+    const newDefaultIntegration = integrations.find(
+      (integration) =>
+        isInOrg(integration, orgId) &&
+        integration.name === __KEEP_integrationName__ &&
+        integration.metadata?.version === version
     );
 
     if (newDefaultIntegration) {
       updates.push({
         id: newDefaultIntegration.id,
         isDefault: true,
-        metadata: { ...(newDefaultIntegration.metadata || {}), isDefault: true }
+        metadata: { ...(newDefaultIntegration.metadata || {}), isDefault: true },
       });
     }
 
@@ -945,17 +918,16 @@ async function updateDefaultVersionForName(orgId, __KEEP_integrationName__, vers
       log('info', 'Default integration version updated', {
         __KEEP_integrationName__,
         version,
-        updatedCount: updates.length
+        updatedCount: updates.length,
       });
     }
 
     return true;
-
   } catch (error) {
     log('error', 'Failed to update default integration version', {
       error: error.message,
       __KEEP_integrationName__,
-      version
+      version,
     });
     return false;
   }

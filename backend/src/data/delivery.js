@@ -1,10 +1,7 @@
 'use strict';
 const { log, logError } = require('../logger');
 const mongodb = require('../mongodb');
-const {
-  useMongo,
-  fallbackDisabledError
-} = require('./helpers');
+const { useMongo, fallbackDisabledError } = require('./helpers');
 const { getIntegration } = require('./integrations');
 
 // New functions for retry logic
@@ -14,15 +11,16 @@ async function getFailedLogsForRetry(batchSize = 3) {
       const db = await mongodb.getDbSafe();
       const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000);
 
-      const logs = await db.collection('execution_logs')
+      const logs = await db
+        .collection('execution_logs')
         .find({
           status: 'RETRYING', // Only retry logs explicitly marked as RETRYING
           triggerType: { $ne: 'SCHEDULED' },
           $or: [
             { lastAttemptAt: { $gt: fourHoursAgo } }, // New logs with lastAttemptAt
             { lastAttemptAt: { $exists: false }, updatedAt: { $gt: fourHoursAgo } }, // Backward compat: old logs without lastAttemptAt
-            { lastAttemptAt: { $exists: false }, updatedAt: { $exists: false }, createdAt: { $gt: fourHoursAgo } } // Very old logs
-          ]
+            { lastAttemptAt: { $exists: false }, updatedAt: { $exists: false }, createdAt: { $gt: fourHoursAgo } }, // Very old logs
+          ],
         })
         .sort({ lastAttemptAt: -1, updatedAt: -1, createdAt: 1 })
         .limit(batchSize)
@@ -51,10 +49,12 @@ async function markLogAsAbandoned(logId) {
   try {
     if (useMongo()) {
       const db = await mongodb.getDbSafe();
-      await db.collection('execution_logs').updateOne(
-        { _id: mongodb.toObjectId(logId) },
-        { $set: { status: 'ABANDONED', shouldRetry: false, updatedAt: new Date() } }
-      );
+      await db
+        .collection('execution_logs')
+        .updateOne(
+          { _id: mongodb.toObjectId(logId) },
+          { $set: { status: 'ABANDONED', shouldRetry: false, updatedAt: new Date() } }
+        );
     } else {
       return fallbackDisabledError('markLogAsAbandoned:fallback');
     }
@@ -99,28 +99,28 @@ async function cleanupStuckRetryingLogs(hoursThreshold = 4) {
             // Legacy logs without lastAttemptAt but with updatedAt
             { lastAttemptAt: { $exists: false }, updatedAt: { $lt: thresholdTime } },
             // Very old logs without either field
-            { lastAttemptAt: { $exists: false }, updatedAt: { $exists: false }, createdAt: { $lt: thresholdTime } }
-          ]
+            { lastAttemptAt: { $exists: false }, updatedAt: { $exists: false }, createdAt: { $lt: thresholdTime } },
+          ],
         },
         {
           $set: {
             status: 'ABANDONED',
             shouldRetry: false,
             errorMessage: `Exceeded ${hoursThreshold}-hour retry window - automatically abandoned`,
-            updatedAt: new Date()
-          }
+            updatedAt: new Date(),
+          },
         }
       );
 
       log('info', 'Cleaned up stuck RETRYING logs', {
         hoursThreshold,
-        logsUpdated: result.modifiedCount
+        logsUpdated: result.modifiedCount,
       });
 
       return {
         success: true,
         logsUpdated: result.modifiedCount,
-        hoursThreshold
+        hoursThreshold,
       };
     }
     return fallbackDisabledError('cleanupStuckRetryingLogs:fallback');
@@ -142,8 +142,7 @@ async function checkCircuitState(integrationId) {
 
   try {
     const db = await mongodb.getDbSafe();
-    const integration = await db.collection('integration_configs')
-      .findOne({ _id: mongodb.toObjectId(integrationId) });
+    const integration = await db.collection('integration_configs').findOne({ _id: mongodb.toObjectId(integrationId) });
 
     if (!integration) {
       return { isOpen: false, state: 'CLOSED', reason: 'Integration not found' };
@@ -152,7 +151,7 @@ async function checkCircuitState(integrationId) {
     const circuitState = integration.circuitState || 'CLOSED';
     const consecutiveFailures = integration.consecutiveFailures || 0;
     const circuitBreakerThreshold = integration.circuitBreakerThreshold || 10;
-    const circuitRecoveryTimeMs = integration.circuitRecoveryTimeMs || (5 * 60 * 1000); // 5 minutes
+    const circuitRecoveryTimeMs = integration.circuitRecoveryTimeMs || 5 * 60 * 1000; // 5 minutes
     const circuitOpenedAt = integration.circuitOpenedAt;
 
     // If circuit is OPEN, check if recovery time has passed
@@ -167,14 +166,14 @@ async function checkCircuitState(integrationId) {
           {
             $set: {
               circuitState: 'HALF_OPEN',
-              updatedAt: now
-            }
+              updatedAt: now,
+            },
           }
         );
         log('info', 'Circuit breaker moved to HALF_OPEN', {
           integrationId,
           __KEEP_integrationName__: integration.name,
-          timeSinceOpen: `${Math.round(timeSinceOpen / 1000)}s`
+          timeSinceOpen: `${Math.round(timeSinceOpen / 1000)}s`,
         });
         return { isOpen: false, state: 'HALF_OPEN', reason: 'Testing recovery' };
       }
@@ -182,7 +181,7 @@ async function checkCircuitState(integrationId) {
       return {
         isOpen: true,
         state: 'OPEN',
-        reason: `Circuit open after ${consecutiveFailures} consecutive failures. Retry in ${Math.round((circuitRecoveryTimeMs - timeSinceOpen) / 1000)}s`
+        reason: `Circuit open after ${consecutiveFailures} consecutive failures. Retry in ${Math.round((circuitRecoveryTimeMs - timeSinceOpen) / 1000)}s`,
       };
     }
 
@@ -214,8 +213,8 @@ async function recordDeliverySuccess(integrationId) {
           consecutiveFailures: 0,
           lastSuccessAt: now,
           circuitOpenedAt: null,
-          updatedAt: now
-        }
+          updatedAt: now,
+        },
       }
     );
 
@@ -239,15 +238,14 @@ async function recordDeliveryFailure(integrationId, options = {}) {
   // If this is a business logic failure (validation, transformation, 4xx), don't trip circuit breaker
   if (!shouldTripCircuit) {
     log('debug', 'Failure recorded but not counting toward circuit breaker (business logic failure)', {
-      integrationId
+      integrationId,
     });
     return;
   }
 
   try {
     const db = await mongodb.getDbSafe();
-    const integration = await db.collection('integration_configs')
-      .findOne({ _id: mongodb.toObjectId(integrationId) });
+    const integration = await db.collection('integration_configs').findOne({ _id: mongodb.toObjectId(integrationId) });
 
     if (!integration) return;
 
@@ -268,7 +266,7 @@ async function recordDeliveryFailure(integrationId, options = {}) {
       log('warn', 'Circuit breaker reopened after HALF_OPEN test failure', {
         integrationId,
         __KEEP_integrationName__: integration.name,
-        consecutiveFailures: newFailures
+        consecutiveFailures: newFailures,
       });
     } else if (newFailures >= circuitBreakerThreshold && currentState === 'CLOSED') {
       // Threshold reached - open circuit
@@ -278,7 +276,7 @@ async function recordDeliveryFailure(integrationId, options = {}) {
         integrationId,
         __KEEP_integrationName__: integration.name,
         consecutiveFailures: newFailures,
-        threshold: circuitBreakerThreshold
+        threshold: circuitBreakerThreshold,
       });
     }
 
@@ -290,8 +288,8 @@ async function recordDeliveryFailure(integrationId, options = {}) {
           consecutiveFailures: newFailures,
           lastFailureAt: now,
           circuitOpenedAt,
-          updatedAt: now
-        }
+          updatedAt: now,
+        },
       }
     );
 
@@ -299,7 +297,7 @@ async function recordDeliveryFailure(integrationId, options = {}) {
       integrationId,
       __KEEP_integrationName__: integration.name,
       consecutiveFailures: newFailures,
-      circuitState: newState
+      circuitState: newState,
     });
   } catch (err) {
     logError(err, { scope: 'recordDeliveryFailure', integrationId });
@@ -313,5 +311,5 @@ module.exports = {
   cleanupStuckRetryingLogs,
   checkCircuitState,
   recordDeliverySuccess,
-  recordDeliveryFailure
+  recordDeliveryFailure,
 };

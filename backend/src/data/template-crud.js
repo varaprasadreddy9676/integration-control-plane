@@ -14,11 +14,9 @@ async function listCustomTemplates(orgId) {
   if (useMongo()) {
     try {
       const collection = await getCollection('integration_templates');
-      const templates = await collection.find(addOrgScope({}, normalizedOrgId))
-        .sort({ updatedAt: -1 })
-        .toArray();
+      const templates = await collection.find(addOrgScope({}, normalizedOrgId)).sort({ updatedAt: -1 }).toArray();
 
-      return templates.map(template => ({
+      return templates.map((template) => ({
         id: template._id.toString(),
         name: template.name,
         description: template.description,
@@ -38,7 +36,7 @@ async function listCustomTemplates(orgId) {
         metadata: template.metadata || {},
         createdAt: template.createdAt,
         updatedAt: template.updatedAt,
-        isCustom: true
+        isCustom: true,
       }));
     } catch (err) {
       logError(err, { scope: 'listCustomTemplates' });
@@ -57,9 +55,14 @@ async function getCustomTemplate(orgId, templateId) {
       const { ObjectId } = require('mongodb');
       const collection = await getCollection('integration_templates');
 
-      const template = await collection.findOne(addOrgScope({
-        _id: new ObjectId(templateId)
-      }, normalizedOrgId));
+      const template = await collection.findOne(
+        addOrgScope(
+          {
+            _id: new ObjectId(templateId),
+          },
+          normalizedOrgId
+        )
+      );
 
       if (template) {
         return {
@@ -82,7 +85,7 @@ async function getCustomTemplate(orgId, templateId) {
           metadata: template.metadata || {},
           createdAt: template.createdAt,
           updatedAt: template.updatedAt,
-          isCustom: true
+          isCustom: true,
         };
       }
     } catch (err) {
@@ -122,7 +125,7 @@ async function createTemplate(orgId, template) {
         isActive: template.isActive !== false,
         metadata: template.metadata || {},
         createdAt: now,
-        updatedAt: now
+        updatedAt: now,
       };
 
       const result = await collection.insertOne(templateDoc);
@@ -132,7 +135,7 @@ async function createTemplate(orgId, template) {
         ...template,
         isCustom: true,
         createdAt: now,
-        updatedAt: now
+        updatedAt: now,
       };
     } catch (err) {
       logError(err, { scope: 'createTemplate' });
@@ -168,13 +171,10 @@ async function updateTemplate(orgId, templateId, updates) {
         actions: updates.actions || null,
         isActive: updates.isActive !== false,
         metadata: updates.metadata || {},
-        updatedAt: new Date()
+        updatedAt: new Date(),
       };
 
-      await collection.updateOne(
-        addOrgScope({ _id: new ObjectId(templateId) }, normalizedOrgId),
-        { $set: updateDoc }
-      );
+      await collection.updateOne(addOrgScope({ _id: new ObjectId(templateId) }, normalizedOrgId), { $set: updateDoc });
 
       return getCustomTemplate(normalizedOrgId, templateId);
     } catch (err) {
@@ -194,9 +194,7 @@ async function deleteTemplate(orgId, templateId) {
       const { ObjectId } = require('mongodb');
       const collection = await getCollection('integration_templates');
 
-      const result = await collection.deleteOne(
-        addOrgScope({ _id: new ObjectId(templateId) }, normalizedOrgId)
-      );
+      const result = await collection.deleteOne(addOrgScope({ _id: new ObjectId(templateId) }, normalizedOrgId));
 
       return result.deletedCount > 0;
     } catch (err) {
@@ -212,5 +210,5 @@ module.exports = {
   getCustomTemplate,
   createTemplate,
   updateTemplate,
-  deleteTemplate
+  deleteTemplate,
 };

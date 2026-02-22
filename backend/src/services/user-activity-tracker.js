@@ -103,7 +103,7 @@ const ACTIVITY_EVENTS = {
 
   // Errors & Issues
   ERROR_ENCOUNTERED: 'error_encountered',
-  API_ERROR: 'api_error'
+  API_ERROR: 'api_error',
 };
 
 // Activity categories for grouping
@@ -113,7 +113,7 @@ const ACTIVITY_CATEGORIES = {
   FEATURE_USAGE: 'feature_usage',
   DATA_OPERATION: 'data_operation',
   ADMINISTRATION: 'administration',
-  ERROR: 'error'
+  ERROR: 'error',
 };
 
 /**
@@ -154,7 +154,7 @@ async function trackActivity({
   userAgent = null,
   success = true,
   errorMessage = null,
-  context = {}
+  context = {},
 }) {
   try {
     const db = await mongodb.getDbSafe();
@@ -184,10 +184,12 @@ async function trackActivity({
       target,
 
       // Changes tracking (for edit operations)
-      changes: changes ? {
-        before: changes.before || null,
-        after: changes.after || null
-      } : null,
+      changes: changes
+        ? {
+            before: changes.before || null,
+            after: changes.after || null,
+          }
+        : null,
 
       // Performance tracking
       duration,
@@ -203,7 +205,7 @@ async function trackActivity({
       // Additional context and metadata
       metadata: {
         ...metadata,
-        ...context
+        ...context,
       },
 
       // Session tracking
@@ -211,16 +213,15 @@ async function trackActivity({
 
       // Indexing helpers
       date: new Date().toISOString().split('T')[0], // For daily queries
-      hour: new Date().getHours() // For hourly analytics
+      hour: new Date().getHours(), // For hourly analytics
     };
 
     await db.collection('user_activities').insertOne(activity);
-
   } catch (error) {
     // Silent fail - activity tracking should never break the app
     log('error', 'Failed to track user activity', {
       error: error.message,
-      event
+      event,
     });
   }
 }
@@ -235,7 +236,7 @@ async function trackActivitiesBatch(activities) {
 
     const db = await mongodb.getDbSafe();
 
-    const docs = activities.map(activity => {
+    const docs = activities.map((activity) => {
       const category = activity.category || getCategoryForEvent(activity.event);
       const timestamp = activity.timestamp ? new Date(activity.timestamp) : new Date();
       return {
@@ -243,16 +244,15 @@ async function trackActivitiesBatch(activities) {
         timestamp,
         category,
         date: timestamp.toISOString().split('T')[0],
-        hour: timestamp.getHours()
+        hour: timestamp.getHours(),
       };
     });
 
     await db.collection('user_activities').insertMany(docs);
-
   } catch (error) {
     log('error', 'Failed to track activities batch', {
       error: error.message,
-      count: activities?.length
+      count: activities?.length,
     });
   }
 }
@@ -314,22 +314,17 @@ async function queryActivities(filters = {}) {
       { userEmail: { $regex: filters.search, $options: 'i' } },
       { event: { $regex: filters.search, $options: 'i' } },
       { page: { $regex: filters.search, $options: 'i' } },
-      { feature: { $regex: filters.search, $options: 'i' } }
+      { feature: { $regex: filters.search, $options: 'i' } },
     ];
   }
 
-  const page = parseInt(filters.page) || 1;
-  const limit = parseInt(filters.limit) || 100;
+  const page = parseInt(filters.page, 10) || 1;
+  const limit = parseInt(filters.limit, 10) || 100;
   const skip = (page - 1) * limit;
 
   const [activities, total] = await Promise.all([
-    db.collection('user_activities')
-      .find(query)
-      .sort({ timestamp: -1 })
-      .skip(skip)
-      .limit(limit)
-      .toArray(),
-    db.collection('user_activities').countDocuments(query)
+    db.collection('user_activities').find(query).sort({ timestamp: -1 }).skip(skip).limit(limit).toArray(),
+    db.collection('user_activities').countDocuments(query),
   ]);
 
   return {
@@ -338,8 +333,8 @@ async function queryActivities(filters = {}) {
       page,
       limit,
       total,
-      totalPages: Math.ceil(total / limit)
-    }
+      totalPages: Math.ceil(total / limit),
+    },
   };
 }
 
@@ -359,61 +354,61 @@ async function getActivityStats(filters = {}) {
   if (filters.userId) query.userId = filters.userId;
   if (filters.orgId) query.orgId = filters.orgId;
 
-  const [
-    totalActivities,
-    uniqueUsers,
-    eventsByType,
-    activitiesByCategory,
-    topPages,
-    topFeatures,
-    hourlyActivity
-  ] = await Promise.all([
-    db.collection('user_activities').countDocuments(query),
+  const [totalActivities, uniqueUsers, eventsByType, activitiesByCategory, topPages, topFeatures, hourlyActivity] =
+    await Promise.all([
+      db.collection('user_activities').countDocuments(query),
 
-    db.collection('user_activities').distinct('userId', query),
+      db.collection('user_activities').distinct('userId', query),
 
-    db.collection('user_activities').aggregate([
-      { $match: query },
-      { $group: { _id: '$event', count: { $sum: 1 } } },
-      { $sort: { count: -1 } },
-      { $limit: 20 }
-    ]).toArray(),
+      db
+        .collection('user_activities')
+        .aggregate([
+          { $match: query },
+          { $group: { _id: '$event', count: { $sum: 1 } } },
+          { $sort: { count: -1 } },
+          { $limit: 20 },
+        ])
+        .toArray(),
 
-    db.collection('user_activities').aggregate([
-      { $match: query },
-      { $group: { _id: '$category', count: { $sum: 1 } } },
-      { $sort: { count: -1 } }
-    ]).toArray(),
+      db
+        .collection('user_activities')
+        .aggregate([{ $match: query }, { $group: { _id: '$category', count: { $sum: 1 } } }, { $sort: { count: -1 } }])
+        .toArray(),
 
-    db.collection('user_activities').aggregate([
-      { $match: { ...query, page: { $ne: null } } },
-      { $group: { _id: '$page', count: { $sum: 1 } } },
-      { $sort: { count: -1 } },
-      { $limit: 10 }
-    ]).toArray(),
+      db
+        .collection('user_activities')
+        .aggregate([
+          { $match: { ...query, page: { $ne: null } } },
+          { $group: { _id: '$page', count: { $sum: 1 } } },
+          { $sort: { count: -1 } },
+          { $limit: 10 },
+        ])
+        .toArray(),
 
-    db.collection('user_activities').aggregate([
-      { $match: { ...query, feature: { $ne: null } } },
-      { $group: { _id: '$feature', count: { $sum: 1 } } },
-      { $sort: { count: -1 } },
-      { $limit: 10 }
-    ]).toArray(),
+      db
+        .collection('user_activities')
+        .aggregate([
+          { $match: { ...query, feature: { $ne: null } } },
+          { $group: { _id: '$feature', count: { $sum: 1 } } },
+          { $sort: { count: -1 } },
+          { $limit: 10 },
+        ])
+        .toArray(),
 
-    db.collection('user_activities').aggregate([
-      { $match: query },
-      { $group: { _id: '$hour', count: { $sum: 1 } } },
-      { $sort: { _id: 1 } }
-    ]).toArray()
-  ]);
+      db
+        .collection('user_activities')
+        .aggregate([{ $match: query }, { $group: { _id: '$hour', count: { $sum: 1 } } }, { $sort: { _id: 1 } }])
+        .toArray(),
+    ]);
 
   return {
     totalActivities,
     uniqueUsers: uniqueUsers.length,
-    eventsByType: eventsByType.map(e => ({ event: e._id, count: e.count })),
-    activitiesByCategory: activitiesByCategory.map(c => ({ category: c._id, count: c.count })),
-    topPages: topPages.map(p => ({ page: p._id, count: p.count })),
-    topFeatures: topFeatures.map(f => ({ feature: f._id, count: f.count })),
-    hourlyActivity: hourlyActivity.map(h => ({ hour: h._id, count: h.count }))
+    eventsByType: eventsByType.map((e) => ({ event: e._id, count: e.count })),
+    activitiesByCategory: activitiesByCategory.map((c) => ({ category: c._id, count: c.count })),
+    topPages: topPages.map((p) => ({ page: p._id, count: p.count })),
+    topFeatures: topFeatures.map((f) => ({ feature: f._id, count: f.count })),
+    hourlyActivity: hourlyActivity.map((h) => ({ hour: h._id, count: h.count })),
   };
 }
 
@@ -435,24 +430,19 @@ async function getUserSessions(userId, filters = {}) {
     if (filters.endDate) query.timestamp.$lte = new Date(filters.endDate);
   }
 
-  const activities = await db.collection('user_activities')
-    .find(query)
-    .sort({ timestamp: -1 })
-    .limit(500)
-    .toArray();
+  const activities = await db.collection('user_activities').find(query).sort({ timestamp: -1 }).limit(500).toArray();
 
   // Group activities into sessions (30 min gap = new session)
   const sessions = [];
   let currentSession = null;
 
-  activities.forEach(activity => {
-    if (!currentSession ||
-        (currentSession.lastActivity - activity.timestamp) > 30 * 60 * 1000) {
+  activities.forEach((activity) => {
+    if (!currentSession || currentSession.lastActivity - activity.timestamp > 30 * 60 * 1000) {
       currentSession = {
         startTime: activity.timestamp,
         lastActivity: activity.timestamp,
         activities: [],
-        totalDuration: 0
+        totalDuration: 0,
       };
       sessions.push(currentSession);
     }
@@ -493,16 +483,18 @@ function getCategoryForEvent(event) {
 async function ensureActivityIndexes() {
   try {
     const db = await mongodb.getDbSafe();
-    await db.collection('user_activities').createIndexes([
-      { key: { timestamp: -1 } },
-      { key: { userId: 1, timestamp: -1 } },
-      { key: { event: 1 } },
-      { key: { category: 1 } },
-      { key: { orgId: 1 } },
-      { key: { page: 1 } },
-      { key: { date: 1 } },
-      { key: { sessionId: 1 } }
-    ]);
+    await db
+      .collection('user_activities')
+      .createIndexes([
+        { key: { timestamp: -1 } },
+        { key: { userId: 1, timestamp: -1 } },
+        { key: { event: 1 } },
+        { key: { category: 1 } },
+        { key: { orgId: 1 } },
+        { key: { page: 1 } },
+        { key: { date: 1 } },
+        { key: { sessionId: 1 } },
+      ]);
     log('info', 'User activity indexes created');
   } catch (error) {
     log('error', 'Failed to create activity indexes', { error: error.message });
@@ -517,5 +509,5 @@ module.exports = {
   getUserSessions,
   ensureActivityIndexes,
   ACTIVITY_EVENTS,
-  ACTIVITY_CATEGORIES
+  ACTIVITY_CATEGORIES,
 };

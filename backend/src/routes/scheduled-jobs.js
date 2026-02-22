@@ -33,7 +33,7 @@ router.get('/', async (req, res) => {
     const jobs = await collection
       .find({
         direction: 'SCHEDULED',
-        ...buildOrgScopeQuery(orgId)
+        ...buildOrgScopeQuery(orgId),
       })
       .sort({ createdAt: -1 })
       .toArray();
@@ -42,11 +42,7 @@ router.get('/', async (req, res) => {
     const logsCollection = db.collection('scheduled_job_logs');
 
     for (const job of jobs) {
-      const latestLog = await logsCollection
-        .findOne(
-          { integrationId: job._id },
-          { sort: { startedAt: -1 } }
-        );
+      const latestLog = await logsCollection.findOne({ integrationId: job._id }, { sort: { startedAt: -1 } });
 
       job.lastExecution = latestLog
         ? {
@@ -54,7 +50,7 @@ router.get('/', async (req, res) => {
             startedAt: latestLog.startedAt,
             completedAt: latestLog.completedAt,
             durationMs: latestLog.durationMs,
-            recordsFetched: latestLog.recordsFetched
+            recordsFetched: latestLog.recordsFetched,
           }
         : null;
     }
@@ -106,7 +102,7 @@ router.post('/', async (req, res) => {
     if (jobConfig.schedule.type === 'INTERVAL') {
       if (!jobConfig.schedule.intervalMs || jobConfig.schedule.intervalMs < 60000) {
         return res.status(400).json({
-          error: 'Interval must be at least 60000ms (1 minute)'
+          error: 'Interval must be at least 60000ms (1 minute)',
         });
       }
     }
@@ -119,7 +115,7 @@ router.post('/', async (req, res) => {
       isActive: jobConfig.isActive !== undefined ? jobConfig.isActive : true,
       httpMethod: jobConfig.httpMethod || 'POST',
       createdAt: new Date(),
-      updatedAt: new Date()
+      updatedAt: new Date(),
     };
 
     // Save to database
@@ -138,7 +134,7 @@ router.post('/', async (req, res) => {
     log('info', 'Scheduled job created', {
       jobId: newJob._id.toString(),
       name: newJob.name,
-      orgId
+      orgId,
     });
 
     await auditScheduledJob.created(req, newJob);
@@ -169,7 +165,7 @@ router.get('/:id', async (req, res) => {
     const job = await collection.findOne({
       _id: new ObjectId(id),
       direction: 'SCHEDULED',
-      ...buildOrgScopeQuery(orgId)
+      ...buildOrgScopeQuery(orgId),
     });
 
     if (!job) {
@@ -208,7 +204,7 @@ router.put('/:id', async (req, res) => {
     if (updates.schedule?.type === 'INTERVAL' && updates.schedule?.intervalMs) {
       if (updates.schedule.intervalMs < 60000) {
         return res.status(400).json({
-          error: 'Interval must be at least 60000ms (1 minute)'
+          error: 'Interval must be at least 60000ms (1 minute)',
         });
       }
     }
@@ -219,13 +215,13 @@ router.put('/:id', async (req, res) => {
     const beforeJob = await collection.findOne({
       _id: new ObjectId(id),
       direction: 'SCHEDULED',
-      ...buildOrgScopeQuery(orgId)
+      ...buildOrgScopeQuery(orgId),
     });
 
     // Remove fields that shouldn't be updated
     delete updates._id;
     delete updates.direction;
-    if (Object.prototype.hasOwnProperty.call(updates, 'tenantId')) {
+    if (Object.hasOwn(updates, 'tenantId')) {
       return res.status(400).json({ error: 'tenantId is not supported. Use orgId.' });
     }
     delete updates.createdAt;
@@ -236,7 +232,7 @@ router.put('/:id', async (req, res) => {
       {
         _id: new ObjectId(id),
         direction: 'SCHEDULED',
-        ...buildOrgScopeQuery(orgId)
+        ...buildOrgScopeQuery(orgId),
       },
       { $set: updates },
       { returnDocument: 'after' }
@@ -257,7 +253,7 @@ router.put('/:id', async (req, res) => {
 
     log('info', 'Scheduled job updated', {
       jobId: id,
-      orgId
+      orgId,
     });
 
     await auditScheduledJob.updated(req, id, { before: beforeJob, after: result });
@@ -288,13 +284,13 @@ router.delete('/:id', async (req, res) => {
     const beforeJob = await collection.findOne({
       _id: new ObjectId(id),
       direction: 'SCHEDULED',
-      ...buildOrgScopeQuery(orgId)
+      ...buildOrgScopeQuery(orgId),
     });
 
     const result = await collection.deleteOne({
       _id: new ObjectId(id),
       direction: 'SCHEDULED',
-      ...buildOrgScopeQuery(orgId)
+      ...buildOrgScopeQuery(orgId),
     });
 
     if (result.deletedCount === 0) {
@@ -307,7 +303,7 @@ router.delete('/:id', async (req, res) => {
 
     log('info', 'Scheduled job deleted', {
       jobId: id,
-      orgId
+      orgId,
     });
 
     await auditScheduledJob.deleted(req, id, beforeJob);
@@ -338,7 +334,7 @@ router.post('/:id/execute', async (req, res) => {
     const job = await collection.findOne({
       _id: new ObjectId(id),
       direction: 'SCHEDULED',
-      ...buildOrgScopeQuery(orgId)
+      ...buildOrgScopeQuery(orgId),
     });
 
     if (!job) {
@@ -351,7 +347,7 @@ router.post('/:id/execute', async (req, res) => {
 
     log('info', 'Scheduled job manually triggered', {
       jobId: id,
-      orgId
+      orgId,
     });
 
     await auditScheduledJob.executed(req, id);
@@ -382,7 +378,7 @@ router.get('/:id/logs', async (req, res) => {
 
     const filter = {
       integrationId: new ObjectId(id),
-      orgId
+      orgId,
     };
 
     if (status) {
@@ -393,10 +389,10 @@ router.get('/:id/logs', async (req, res) => {
       logsCollection
         .find(filter)
         .sort({ startedAt: -1 })
-        .skip(parseInt(offset))
-        .limit(parseInt(limit))
+        .skip(parseInt(offset, 10))
+        .limit(parseInt(limit, 10))
         .toArray(),
-      logsCollection.countDocuments(filter)
+      logsCollection.countDocuments(filter),
     ]);
 
     res.set('X-Total-Count', total.toString());
@@ -426,7 +422,7 @@ router.get('/:id/logs/:logId', async (req, res) => {
     const log = await logsCollection.findOne({
       _id: new ObjectId(logId),
       integrationId: new ObjectId(id),
-      orgId
+      orgId,
     });
 
     if (!log) {
@@ -460,12 +456,12 @@ router.post('/test-datasource', async (req, res) => {
     const mockIntegrationConfig = {
       orgId,
       name: 'Test Data Source',
-      _id: 'test'
+      _id: 'test',
     };
 
     log('info', 'Testing data source', {
       type: dataSource.type,
-      orgId
+      orgId,
     });
 
     // Execute data source with 30 second timeout
@@ -479,7 +475,7 @@ router.post('/test-datasource', async (req, res) => {
 
     // Limit result size for response
     let sampleData = result;
-    let totalRecords = Array.isArray(result) ? result.length : 1;
+    const totalRecords = Array.isArray(result) ? result.length : 1;
     let limitedRecords = false;
 
     if (Array.isArray(result) && result.length > 10) {
@@ -498,7 +494,7 @@ router.post('/test-datasource', async (req, res) => {
     log('info', 'Data source test successful', {
       type: dataSource.type,
       recordsFetched: totalRecords,
-      orgId
+      orgId,
     });
 
     res.json({
@@ -506,7 +502,7 @@ router.post('/test-datasource', async (req, res) => {
       message: 'Data source connected successfully',
       recordsFetched: totalRecords,
       sampleData,
-      limitedRecords
+      limitedRecords,
     });
   } catch (error) {
     logError(error, { scope: 'POST /scheduled-jobs/test-datasource' });
@@ -517,8 +513,8 @@ router.post('/test-datasource', async (req, res) => {
       error: error.message || 'Failed to test data source',
       details: {
         code: error.code,
-        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-      }
+        stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+      },
     });
   }
 });

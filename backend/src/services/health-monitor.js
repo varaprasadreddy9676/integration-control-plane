@@ -5,31 +5,25 @@ const analyticsAggregator = require('./analytics-aggregator');
 class HealthMonitor {
   constructor() {
     this.thresholds = {
-      successRateWarning: 90,    // Below 90% is concerning
-      successRateCritical: 75,   // Below 75% is critical
+      successRateWarning: 90, // Below 90% is concerning
+      successRateCritical: 75, // Below 75% is critical
       responseTimeWarning: 5000, // Above 5s is concerning
       responseTimeCritical: 10000, // Above 10s is critical
-      errorRateWarning: 10,      // Above 10% errors is concerning
-      errorRateCritical: 25,     // Above 25% errors is critical
-      queueSizeWarning: 100,     // Above 100 items is concerning
-      queueSizeCritical: 500     // Above 500 items is critical
+      errorRateWarning: 10, // Above 10% errors is concerning
+      errorRateCritical: 25, // Above 25% errors is critical
+      queueSizeWarning: 100, // Above 100 items is concerning
+      queueSizeCritical: 500, // Above 500 items is critical
     };
   }
 
   async getSystemHealth(orgId) {
     try {
-      const [
-        summary,
-        integrationMetrics,
-        errorTrends,
-        memoryUsage,
-        uptime
-      ] = await Promise.all([
+      const [summary, integrationMetrics, _errorTrends, memoryUsage, uptime] = await Promise.all([
         data.getDashboardSummary(orgId),
         analyticsAggregator.getIntegrationMetrics(orgId, { days: 1 }),
         analyticsAggregator.getErrorTrends(orgId, 1),
         this.getMemoryStats(),
-        this.getUptimeStats()
+        this.getUptimeStats(),
       ]);
 
       const healthStatus = {
@@ -43,22 +37,22 @@ class HealthMonitor {
             failedCount24h: summary.failedCount24h || 0,
             avgResponseTime24h: summary.avgResponseTimeMs24h || 0,
             pendingCount: integrationMetrics.summary.pending || 0,
-            retryingCount: integrationMetrics.summary.retrying || 0
+            retryingCount: integrationMetrics.summary.retrying || 0,
           },
           system: {
             uptime: uptime.uptime,
             memoryUsage: memoryUsage.percentage,
             memoryUsed: memoryUsage.used,
             memoryTotal: memoryUsage.total,
-            nodeVersion: process.version
+            nodeVersion: process.version,
           },
           performance: {
             p95ResponseTime: integrationMetrics.performance.p95 || 0,
             p99ResponseTime: integrationMetrics.performance.p99 || 0,
-            queueSize: (integrationMetrics.summary.pending + integrationMetrics.summary.retrying) || 0
-          }
+            queueSize: integrationMetrics.summary.pending + integrationMetrics.summary.retrying || 0,
+          },
         },
-        checks: {}
+        checks: {},
       };
 
       // Perform health checks
@@ -70,8 +64,8 @@ class HealthMonitor {
       this.checkIntegrationHealth(healthStatus, integrationMetrics.integrations);
 
       // Determine overall status
-      const criticalAlerts = healthStatus.alerts.filter(alert => alert.severity === 'critical');
-      const warningAlerts = healthStatus.alerts.filter(alert => alert.severity === 'warning');
+      const criticalAlerts = healthStatus.alerts.filter((alert) => alert.severity === 'critical');
+      const warningAlerts = healthStatus.alerts.filter((alert) => alert.severity === 'warning');
 
       if (criticalAlerts.length > 0) {
         healthStatus.status = 'critical';
@@ -82,15 +76,14 @@ class HealthMonitor {
       healthStatus.alertCount = {
         critical: criticalAlerts.length,
         warning: warningAlerts.length,
-        total: healthStatus.alerts.length
+        total: healthStatus.alerts.length,
       };
 
       return healthStatus;
-
     } catch (error) {
       log('error', 'System health check failed', {
         orgId,
-        error: error.message
+        error: error.message,
       });
 
       return {
@@ -98,12 +91,14 @@ class HealthMonitor {
         status: 'error',
         error: 'Health check failed',
         metrics: {},
-        alerts: [{
-          type: 'health_check_failure',
-          severity: 'critical',
-          message: 'Unable to perform health check',
-          timestamp: new Date().toISOString()
-        }]
+        alerts: [
+          {
+            type: 'health_check_failure',
+            severity: 'critical',
+            message: 'Unable to perform health check',
+            timestamp: new Date().toISOString(),
+          },
+        ],
       };
     }
   }
@@ -118,7 +113,7 @@ class HealthMonitor {
         message: `Success rate critically low: ${successRate.toFixed(1)}%`,
         threshold: this.thresholds.successRateCritical,
         current: successRate,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
       healthStatus.checks.successRate = 'critical';
     } else if (successRate < this.thresholds.successRateWarning) {
@@ -128,7 +123,7 @@ class HealthMonitor {
         message: `Success rate below optimal: ${successRate.toFixed(1)}%`,
         threshold: this.thresholds.successRateWarning,
         current: successRate,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
       healthStatus.checks.successRate = 'warning';
     } else {
@@ -146,7 +141,7 @@ class HealthMonitor {
         message: `95th percentile response time critically high: ${p95ResponseTime}ms`,
         threshold: this.thresholds.responseTimeCritical,
         current: p95ResponseTime,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
       healthStatus.checks.responseTime = 'critical';
     } else if (p95ResponseTime > this.thresholds.responseTimeWarning) {
@@ -156,7 +151,7 @@ class HealthMonitor {
         message: `95th percentile response time elevated: ${p95ResponseTime}ms`,
         threshold: this.thresholds.responseTimeWarning,
         current: p95ResponseTime,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
       healthStatus.checks.responseTime = 'warning';
     } else {
@@ -178,7 +173,7 @@ class HealthMonitor {
           message: `Error rate critically high: ${errorRate.toFixed(1)}%`,
           threshold: this.thresholds.errorRateCritical,
           current: errorRate,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
         });
         healthStatus.checks.errorRate = 'critical';
       } else if (errorRate > this.thresholds.errorRateWarning) {
@@ -188,7 +183,7 @@ class HealthMonitor {
           message: `Error rate elevated: ${errorRate.toFixed(1)}%`,
           threshold: this.thresholds.errorRateWarning,
           current: errorRate,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
         });
         healthStatus.checks.errorRate = 'warning';
       } else {
@@ -209,7 +204,7 @@ class HealthMonitor {
         message: `Queue size critically large: ${queueSize} items`,
         threshold: this.thresholds.queueSizeCritical,
         current: queueSize,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
       healthStatus.checks.queueSize = 'critical';
     } else if (queueSize > this.thresholds.queueSizeWarning) {
@@ -219,7 +214,7 @@ class HealthMonitor {
         message: `Queue size growing: ${queueSize} items`,
         threshold: this.thresholds.queueSizeWarning,
         current: queueSize,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
       healthStatus.checks.queueSize = 'warning';
     } else {
@@ -237,7 +232,7 @@ class HealthMonitor {
         message: `Memory usage critically high: ${memoryUsage}%`,
         threshold: 90,
         current: memoryUsage,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
       healthStatus.checks.memory = 'critical';
     } else if (memoryUsage > 80) {
@@ -247,7 +242,7 @@ class HealthMonitor {
         message: `Memory usage elevated: ${memoryUsage}%`,
         threshold: 80,
         current: memoryUsage,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
       healthStatus.checks.memory = 'warning';
     } else {
@@ -259,7 +254,7 @@ class HealthMonitor {
     const unhealthyIntegrations = [];
     const degradedIntegrations = [];
 
-    integrations.forEach(integration => {
+    integrations.forEach((integration) => {
       if (integration.total > 0) {
         const integrationSuccessRate = integration.successRate || 0;
 
@@ -267,13 +262,13 @@ class HealthMonitor {
           unhealthyIntegrations.push({
             __KEEP_integrationName__: integration.__KEEP_integrationName__,
             successRate: integrationSuccessRate,
-            total: integration.total
+            total: integration.total,
           });
         } else if (integrationSuccessRate < 80) {
           degradedIntegrations.push({
             __KEEP_integrationName__: integration.__KEEP_integrationName__,
             successRate: integrationSuccessRate,
-            total: integration.total
+            total: integration.total,
           });
         }
       }
@@ -285,7 +280,7 @@ class HealthMonitor {
         severity: 'critical',
         message: `${unhealthyIntegrations.length} integrations performing poorly (< 50% success rate)`,
         details: unhealthyIntegrations,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
       healthStatus.checks.integrationHealth = 'critical';
     } else if (degradedIntegrations.length > 0) {
@@ -294,7 +289,7 @@ class HealthMonitor {
         severity: 'warning',
         message: `${degradedIntegrations.length} integrations degraded performance (< 80% success rate)`,
         details: degradedIntegrations,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       });
       healthStatus.checks.integrationHealth = 'warning';
     } else {
@@ -313,7 +308,7 @@ class HealthMonitor {
       total,
       percentage,
       external: Math.round(usage.external / 1024 / 1024),
-      rss: Math.round(usage.rss / 1024 / 1024)
+      rss: Math.round(usage.rss / 1024 / 1024),
     };
   }
 
@@ -324,7 +319,7 @@ class HealthMonitor {
       minutes: Math.floor(uptimeSeconds / 60),
       hours: Math.floor(uptimeSeconds / 3600),
       days: Math.floor(uptimeSeconds / 86400),
-      uptime: uptimeSeconds
+      uptime: uptimeSeconds,
     };
 
     // Format human readable uptime
@@ -332,11 +327,8 @@ class HealthMonitor {
     const hours = uptime.hours % 24;
     const minutes = uptime.minutes % 60;
 
-    uptime.formatted = days > 0
-      ? `${days}d ${hours}h ${minutes}m`
-      : hours > 0
-        ? `${hours}h ${minutes}m`
-        : `${minutes}m`;
+    uptime.formatted =
+      days > 0 ? `${days}d ${hours}h ${minutes}m` : hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
 
     return uptime;
   }
@@ -345,7 +337,7 @@ class HealthMonitor {
     try {
       const metrics = await analyticsAggregator.getIntegrationMetrics(orgId, {
         days,
-        includeHourly: true
+        includeHourly: true,
       });
 
       return {
@@ -354,20 +346,19 @@ class HealthMonitor {
         trends: {
           successRateTrend: this.calculateTrend(metrics.hourly, 'successRate'),
           responseTimeTrend: this.calculateTrend(metrics.hourly, 'avgResponseTime'),
-          volumeTrend: this.calculateTrend(metrics.hourly, 'total')
-        }
+          volumeTrend: this.calculateTrend(metrics.hourly, 'total'),
+        },
       };
-
     } catch (error) {
       log('error', 'Integration health history failed', {
         orgId,
-        error: error.message
+        error: error.message,
       });
       return {
         error: 'Unable to retrieve health history',
         period: null,
         hourly: [],
-        trends: {}
+        trends: {},
       };
     }
   }
@@ -392,7 +383,7 @@ class HealthMonitor {
     return {
       direction,
       change: Math.round(change * 100) / 100,
-      percentage: Math.round(percentage * 100) / 100
+      percentage: Math.round(percentage * 100) / 100,
     };
   }
 

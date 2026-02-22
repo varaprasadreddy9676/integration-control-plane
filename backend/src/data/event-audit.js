@@ -3,11 +3,7 @@ const crypto = require('crypto');
 const { log, logError } = require('../logger');
 const mongodb = require('../mongodb');
 const config = require('../config');
-const {
-  useMongo,
-  normalizeOrgId,
-  fallbackDisabledError
-} = require('./helpers');
+const { useMongo, normalizeOrgId, fallbackDisabledError } = require('./helpers');
 
 /**
  * Save processed event to MongoDB for duplicate prevention
@@ -38,7 +34,7 @@ async function saveProcessedEvent(eventKey, mysqlEventId, eventType, orgId, stab
       eventType,
       orgId: normalizedOrgId,
       processedAt: new Date(),
-      expiresAt: new Date(Date.now() + 6 * 60 * 60 * 1000) // Expires in 6 hours
+      expiresAt: new Date(Date.now() + 6 * 60 * 60 * 1000), // Expires in 6 hours
     };
 
     await db.collection('processed_events').insertOne(doc);
@@ -48,7 +44,7 @@ async function saveProcessedEvent(eventKey, mysqlEventId, eventType, orgId, stab
     if (err.code === 11000) {
       log('debug', 'Event already processed (duplicate key)', {
         eventKey,
-        eventId: stableEventId
+        eventId: stableEventId,
       });
       return false;
     }
@@ -75,10 +71,7 @@ async function isEventAlreadyProcessed(eventKeyOrId, stableEventId = null) {
 
     // Check both eventKey (legacy) and eventId (new stable ID)
     const query = {
-      $or: [
-        { eventKey: eventKeyOrId },
-        { eventId: eventKeyOrId }
-      ]
+      $or: [{ eventKey: eventKeyOrId }, { eventId: eventKeyOrId }],
     };
 
     // If stable eventId provided, also check that
@@ -92,7 +85,7 @@ async function isEventAlreadyProcessed(eventKeyOrId, stableEventId = null) {
     logError(err, {
       scope: 'isEventAlreadyProcessed',
       eventKey: eventKeyOrId,
-      eventId: stableEventId
+      eventId: stableEventId,
     });
     return false; // Don't block processing on DB errors
   }
@@ -113,7 +106,7 @@ async function recordEventAudit(auditData) {
     const doc = {
       ...auditData,
       createdAt: new Date(),
-      expiresAt: new Date(Date.now() + retentionDays * 24 * 60 * 60 * 1000)
+      expiresAt: new Date(Date.now() + retentionDays * 24 * 60 * 60 * 1000),
     };
 
     const result = await db.collection('event_audit').insertOne(doc);
@@ -124,7 +117,7 @@ async function recordEventAudit(auditData) {
       log('warn', 'Duplicate event audit record', {
         source: auditData.source,
         sourceId: auditData.sourceId,
-        eventKey: auditData.eventKey
+        eventKey: auditData.eventKey,
       });
 
       // Return existing record ID
@@ -132,14 +125,14 @@ async function recordEventAudit(auditData) {
       const hasSourceId = auditData.sourceId !== undefined && auditData.sourceId !== null;
       const existing = hasSourceId
         ? await db.collection('event_audit').findOne({
-          source: auditData.source,
-          sourceId: auditData.sourceId
-        })
+            source: auditData.source,
+            sourceId: auditData.sourceId,
+          })
         : await db.collection('event_audit').findOne({
-          orgId: auditData.orgId,
-          eventKey: auditData.eventKey,
-          receivedAtBucket: auditData.receivedAtBucket
-        });
+            orgId: auditData.orgId,
+            eventKey: auditData.eventKey,
+            receivedAtBucket: auditData.receivedAtBucket,
+          });
       return existing?._id;
     }
 
@@ -163,20 +156,17 @@ async function updateEventAudit(eventId, updates) {
     const { timeline, timelinePush, ...fieldUpdates } = updates;
 
     const updateDoc = {
-      $set: { ...fieldUpdates, updatedAt: new Date() }
+      $set: { ...fieldUpdates, updatedAt: new Date() },
     };
 
     const timelineEntry = timelinePush || timeline;
     if (timelineEntry) {
       updateDoc.$push = {
-        timeline: Array.isArray(timelineEntry) ? { $each: timelineEntry } : timelineEntry
+        timeline: Array.isArray(timelineEntry) ? { $each: timelineEntry } : timelineEntry,
       };
     }
 
-    await db.collection('event_audit').updateOne(
-      { eventId },
-      updateDoc
-    );
+    await db.collection('event_audit').updateOne({ eventId }, updateDoc);
 
     return true;
   } catch (err) {
@@ -214,14 +204,15 @@ async function listEventAudit(orgId, filters = {}) {
       query.$or = [
         { eventId: { $regex: filters.search, $options: 'i' } },
         { sourceId: { $regex: filters.search, $options: 'i' } },
-        { 'payloadSummary.patientRid': parseInt(filters.search) || 0 }
+        { 'payloadSummary.patientRid': parseInt(filters.search) || 0 },
       ];
     }
 
     const limit = filters.limit || 50;
     const page = filters.page || 1;
 
-    const events = await db.collection('event_audit')
+    const events = await db
+      .collection('event_audit')
       .find(query)
       .sort({ receivedAt: -1 })
       .limit(limit)
@@ -234,7 +225,7 @@ async function listEventAudit(orgId, filters = {}) {
       events,
       total,
       pages: Math.ceil(total / limit),
-      page
+      page,
     };
   } catch (err) {
     logError(err, { scope: 'listEventAudit', orgId, filters });
@@ -254,7 +245,7 @@ async function getEventAuditById(orgId, eventId) {
     const db = await mongodb.getDbSafe();
     return db.collection('event_audit').findOne({
       orgId, // CRITICAL: prevent cross-tenant access
-      eventId
+      eventId,
     });
   } catch (err) {
     logError(err, { scope: 'getEventAuditById', orgId, eventId });
@@ -274,78 +265,94 @@ async function getEventAuditStats(orgId, hoursBack = 24) {
     const db = await mongodb.getDbSafe();
     const startDate = new Date(Date.now() - hoursBack * 60 * 60 * 1000);
 
-    const stats = await db.collection('event_audit').aggregate([
-      { $match: { orgId, receivedAt: { $gte: startDate } } },
-      {
-        $group: {
-          _id: null,
-          totalReceived: { $sum: 1 },
-          delivered: {
-            $sum: {
-              $cond: [{ $eq: ['$status', 'DELIVERED'] }, 1, 0]
-            }
+    const stats = await db
+      .collection('event_audit')
+      .aggregate([
+        { $match: { orgId, receivedAt: { $gte: startDate } } },
+        {
+          $group: {
+            _id: null,
+            totalReceived: { $sum: 1 },
+            delivered: {
+              $sum: {
+                $cond: [{ $eq: ['$status', 'DELIVERED'] }, 1, 0],
+              },
+            },
+            skipped: {
+              $sum: {
+                $cond: [{ $eq: ['$status', 'SKIPPED'] }, 1, 0],
+              },
+            },
+            failed: {
+              $sum: {
+                $cond: [{ $eq: ['$status', 'FAILED'] }, 1, 0],
+              },
+            },
+            stuck: {
+              $sum: {
+                $cond: [{ $eq: ['$status', 'STUCK'] }, 1, 0],
+              },
+            },
+            avgProcessingTimeMs: { $avg: '$processingTimeMs' },
+            avgIntegrationsMatched: { $avg: '$deliveryStatus.integrationsMatched' },
+            avgDeliveredCount: { $avg: '$deliveryStatus.deliveredCount' },
+            avgFailedCount: { $avg: '$deliveryStatus.failedCount' },
           },
-          skipped: {
-            $sum: {
-              $cond: [{ $eq: ['$status', 'SKIPPED'] }, 1, 0]
-            }
-          },
-          failed: {
-            $sum: {
-              $cond: [{ $eq: ['$status', 'FAILED'] }, 1, 0]
-            }
-          },
-          stuck: {
-            $sum: {
-              $cond: [{ $eq: ['$status', 'STUCK'] }, 1, 0]
-            }
-          },
-          avgProcessingTimeMs: { $avg: '$processingTimeMs' },
-          avgIntegrationsMatched: { $avg: '$deliveryStatus.integrationsMatched' },
-          avgDeliveredCount: { $avg: '$deliveryStatus.deliveredCount' },
-          avgFailedCount: { $avg: '$deliveryStatus.failedCount' }
-        }
-      }
-    ]).toArray();
+        },
+      ])
+      .toArray();
 
     // Get skip reasons breakdown
-    const skipReasons = await db.collection('event_audit').aggregate([
-      {
-        $match: {
-          orgId,
-          receivedAt: { $gte: startDate },
-          status: 'SKIPPED'
-        }
-      },
-      { $group: { _id: '$skipCategory', count: { $sum: 1 } } }
-    ]).toArray();
+    const skipReasons = await db
+      .collection('event_audit')
+      .aggregate([
+        {
+          $match: {
+            orgId,
+            receivedAt: { $gte: startDate },
+            status: 'SKIPPED',
+          },
+        },
+        { $group: { _id: '$skipCategory', count: { $sum: 1 } } },
+      ])
+      .toArray();
 
     // Get duplicate type breakdown
-    const duplicateTypes = await db.collection('event_audit').aggregate([
-      {
-        $match: {
-          orgId,
-          receivedAt: { $gte: startDate },
-          skipCategory: 'DUPLICATE'
-        }
-      },
-      { $group: { _id: '$duplicateType', count: { $sum: 1 } } }
-    ]).toArray();
+    const duplicateTypes = await db
+      .collection('event_audit')
+      .aggregate([
+        {
+          $match: {
+            orgId,
+            receivedAt: { $gte: startDate },
+            skipCategory: 'DUPLICATE',
+          },
+        },
+        { $group: { _id: '$duplicateType', count: { $sum: 1 } } },
+      ])
+      .toArray();
 
     // Get source breakdown
-    const bySource = await db.collection('event_audit').aggregate([
-      { $match: { orgId, receivedAt: { $gte: startDate } } },
-      { $group: { _id: '$source', count: { $sum: 1 } } }
-    ]).toArray();
+    const bySource = await db
+      .collection('event_audit')
+      .aggregate([
+        { $match: { orgId, receivedAt: { $gte: startDate } } },
+        { $group: { _id: '$source', count: { $sum: 1 } } },
+      ])
+      .toArray();
 
     // Get event type breakdown
-    const byEventType = await db.collection('event_audit').aggregate([
-      { $match: { orgId, receivedAt: { $gte: startDate } } },
-      { $group: { _id: '$eventType', count: { $sum: 1 } } }
-    ]).toArray();
+    const byEventType = await db
+      .collection('event_audit')
+      .aggregate([
+        { $match: { orgId, receivedAt: { $gte: startDate } } },
+        { $group: { _id: '$eventType', count: { $sum: 1 } } },
+      ])
+      .toArray();
 
     // Calculate processing time percentiles
-    const processingTimes = await db.collection('event_audit')
+    const processingTimes = await db
+      .collection('event_audit')
       .find(
         { orgId, receivedAt: { $gte: startDate }, processingTimeMs: { $exists: true } },
         { projection: { processingTimeMs: 1 } }
@@ -366,29 +373,27 @@ async function getEventAuditStats(orgId, hoursBack = 24) {
       avgProcessingTimeMs: 0,
       avgIntegrationsMatched: 0,
       avgDeliveredCount: 0,
-      avgFailedCount: 0
+      avgFailedCount: 0,
     };
 
     return {
       ...result,
-      skipReasons: Object.fromEntries(skipReasons.map(r => [r._id, r.count])),
-      duplicateTypes: Object.fromEntries(duplicateTypes.map(r => [r._id, r.count])),
-      bySource: Object.fromEntries(bySource.map(r => [r._id, r.count])),
-      byEventType: Object.fromEntries(byEventType.map(r => [r._id, r.count])),
+      skipReasons: Object.fromEntries(skipReasons.map((r) => [r._id, r.count])),
+      duplicateTypes: Object.fromEntries(duplicateTypes.map((r) => [r._id, r.count])),
+      bySource: Object.fromEntries(bySource.map((r) => [r._id, r.count])),
+      byEventType: Object.fromEntries(byEventType.map((r) => [r._id, r.count])),
       processingMetrics: {
         avgProcessingTimeMs: result.avgProcessingTimeMs || 0,
         p50ProcessingTimeMs: p50,
         p95ProcessingTimeMs: p95,
-        p99ProcessingTimeMs: p99
+        p99ProcessingTimeMs: p99,
       },
       deliveryMetrics: {
         avgIntegrationsMatched: result.avgIntegrationsMatched || 0,
         avgDeliveredCount: result.avgDeliveredCount || 0,
         avgFailedCount: result.avgFailedCount || 0,
-        successRate: result.avgIntegrationsMatched > 0
-          ? result.avgDeliveredCount / result.avgIntegrationsMatched
-          : 0
-      }
+        successRate: result.avgIntegrationsMatched > 0 ? result.avgDeliveredCount / result.avgIntegrationsMatched : 0,
+      },
     };
   } catch (err) {
     logError(err, { scope: 'getEventAuditStats', orgId, hoursBack });
@@ -411,7 +416,7 @@ async function updateSourceCheckpoint(checkpointData) {
     const existing = await db.collection('source_checkpoints').findOne({
       source,
       sourceIdentifier,
-      orgId
+      orgId,
     });
 
     // Update or insert checkpoint
@@ -421,9 +426,9 @@ async function updateSourceCheckpoint(checkpointData) {
         $set: {
           lastProcessedId,
           lastProcessedAt,
-          updatedAt: new Date()
+          updatedAt: new Date(),
         },
-        $inc: { eventsProcessedLast5Min: 1 }
+        $inc: { eventsProcessedLast5Min: 1 },
       },
       { upsert: true }
     );
@@ -452,13 +457,16 @@ async function detectGaps(source, sourceIdentifier, orgId, currentId, previousId
   try {
     const db = await mongodb.getDbSafe();
 
-    const prevIdRaw = previousIdOverride !== undefined && previousIdOverride !== null
-      ? previousIdOverride
-      : (await db.collection('source_checkpoints').findOne({
-        source,
-        sourceIdentifier,
-        orgId
-      }))?.lastProcessedId;
+    const prevIdRaw =
+      previousIdOverride !== undefined && previousIdOverride !== null
+        ? previousIdOverride
+        : (
+            await db.collection('source_checkpoints').findOne({
+              source,
+              sourceIdentifier,
+              orgId,
+            })
+          )?.lastProcessedId;
 
     if (!prevIdRaw) return;
 
@@ -470,21 +478,20 @@ async function detectGaps(source, sourceIdentifier, orgId, currentId, previousId
       const gap = {
         start: prevId + 1,
         end: currId - 1,
-        detectedAt: new Date()
+        detectedAt: new Date(),
       };
 
       log('warn', 'Gap detected in event source', {
         source,
         sourceIdentifier,
         orgId,
-        gap
+        gap,
       });
 
       // Store gap
-      await db.collection('source_checkpoints').updateOne(
-        { source, sourceIdentifier, orgId },
-        { $push: { detectedGaps: gap } }
-      );
+      await db
+        .collection('source_checkpoints')
+        .updateOne({ source, sourceIdentifier, orgId }, { $push: { detectedGaps: gap } });
     }
 
     return true;
@@ -505,20 +512,18 @@ async function getSourceCheckpoints(orgId) {
   try {
     const db = await mongodb.getDbSafe();
 
-    const checkpoints = await db.collection('source_checkpoints')
-      .find({ orgId })
-      .toArray();
+    const checkpoints = await db.collection('source_checkpoints').find({ orgId }).toArray();
 
     // Add health status
     const now = Date.now();
-    return checkpoints.map(cp => ({
+    return checkpoints.map((cp) => ({
       ...cp,
       health: {
         eventsProcessedLast5Min: cp.eventsProcessedLast5Min || 0,
         lastHealthCheckAt: cp.updatedAt,
         isHealthy: now - cp.updatedAt.getTime() < 60 * 1000, // Healthy if updated < 1 min ago
-        lag: cp.lastProcessedAt ? formatLag(now - cp.lastProcessedAt.getTime()) : 'unknown'
-      }
+        lag: cp.lastProcessedAt ? formatLag(now - cp.lastProcessedAt.getTime()) : 'unknown',
+      },
     }));
   } catch (err) {
     logError(err, { scope: 'getSourceCheckpoints', orgId });
@@ -540,7 +545,7 @@ async function getSourceGaps(orgId, source, hoursBack = 24) {
 
     const checkpoint = await db.collection('source_checkpoints').findOne({
       orgId,
-      source
+      source,
     });
 
     if (!checkpoint) {
@@ -548,24 +553,22 @@ async function getSourceGaps(orgId, source, hoursBack = 24) {
         source,
         isSequential: false,
         totalGaps: 0,
-        gaps: []
+        gaps: [],
       };
     }
 
     // Filter gaps within time window
-    const recentGaps = (checkpoint.detectedGaps || []).filter(
-      gap => gap.detectedAt >= startDate
-    );
+    const recentGaps = (checkpoint.detectedGaps || []).filter((gap) => gap.detectedAt >= startDate);
 
     return {
       source,
       sourceIdentifier: checkpoint.sourceIdentifier,
       isSequential: checkpoint.isSequential !== false,
       totalGaps: recentGaps.length,
-      gaps: recentGaps.map(gap => ({
+      gaps: recentGaps.map((gap) => ({
         ...gap,
-        count: gap.end - gap.start + 1
-      }))
+        count: gap.end - gap.start + 1,
+      })),
     };
   } catch (err) {
     logError(err, { scope: 'getSourceGaps', orgId, source, hoursBack });
@@ -613,7 +616,7 @@ function extractSafePayload(payload) {
     'orgUnitRid',
     'billId',
     'eventType',
-    'timestamp'
+    'timestamp',
   ];
 
   const safe = {};
@@ -658,10 +661,7 @@ function extractSourceMetadata(event, sourceType) {
 
 function resolveOrgIdFromEvent(event) {
   if (!event) return null;
-  return normalizeOrgId(
-    event.orgId ||
-    event.entity_parent_rid
-  );
+  return normalizeOrgId(event.orgId || event.entity_parent_rid);
 }
 
 /**
@@ -695,7 +695,12 @@ async function getEventTypeSamplePayload(eventType, orgId) {
     // Prefer org-specific doc, fall back to global template
     if (orgId) {
       const orgDoc = await collection.findOne(
-        { $or: [{ type: eventType, orgId, isActive: true }, { eventType, orgId, isActive: true }] },
+        {
+          $or: [
+            { type: eventType, orgId, isActive: true },
+            { eventType, orgId, isActive: true },
+          ],
+        },
         projection
       );
       if (orgDoc?.samplePayload) return orgDoc.samplePayload;
@@ -706,8 +711,8 @@ async function getEventTypeSamplePayload(eventType, orgId) {
       {
         $or: [
           { type: eventType, isActive: true },
-          { eventType, isActive: true }
-        ]
+          { eventType, isActive: true },
+        ],
       },
       projection
     );
@@ -745,5 +750,5 @@ module.exports = {
   extractSourceMetadata,
   resolveOrgIdFromEvent,
   getSourceIdentifier,
-  getEventTypeSamplePayload
+  getEventTypeSamplePayload,
 };

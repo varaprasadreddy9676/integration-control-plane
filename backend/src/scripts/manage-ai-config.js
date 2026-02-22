@@ -71,7 +71,7 @@ async function main() {
         console.log(`✓ AI Assistant DISABLED for org ${orgId}`);
         break;
 
-      case 'check':
+      case 'check': {
         if (!orgId) {
           console.error('Error: orgId is required');
           console.log(USAGE);
@@ -80,8 +80,9 @@ async function main() {
         const enabled = await aiConfig.isAIEnabledForEntity(orgId);
         console.log(`Org ${orgId}: AI Assistant is ${enabled ? 'ENABLED' : 'DISABLED'}`);
         break;
+      }
 
-      case 'list':
+      case 'list': {
         const configs = await aiConfig.getAllAIConfigurations();
         if (configs.length === 0) {
           console.log('No org-specific AI configurations found.');
@@ -95,6 +96,7 @@ async function main() {
           });
         }
         break;
+      }
 
       default:
         console.error(`Error: Unknown command '${command}'`);

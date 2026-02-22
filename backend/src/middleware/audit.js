@@ -9,11 +9,13 @@ const { logAudit, ACTION_TYPES, RESOURCE_TYPES } = require('../services/audit-lo
  * Helper to extract IP address from request
  */
 function getIpAddress(req) {
-  return req.headers['x-forwarded-for']?.split(',')[0] ||
+  return (
+    req.headers['x-forwarded-for']?.split(',')[0] ||
     req.headers['x-real-ip'] ||
     req.connection?.remoteAddress ||
     req.socket?.remoteAddress ||
-    null;
+    null
+  );
 }
 
 /**
@@ -21,11 +23,11 @@ function getIpAddress(req) {
  */
 function getActionFromMethod(method) {
   const methodMap = {
-    'POST': ACTION_TYPES.CREATE,
-    'PUT': ACTION_TYPES.UPDATE,
-    'PATCH': ACTION_TYPES.UPDATE,
-    'DELETE': ACTION_TYPES.DELETE,
-    'GET': ACTION_TYPES.READ
+    POST: ACTION_TYPES.CREATE,
+    PUT: ACTION_TYPES.UPDATE,
+    PATCH: ACTION_TYPES.UPDATE,
+    DELETE: ACTION_TYPES.DELETE,
+    GET: ACTION_TYPES.READ,
   };
   return methodMap[method] || ACTION_TYPES.READ;
 }
@@ -63,7 +65,7 @@ function auditMiddleware(options = {}) {
     const originalEnd = res.end;
 
     // Override res.end to capture the response
-    res.end = function(...args) {
+    res.end = (...args) => {
       // Restore original end
       res.end = originalEnd;
 
@@ -113,7 +115,7 @@ function auditMiddleware(options = {}) {
             ipAddress: getIpAddress(req),
             userAgent: req.headers['user-agent'],
             success: res.statusCode < 400,
-            errorMessage: res.statusCode >= 400 ? res.statusMessage : null
+            errorMessage: res.statusCode >= 400 ? res.statusMessage : null,
           });
         } catch (error) {
           // Silent fail - audit logging should never break the app
@@ -135,7 +137,7 @@ function auditMiddleware(options = {}) {
 
 const auditAuth = {
   login: (success, user, errorMessage = null) => {
-    return async (req, res) => {
+    return async (req, _res) => {
       await logAudit({
         action: success ? ACTION_TYPES.LOGIN : ACTION_TYPES.LOGIN_FAILED,
         resourceType: RESOURCE_TYPES.USER,
@@ -144,7 +146,7 @@ const auditAuth = {
         ipAddress: getIpAddress(req),
         userAgent: req.headers['user-agent'],
         success,
-        errorMessage
+        errorMessage,
       });
     };
   },
@@ -157,9 +159,9 @@ const auditAuth = {
       user: req.user,
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
-  }
+  },
 };
 
 const auditUser = {
@@ -172,11 +174,11 @@ const auditUser = {
       orgId: newUser.orgId,
       metadata: {
         newUserEmail: newUser.email,
-        newUserRole: newUser.role
+        newUserRole: newUser.role,
       },
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
   },
 
@@ -189,7 +191,7 @@ const auditUser = {
       changes,
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
   },
 
@@ -201,9 +203,9 @@ const auditUser = {
       user: req.user,
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
-  }
+  },
 };
 
 const auditRole = {
@@ -215,11 +217,11 @@ const auditRole = {
       user: req.user,
       metadata: {
         roleName: newRole.name,
-        scope: newRole.scope
+        scope: newRole.scope,
       },
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
   },
 
@@ -232,7 +234,7 @@ const auditRole = {
       changes,
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
   },
 
@@ -244,9 +246,9 @@ const auditRole = {
       user: req.user,
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
-  }
+  },
 };
 
 /**
@@ -262,7 +264,7 @@ const auditOrg = {
       metadata: { orgName: newOrg.name },
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
   },
 
@@ -275,7 +277,7 @@ const auditOrg = {
       changes,
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
   },
 
@@ -288,7 +290,7 @@ const auditOrg = {
       changes: { before: beforeOrg, after: null },
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
   },
 
@@ -302,7 +304,7 @@ const auditOrg = {
       metadata: { unitName: newUnit.name, orgId },
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
   },
 
@@ -316,7 +318,7 @@ const auditOrg = {
       changes,
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
   },
 
@@ -330,9 +332,9 @@ const auditOrg = {
       changes: { before: beforeUnit, after: null },
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
-  }
+  },
 };
 
 /**
@@ -349,7 +351,7 @@ const auditIntegration = {
       metadata: { name: newIntegration.name, eventType: newIntegration.eventType },
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
   },
 
@@ -363,7 +365,7 @@ const auditIntegration = {
       changes,
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
   },
 
@@ -377,7 +379,7 @@ const auditIntegration = {
       changes: { before: beforeIntegration, after: null },
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
   },
 
@@ -391,7 +393,7 @@ const auditIntegration = {
       metadata: { originalId, newName: newIntegration.name },
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
   },
 
@@ -404,7 +406,7 @@ const auditIntegration = {
       metadata: { ids, count: ids.length },
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
   },
 
@@ -417,7 +419,7 @@ const auditIntegration = {
       metadata: { ids, count: ids.length },
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
   },
 
@@ -430,7 +432,7 @@ const auditIntegration = {
       metadata: { ids, count: ids.length },
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
   },
 
@@ -443,7 +445,7 @@ const auditIntegration = {
       orgId: req.entityParentRid || req.orgId,
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
   },
 
@@ -456,9 +458,9 @@ const auditIntegration = {
       orgId: req.entityParentRid || req.orgId,
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
-  }
+  },
 };
 
 /**
@@ -475,7 +477,7 @@ const auditVersion = {
       metadata: { integrationName, version },
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
   },
 
@@ -490,7 +492,7 @@ const auditVersion = {
       metadata: { integrationName, version },
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
   },
 
@@ -505,7 +507,7 @@ const auditVersion = {
       metadata: { integrationName, version },
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
   },
 
@@ -520,7 +522,7 @@ const auditVersion = {
       metadata: { integrationName, version },
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
   },
 
@@ -535,7 +537,7 @@ const auditVersion = {
       metadata: { integrationName, version },
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
   },
 
@@ -549,9 +551,9 @@ const auditVersion = {
       metadata: { integrationName, targetVersion, fromVersion: currentVersion },
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
-  }
+  },
 };
 
 /**
@@ -568,7 +570,7 @@ const auditTemplate = {
       metadata: { name: newTemplate.name, type: newTemplate.type },
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
   },
 
@@ -582,7 +584,7 @@ const auditTemplate = {
       changes,
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
   },
 
@@ -596,9 +598,9 @@ const auditTemplate = {
       changes: { before: beforeTemplate, after: null },
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
-  }
+  },
 };
 
 /**
@@ -615,7 +617,7 @@ const auditLookup = {
       metadata: { name: newLookup.name },
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
   },
 
@@ -629,7 +631,7 @@ const auditLookup = {
       changes,
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
   },
 
@@ -643,7 +645,7 @@ const auditLookup = {
       changes: { before: beforeLookup, after: null },
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
   },
 
@@ -657,7 +659,7 @@ const auditLookup = {
       metadata: { tableName, rowCount },
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
   },
 
@@ -671,9 +673,9 @@ const auditLookup = {
       metadata: { tableName, deletedCount },
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
-  }
+  },
 };
 
 /**
@@ -690,7 +692,7 @@ const auditScheduledJob = {
       metadata: { name: newJob.name, cron: newJob.cron },
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
   },
 
@@ -704,7 +706,7 @@ const auditScheduledJob = {
       changes,
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
   },
 
@@ -718,7 +720,7 @@ const auditScheduledJob = {
       changes: { before: beforeJob, after: null },
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
   },
 
@@ -731,7 +733,7 @@ const auditScheduledJob = {
       orgId: req.entityParentRid || req.orgId,
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
   },
 
@@ -745,7 +747,7 @@ const auditScheduledJob = {
       changes: { before: beforeJob, after: { ...beforeJob, active: false } },
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
   },
 
@@ -759,9 +761,9 @@ const auditScheduledJob = {
       changes: { before: beforeJob, after: { ...beforeJob, active: true } },
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
-  }
+  },
 };
 
 /**
@@ -777,7 +779,7 @@ const auditScheduledIntegration = {
       orgId: req.entityParentRid || req.orgId,
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
   },
 
@@ -790,9 +792,9 @@ const auditScheduledIntegration = {
       metadata: { ids, count: ids.length },
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
-  }
+  },
 };
 
 /**
@@ -808,7 +810,7 @@ const auditConfig = {
       changes,
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
   },
 
@@ -821,7 +823,7 @@ const auditConfig = {
       changes,
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
   },
 
@@ -835,7 +837,7 @@ const auditConfig = {
       changes,
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
   },
 
@@ -849,7 +851,7 @@ const auditConfig = {
       changes,
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
   },
 
@@ -862,7 +864,7 @@ const auditConfig = {
       orgId: req.entityParentRid || req.orgId,
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
   },
 
@@ -875,7 +877,7 @@ const auditConfig = {
       metadata: { integrationIds, count: integrationIds.length, limitConfig },
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
   },
 
@@ -888,9 +890,9 @@ const auditConfig = {
       metadata: { integrationIds, count: integrationIds.length },
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
-  }
+  },
 };
 
 /**
@@ -905,7 +907,7 @@ const auditAdmin = {
       user: req.user,
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
   },
 
@@ -917,7 +919,7 @@ const auditAdmin = {
       user: req.user,
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
   },
 
@@ -930,7 +932,7 @@ const auditAdmin = {
       metadata: { targetEmail: targetUser?.email, targetRole: targetUser?.role },
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
   },
 
@@ -943,7 +945,7 @@ const auditAdmin = {
       changes: { before: beforeUser, after: { ...beforeUser, disabled: true } },
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
   },
 
@@ -956,9 +958,9 @@ const auditAdmin = {
       changes: { before: beforeUser, after: { ...beforeUser, disabled: false } },
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
-  }
+  },
 };
 
 /**
@@ -967,45 +969,45 @@ const auditAdmin = {
 const auditEventSource = {
   configured: async (req, orgId, type, before, after) => {
     await logAudit({
-      action:       ACTION_TYPES.EVENT_SOURCE_CONFIGURED,
+      action: ACTION_TYPES.EVENT_SOURCE_CONFIGURED,
       resourceType: RESOURCE_TYPES.EVENT_SOURCE,
-      resourceId:   String(orgId),
-      user:         req.user,
+      resourceId: String(orgId),
+      user: req.user,
       orgId,
-      changes:      { before, after },
-      metadata:     { sourceType: type },
-      ipAddress:    getIpAddress(req),
-      userAgent:    req.headers['user-agent'],
-      success:      true
+      changes: { before, after },
+      metadata: { sourceType: type },
+      ipAddress: getIpAddress(req),
+      userAgent: req.headers['user-agent'],
+      success: true,
     });
   },
 
   deleted: async (req, orgId, before) => {
     await logAudit({
-      action:       ACTION_TYPES.EVENT_SOURCE_DELETED,
+      action: ACTION_TYPES.EVENT_SOURCE_DELETED,
       resourceType: RESOURCE_TYPES.EVENT_SOURCE,
-      resourceId:   String(orgId),
-      user:         req.user,
+      resourceId: String(orgId),
+      user: req.user,
       orgId,
-      changes:      { before, after: null },
-      ipAddress:    getIpAddress(req),
-      userAgent:    req.headers['user-agent'],
-      success:      true
+      changes: { before, after: null },
+      ipAddress: getIpAddress(req),
+      userAgent: req.headers['user-agent'],
+      success: true,
     });
   },
 
   tested: async (req, type, success, errorCode) => {
     await logAudit({
-      action:       ACTION_TYPES.EVENT_SOURCE_TESTED,
+      action: ACTION_TYPES.EVENT_SOURCE_TESTED,
       resourceType: RESOURCE_TYPES.EVENT_SOURCE,
-      user:         req.user,
-      orgId:        req.entityParentRid || req.user?.orgId,
-      metadata:     { sourceType: type, success, errorCode: errorCode || null },
-      ipAddress:    getIpAddress(req),
-      userAgent:    req.headers['user-agent'],
-      success
+      user: req.user,
+      orgId: req.entityParentRid || req.user?.orgId,
+      metadata: { sourceType: type, success, errorCode: errorCode || null },
+      ipAddress: getIpAddress(req),
+      userAgent: req.headers['user-agent'],
+      success,
     });
-  }
+  },
 };
 
 /**
@@ -1021,7 +1023,7 @@ const auditData = {
       metadata,
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
   },
 
@@ -1034,9 +1036,9 @@ const auditData = {
       metadata,
       ipAddress: getIpAddress(req),
       userAgent: req.headers['user-agent'],
-      success: true
+      success: true,
     });
-  }
+  },
 };
 
 module.exports = {
@@ -1055,5 +1057,5 @@ module.exports = {
   auditEventSource,
   auditAdmin,
   auditData,
-  logAudit
+  logAudit,
 };

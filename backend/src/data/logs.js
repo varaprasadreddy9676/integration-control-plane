@@ -8,7 +8,7 @@ const {
   addOrgScope,
   fallbackDisabledError,
   mapLogFromMongo,
-  mapIntegrationFromMongo
+  mapIntegrationFromMongo,
 } = require('./helpers');
 
 /**
@@ -23,7 +23,7 @@ function buildLogsQuery(orgId, filters = {}) {
     const statusValue = String(filters.status).toUpperCase();
     // Handle comma-separated status values (e.g., "FAILED,SKIPPED,ABANDONED")
     if (statusValue.includes(',')) {
-      query.status = { $in: statusValue.split(',').map(s => s.trim()) };
+      query.status = { $in: statusValue.split(',').map((s) => s.trim()) };
     } else {
       query.status = statusValue;
     }
@@ -34,7 +34,8 @@ function buildLogsQuery(orgId, filters = {}) {
   if (filters.triggerType) {
     query.triggerType = filters.triggerType;
   }
-  const integrationFilterId = filters.__KEEP___KEEP_integrationConfig__Id__ || filters.integrationConfigId || filters.webhookId;
+  const integrationFilterId =
+    filters.__KEEP___KEEP_integrationConfig__Id__ || filters.integrationConfigId || filters.webhookId;
   if (integrationFilterId) {
     const integrationIdObj = mongodb.toObjectId(integrationFilterId);
     if (integrationIdObj) {
@@ -45,16 +46,16 @@ function buildLogsQuery(orgId, filters = {}) {
           { integrationConfigId: integrationIdObj },
           { integrationConfigId: integrationFilterId },
           { webhookConfigId: integrationIdObj },
-          { webhookConfigId: integrationFilterId }
-        ]
+          { webhookConfigId: integrationFilterId },
+        ],
       });
     } else {
       andConditions.push({
         $or: [
           { __KEEP___KEEP_integrationConfig__Id__: integrationFilterId },
           { integrationConfigId: integrationFilterId },
-          { webhookConfigId: integrationFilterId }
-        ]
+          { webhookConfigId: integrationFilterId },
+        ],
       });
     }
   }
@@ -75,8 +76,8 @@ function buildLogsQuery(orgId, filters = {}) {
         { responseBody: searchRegex },
         { 'requestPayload.mrn': searchRegex },
         { 'requestPayload.patient_name': searchRegex },
-        { 'requestPayload.phone': searchRegex }
-      ]
+        { 'requestPayload.phone': searchRegex },
+      ],
     });
 
     // Note: For better search performance on large datasets,
@@ -146,7 +147,8 @@ async function listLogs(orgId, filters = {}) {
       const limit = Math.min(1000, Math.max(1, parseInt(filters.limit) || 500));
       const skip = (page - 1) * limit;
 
-      const logs = await db.collection('execution_logs')
+      const logs = await db
+        .collection('execution_logs')
         .find(query)
         .sort({ createdAt: -1 })
         .skip(skip)
@@ -186,16 +188,16 @@ async function getLogStatsSummary(orgId, filters = {}) {
               { __KEEP___KEEP_integrationConfig__Id__: integrationIdObj },
               { __KEEP___KEEP_integrationConfig__Id__: filters.__KEEP___KEEP_integrationConfig__Id__ },
               { integrationConfigId: integrationIdObj },
-              { integrationConfigId: filters.__KEEP___KEEP_integrationConfig__Id__ }
-            ]
+              { integrationConfigId: filters.__KEEP___KEEP_integrationConfig__Id__ },
+            ],
           });
         } else {
           matchStage.$and = matchStage.$and || [];
           matchStage.$and.push({
             $or: [
               { __KEEP___KEEP_integrationConfig__Id__: filters.__KEEP___KEEP_integrationConfig__Id__ },
-              { integrationConfigId: filters.__KEEP___KEEP_integrationConfig__Id__ }
-            ]
+              { integrationConfigId: filters.__KEEP___KEEP_integrationConfig__Id__ },
+            ],
           });
         }
       }
@@ -218,26 +220,25 @@ async function getLogStatsSummary(orgId, filters = {}) {
         }
       }
 
-      const stats = await db.collection('execution_logs').aggregate([
-        { $match: matchStage },
-        {
-          $group: {
-            _id: null,
-            total: { $sum: 1 },
-            success: { $sum: { $cond: [{ $eq: ['$status', 'SUCCESS'] }, 1, 0] } },
-            failed: { $sum: { $cond: [{ $in: ['$status', ['FAILED', 'ABANDONED']] }, 1, 0] } },
-            pending: {
-              $sum: {
-                $cond: [
-                  { $or: [{ $eq: ['$status', 'PENDING'] }, { $eq: ['$status', 'RETRYING'] }] },
-                  1,
-                  0
-                ]
-              }
-            }
-          }
-        }
-      ]).toArray();
+      const stats = await db
+        .collection('execution_logs')
+        .aggregate([
+          { $match: matchStage },
+          {
+            $group: {
+              _id: null,
+              total: { $sum: 1 },
+              success: { $sum: { $cond: [{ $eq: ['$status', 'SUCCESS'] }, 1, 0] } },
+              failed: { $sum: { $cond: [{ $in: ['$status', ['FAILED', 'ABANDONED']] }, 1, 0] } },
+              pending: {
+                $sum: {
+                  $cond: [{ $or: [{ $eq: ['$status', 'PENDING'] }, { $eq: ['$status', 'RETRYING'] }] }, 1, 0],
+                },
+              },
+            },
+          },
+        ])
+        .toArray();
 
       const result = stats[0] || { total: 0, success: 0, failed: 0, pending: 0 };
       return {
@@ -245,7 +246,7 @@ async function getLogStatsSummary(orgId, filters = {}) {
         success: result.success,
         failed: result.failed,
         pending: result.pending,
-        refreshedAt: new Date().toISOString()
+        refreshedAt: new Date().toISOString(),
       };
     } catch (err) {
       logError(err, { scope: 'getLogStatsSummary', filters });
@@ -271,7 +272,8 @@ async function streamLogsForExport(orgId, filters = {}, onLog, options = {}) {
       const query = buildLogsQuery(orgId, filters);
 
       let count = 0;
-      cursor = db.collection('execution_logs')
+      cursor = db
+        .collection('execution_logs')
         .find(query)
         .sort({ createdAt: -1 })
         .batchSize(100) // Process 100 documents at a time for memory efficiency
@@ -313,7 +315,7 @@ async function getLogById(orgId, id) {
       const db = await mongodb.getDbSafe();
       const logDoc = await db.collection('execution_logs').findOne({
         _id: mongodb.toObjectId(id),
-        ...buildOrgScopeQuery(normalizedOrgId)
+        ...buildOrgScopeQuery(normalizedOrgId),
       });
 
       if (!logDoc) return undefined;
@@ -324,7 +326,7 @@ async function getLogById(orgId, id) {
       try {
         if (mappedLog.__KEEP___KEEP_integrationConfig__Id__) {
           const integration = await db.collection('integration_configs').findOne({
-            _id: mongodb.toObjectId(mappedLog.__KEEP___KEEP_integrationConfig__Id__)
+            _id: mongodb.toObjectId(mappedLog.__KEEP___KEEP_integrationConfig__Id__),
           });
           if (integration) {
             mappedLog.__KEEP_integrationConfig__ = mapIntegrationFromMongo(integration);
@@ -333,22 +335,23 @@ async function getLogById(orgId, id) {
       } catch (integrationErr) {
         log('warn', 'Failed to fetch integration config', {
           logId: id,
-          error: integrationErr.message
+          error: integrationErr.message,
         });
       }
 
       // Fetch detailed retry attempts for enhanced UI
       try {
-        const attempts = await db.collection('delivery_attempts')
+        const attempts = await db
+          .collection('delivery_attempts')
           .find({
             deliveryLogId: id,
-            ...buildOrgScopeQuery(normalizedOrgId)
+            ...buildOrgScopeQuery(normalizedOrgId),
           })
           .sort({ attemptNumber: 1 })
           .toArray();
 
         if (attempts && attempts.length > 0) {
-          mappedLog.retryAttempts = attempts.map(attempt => ({
+          mappedLog.retryAttempts = attempts.map((attempt) => ({
             attemptNumber: attempt.attemptNumber,
             status: attempt.status,
             responseStatus: attempt.responseStatus,
@@ -360,13 +363,13 @@ async function getLogById(orgId, id) {
             targetUrl: attempt.targetUrl,
             httpMethod: attempt.httpMethod,
             attemptedAt: attempt.attemptedAt?.toISOString(),
-            retryReason: attempt.retryReason
+            retryReason: attempt.retryReason,
           }));
         }
       } catch (attemptErr) {
         log('warn', 'Failed to fetch retry attempts', {
           logId: id,
-          error: attemptErr.message
+          error: attemptErr.message,
         });
         mappedLog.retryAttempts = [];
       }
@@ -389,18 +392,21 @@ async function recordLog(orgId, logPayload) {
     try {
       const db = await mongodb.getDbSafe();
       const errorCategory = logPayload.errorCategory || logPayload.error?.category || null;
-      const integrationConfigId = logPayload.__KEEP___KEEP_integrationConfig__Id__ || logPayload.integrationConfigId || logPayload.webhookConfigId;
+      const integrationConfigId =
+        logPayload.__KEEP___KEEP_integrationConfig__Id__ ||
+        logPayload.integrationConfigId ||
+        logPayload.webhookConfigId;
 
       // Normalize status to uppercase for consistency
       const normalizeStatus = (status) => {
         if (!status) return 'PENDING';
         const statusMap = {
-          'SUCCESS': 'SUCCESS',
-          'FAILED': 'FAILED',
-          'PENDING': 'PENDING',
-          'RETRYING': 'RETRYING',
-          'ABANDONED': 'ABANDONED',
-          'SKIPPED': 'SKIPPED'
+          SUCCESS: 'SUCCESS',
+          FAILED: 'FAILED',
+          PENDING: 'PENDING',
+          RETRYING: 'RETRYING',
+          ABANDONED: 'ABANDONED',
+          SKIPPED: 'SKIPPED',
         };
         return statusMap[status.toUpperCase()] || status.toUpperCase();
       };
@@ -417,8 +423,10 @@ async function recordLog(orgId, logPayload) {
         profileData.Phone,
         profileData.MRN,
         evtData['Patient Name'],
-        evtData['MRN']
-      ].filter(Boolean).join(' ');
+        evtData['MRN'],
+      ]
+        .filter(Boolean)
+        .join(' ');
 
       // If an existing log ID is provided (retries or execution logger), update instead of inserting a new document
       // The ID can be either a MongoDB ObjectId (for retries) or a traceId string (from execution logger)
@@ -441,13 +449,14 @@ async function recordLog(orgId, logPayload) {
         const attemptCount = logPayload.attemptCount || 1;
 
         // Fetch integration config to populate missing fields
-        let integrationName = logPayload.__KEEP_integrationName__ || logPayload.integrationName || logPayload.webhookName;
+        let integrationName =
+          logPayload.__KEEP_integrationName__ || logPayload.integrationName || logPayload.webhookName;
         let eventType = logPayload.eventType;
 
         if ((!integrationName || !eventType) && __KEEP___KEEP_integrationConfig__Id__Obj) {
           try {
             const integrationConfig = await db.collection('integration_configs').findOne({
-              _id: __KEEP___KEEP_integrationConfig__Id__Obj
+              _id: __KEEP___KEEP_integrationConfig__Id__Obj,
             });
             if (integrationConfig) {
               integrationName = integrationName || integrationConfig.name;
@@ -457,7 +466,7 @@ async function recordLog(orgId, logPayload) {
             // If integration config fetch fails, continue with null values
             log('warn', 'Failed to fetch integration config for log update', {
               integrationConfigId: __KEEP___KEEP_integrationConfig__Id__Obj?.toString(),
-              error: err.message
+              error: err.message,
             });
           }
         }
@@ -475,7 +484,11 @@ async function recordLog(orgId, logPayload) {
           finishedAt: logPayload.deliveredAt || null,
           errorMessage: logPayload.errorMessage || null,
           errorCategory,
-          error: logPayload.error || ((logPayload.errorMessage || errorCategory) ? { message: logPayload.errorMessage || null, category: errorCategory } : null),
+          error:
+            logPayload.error ||
+            (logPayload.errorMessage || errorCategory
+              ? { message: logPayload.errorMessage || null, category: errorCategory }
+              : null),
           originalPayload: logPayload.originalPayload || {},
           requestPayload: logPayload.requestPayload || {},
           'request.body': logPayload.requestPayload || {},
@@ -494,10 +507,11 @@ async function recordLog(orgId, logPayload) {
           requestHeaders: logPayload.requestHeaders || null,
           shouldRetry: logPayload.shouldRetry || false,
           integrationConfigId: __KEEP___KEEP_integrationConfig__Id__Obj || integrationConfigId || null,
-          __KEEP___KEEP_integrationConfig__Id__: __KEEP___KEEP_integrationConfig__Id__Obj || integrationConfigId || null,
+          __KEEP___KEEP_integrationConfig__Id__:
+            __KEEP___KEEP_integrationConfig__Id__Obj || integrationConfigId || null,
           searchableText,
           lastAttemptAt: new Date(),
-          updatedAt: new Date()
+          updatedAt: new Date(),
         };
 
         if (logPayload.direction) {
@@ -518,20 +532,18 @@ async function recordLog(orgId, logPayload) {
           updateDoc.actionIndex = logPayload.actionIndex;
         }
 
-        const updateQuery = queryField === 'traceId'
-          ? { traceId: existingLogId, orgId: normalizedOrgId }
-          : { _id: existingLogId, orgId: normalizedOrgId };
+        const updateQuery =
+          queryField === 'traceId'
+            ? { traceId: existingLogId, orgId: normalizedOrgId }
+            : { _id: existingLogId, orgId: normalizedOrgId };
 
-        const updateResult = await db.collection('execution_logs').updateOne(
-          updateQuery,
-          { $set: updateDoc }
-        );
+        const updateResult = await db.collection('execution_logs').updateOne(updateQuery, { $set: updateDoc });
 
         // If the document was not found (edge case), fall back to insert
         if (updateResult.matchedCount === 0) {
-            log('warn', 'Existing log not found for update, inserting new log', {
-              logId: logPayload.id,
-            orgId: normalizedOrgId
+          log('warn', 'Existing log not found for update, inserting new log', {
+            logId: logPayload.id,
+            orgId: normalizedOrgId,
           });
         } else {
           // Record attempt details for retries
@@ -551,7 +563,7 @@ async function recordLog(orgId, logPayload) {
               targetUrl: logPayload.attemptDetails.targetUrl,
               httpMethod: logPayload.attemptDetails.httpMethod || 'POST',
               attemptedAt: logPayload.createdAt || new Date(),
-              retryReason: logPayload.attemptDetails.retryReason || null
+              retryReason: logPayload.attemptDetails.retryReason || null,
             };
 
             await db.collection('delivery_attempts').insertOne(attemptDoc);
@@ -568,7 +580,7 @@ async function recordLog(orgId, logPayload) {
       if ((!integrationName || !eventType) && __KEEP___KEEP_integrationConfig__Id__Obj) {
         try {
           const integrationConfig = await db.collection('integration_configs').findOne({
-            _id: __KEEP___KEEP_integrationConfig__Id__Obj
+            _id: __KEEP___KEEP_integrationConfig__Id__Obj,
           });
           if (integrationConfig) {
             integrationName = integrationName || integrationConfig.name;
@@ -578,24 +590,27 @@ async function recordLog(orgId, logPayload) {
           // If integration config fetch fails, continue with null values
           log('warn', 'Failed to fetch integration config for log', {
             integrationConfigId: __KEEP___KEEP_integrationConfig__Id__Obj?.toString(),
-            error: err.message
+            error: err.message,
           });
         }
       }
 
       // Insert new execution log
       const logDoc = {
-        traceId: logPayload.traceId || logPayload.correlationId || `trc_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
+        traceId:
+          logPayload.traceId ||
+          logPayload.correlationId ||
+          `trc_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
         messageId: logPayload.messageId || null,
         orgId: normalizedOrgId,
         orgUnitRid: logPayload.orgUnitRid || logPayload.entityRid || normalizedOrgId,
         webhookName: integrationName || null,
-          webhookConfigId: __KEEP___KEEP_integrationConfig__Id__Obj || integrationConfigId || null,
+        webhookConfigId: __KEEP___KEEP_integrationConfig__Id__Obj || integrationConfigId || null,
         transformedPayload: logPayload.requestPayload || {},
         direction: logPayload.direction || 'OUTBOUND',
         triggerType: logPayload.triggerType || 'EVENT',
-          integrationConfigId: __KEEP___KEEP_integrationConfig__Id__Obj || integrationConfigId || null,
-          __KEEP___KEEP_integrationConfig__Id__: __KEEP___KEEP_integrationConfig__Id__Obj || integrationConfigId || null,
+        integrationConfigId: __KEEP___KEEP_integrationConfig__Id__Obj || integrationConfigId || null,
+        __KEEP___KEEP_integrationConfig__Id__: __KEEP___KEEP_integrationConfig__Id__Obj || integrationConfigId || null,
         __KEEP_integrationName__: integrationName,
         eventId: logPayload.eventId || null,
         eventType: eventType,
@@ -614,7 +629,11 @@ async function recordLog(orgId, logPayload) {
         durationMs: logPayload.responseTimeMs || null,
         errorMessage: logPayload.errorMessage || null,
         errorCategory,
-        error: logPayload.error || ((logPayload.errorMessage || errorCategory) ? { message: logPayload.errorMessage || null, category: errorCategory } : null),
+        error:
+          logPayload.error ||
+          (logPayload.errorMessage || errorCategory
+            ? { message: logPayload.errorMessage || null, category: errorCategory }
+            : null),
         originalPayload: logPayload.originalPayload || {},
         requestPayload: logPayload.requestPayload || {},
         targetUrl: logPayload.targetUrl,
@@ -626,17 +645,17 @@ async function recordLog(orgId, logPayload) {
           url: logPayload.targetUrl,
           method: logPayload.httpMethod,
           headers: logPayload.requestHeaders || {},
-          body: logPayload.requestPayload || {}
+          body: logPayload.requestPayload || {},
         },
         response: {
           statusCode: logPayload.responseStatus,
           headers: {},
-          body: logPayload.responseBody || {}
+          body: logPayload.responseBody || {},
         },
         steps: [],
         metadata: {},
         createdAt: logPayload.createdAt || new Date(),
-        updatedAt: new Date()
+        updatedAt: new Date(),
       };
 
       const result = await db.collection('execution_logs').insertOne(logDoc);
@@ -658,7 +677,7 @@ async function recordLog(orgId, logPayload) {
           targetUrl: logPayload.attemptDetails.targetUrl,
           httpMethod: logPayload.attemptDetails.httpMethod || 'POST',
           attemptedAt: logPayload.createdAt || new Date(),
-          retryReason: logPayload.attemptDetails.retryReason || null
+          retryReason: logPayload.attemptDetails.retryReason || null,
         };
 
         await db.collection('delivery_attempts').insertOne(attemptDoc);
@@ -700,15 +719,15 @@ async function bulkRetryLogs(orgId, ids) {
         {
           _id: { $in: objectIds },
           orgId,
-          status: 'FAILED'
+          status: 'FAILED',
         },
         {
           $set: {
             status: 'RETRYING',
             shouldRetry: true,
             lastAttemptAt: new Date(),
-            updatedAt: new Date()
-          }
+            updatedAt: new Date(),
+          },
         }
       );
 
@@ -716,12 +735,12 @@ async function bulkRetryLogs(orgId, ids) {
         scope: 'bulkRetryLogs',
         requested: ids.length,
         retried: result.modifiedCount,
-        failed: failedIds.length
+        failed: failedIds.length,
       });
 
       return {
         retriedCount: result.modifiedCount,
-        failedIds
+        failedIds,
       };
     } catch (err) {
       logError(err, { scope: 'bulkRetryLogs' });
@@ -758,25 +777,25 @@ async function bulkDeleteLogs(orgId, ids) {
       // Delete delivery logs
       const result = await db.collection('execution_logs').deleteMany({
         _id: { $in: objectIds },
-        orgId
+        orgId,
       });
 
       // Also delete associated delivery attempts
       await db.collection('delivery_attempts').deleteMany({
         deliveryLogId: { $in: ids },
-        ...buildOrgScopeQuery(orgId)
+        ...buildOrgScopeQuery(orgId),
       });
 
       log('info', 'Bulk delete completed', {
         scope: 'bulkDeleteLogs',
         requested: ids.length,
         deleted: result.deletedCount,
-        failed: failedIds.length
+        failed: failedIds.length,
       });
 
       return {
         deletedCount: result.deletedCount,
-        failedIds
+        failedIds,
       };
     } catch (err) {
       logError(err, { scope: 'bulkDeleteLogs' });
@@ -796,5 +815,5 @@ module.exports = {
   getLogById,
   recordLog,
   bulkRetryLogs,
-  bulkDeleteLogs
+  bulkDeleteLogs,
 };

@@ -98,15 +98,15 @@ function mapIntegrationFromMongo(doc) {
     versionStrategy: doc.versionStrategy || 'SEMANTIC',
     metadata: doc.metadata || {},
     // Integration signing configuration (Standard Integrations)
-    signingSecret: doc.signingSecret,              // Current active secret
-    signingSecrets: doc.signingSecrets || [],      // All active secrets (for rotation)
-    enableSigning: doc.enableSigning !== false,    // Default to true
+    signingSecret: doc.signingSecret, // Current active secret
+    signingSecrets: doc.signingSecrets || [], // All active secrets (for rotation)
+    enableSigning: doc.enableSigning !== false, // Default to true
     signatureVersion: doc.signatureVersion || 'v1',
     // Scheduling configuration (MVP for delayed/recurring integrations)
     deliveryMode: doc.deliveryMode || 'IMMEDIATE', // IMMEDIATE | DELAYED | RECURRING
     schedulingConfig: doc.schedulingConfig || null, // { script, timezone, description }
     createdAt: doc.createdAt?.toISOString() || new Date().toISOString(),
-    updatedAt: doc.updatedAt?.toISOString() || new Date().toISOString()
+    updatedAt: doc.updatedAt?.toISOString() || new Date().toISOString(),
   };
 }
 
@@ -116,7 +116,10 @@ function mapScheduledIntegrationFromMongo(doc) {
   return {
     id: doc._id.toString(),
     integrationConfigId: doc.__KEEP___KEEP_integrationConfig__Id__?.toString() || doc.integrationConfigId?.toString(),
-    webhookConfigId: doc.webhookConfigId?.toString?.() || doc.__KEEP___KEEP_integrationConfig__Id__?.toString() || doc.integrationConfigId?.toString(),
+    webhookConfigId:
+      doc.webhookConfigId?.toString?.() ||
+      doc.__KEEP___KEEP_integrationConfig__Id__?.toString() ||
+      doc.integrationConfigId?.toString(),
     integrationName: doc.__KEEP_integrationName__ || doc.integrationName,
     webhookName: doc.webhookName || doc.__KEEP_integrationName__ || doc.integrationName,
     orgId,
@@ -131,7 +134,7 @@ function mapScheduledIntegrationFromMongo(doc) {
     cancellationInfo: doc.cancellationInfo || null,
     recurringConfig: doc.recurringConfig || null,
     createdAt: doc.createdAt?.toISOString() || new Date().toISOString(),
-    updatedAt: doc.updatedAt?.toISOString() || new Date().toISOString()
+    updatedAt: doc.updatedAt?.toISOString() || new Date().toISOString(),
   };
 }
 
@@ -147,7 +150,8 @@ function mapLogFromMongo(doc) {
 
   return {
     id: doc._id.toString(),
-    __KEEP___KEEP_integrationConfig__Id__: doc.__KEEP___KEEP_integrationConfig__Id__?.toString() || doc.__KEEP___KEEP_integrationConfig__Id__,
+    __KEEP___KEEP_integrationConfig__Id__:
+      doc.__KEEP___KEEP_integrationConfig__Id__?.toString() || doc.__KEEP___KEEP_integrationConfig__Id__,
     __KEEP_integrationName__: doc.__KEEP_integrationName__,
     eventType: doc.eventType,
     integrationType: doc.integrationType || doc.eventType,
@@ -175,10 +179,10 @@ function mapLogFromMongo(doc) {
     requestHeaders,
     shouldRetry: doc.shouldRetry,
     // Integration signing details (for audit trail)
-    messageId: doc.messageId,              // Unique message identifier
-    timestamp: doc.timestamp,              // Unix timestamp when integration was sent
-    signature: doc.signature,              // The signature that was sent
-    signatureHeaders: doc.signatureHeaders // All signature headers sent
+    messageId: doc.messageId, // Unique message identifier
+    timestamp: doc.timestamp, // Unix timestamp when integration was sent
+    signature: doc.signature, // The signature that was sent
+    signatureHeaders: doc.signatureHeaders, // All signature headers sent
   };
 }
 
@@ -199,12 +203,11 @@ function mapAlertCenterLog(doc) {
     payload: doc.payload || null,
     providerUrl: doc.providerUrl || null,
     providerResponse: doc.providerResponse || null,
-    createdAt: doc.createdAt?.toISOString?.() || new Date().toISOString()
+    createdAt: doc.createdAt?.toISOString?.() || new Date().toISOString(),
   };
 }
 
-const isPlainObject = (value) =>
-  value !== null && typeof value === 'object' && !Array.isArray(value);
+const isPlainObject = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
 
 const mergeConfigs = (base, override) => {
   if (override === undefined) return base;
@@ -240,5 +243,5 @@ module.exports = {
   mapAlertCenterLog,
   isPlainObject,
   mergeConfigs,
-  stripUiConfig
+  stripUiConfig,
 };

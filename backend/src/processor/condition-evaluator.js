@@ -10,12 +10,12 @@ function evaluateCondition(condition, context) {
   } catch (err) {
     log('error', 'Condition evaluation failed', {
       condition,
-      error: err.message
+      error: err.message,
     });
     return false; // Failed conditions are treated as false
   }
 }
 
 module.exports = {
-  evaluateCondition
+  evaluateCondition,
 };

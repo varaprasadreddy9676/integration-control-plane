@@ -47,13 +47,13 @@ function rateLimit(req, res, next) {
     log('warn', 'Rate limit exceeded', {
       key: key,
       count: requestData.count,
-      limit: MAX_REQUESTS_PER_WINDOW
+      limit: MAX_REQUESTS_PER_WINDOW,
     });
 
     return res.status(429).json({
       error: 'Too many requests',
       code: 'RATE_LIMIT_EXCEEDED',
-      retryAfter: Math.ceil(WINDOW_MS / 1000) // seconds until reset
+      retryAfter: Math.ceil(WINDOW_MS / 1000), // seconds until reset
     });
   }
 
@@ -64,7 +64,7 @@ function rateLimit(req, res, next) {
   res.set({
     'X-RateLimit-Limit': MAX_REQUESTS_PER_WINDOW,
     'X-RateLimit-Remaining': remaining,
-    'X-RateLimit-Reset': resetTime
+    'X-RateLimit-Reset': resetTime,
   });
 
   next();

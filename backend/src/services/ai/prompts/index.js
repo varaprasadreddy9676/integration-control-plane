@@ -3,7 +3,12 @@
  * Main exports for backward compatibility
  */
 
-const { buildSystemContext, getSystemPrompt, initSystemPromptCache, invalidateSystemPromptCache } = require('./system-context');
+const {
+  buildSystemContext,
+  getSystemPrompt,
+  initSystemPromptCache,
+  invalidateSystemPromptCache,
+} = require('./system-context');
 const { buildTransformationPrompt } = require('./transformation');
 const { buildDocumentationAnalysisPrompt } = require('./documentation');
 const { buildFieldMappingPrompt } = require('./field-mapping');
@@ -13,7 +18,7 @@ const {
   buildErrorAnalysisPrompt,
   buildExplainTransformationPrompt,
   normalizeErrorAnalysis,
-  normalizeExplainTransformation
+  normalizeExplainTransformation,
 } = require('./error-analysis');
 
 module.exports = {
@@ -34,5 +39,5 @@ module.exports = {
   getSystemPrompt,
   buildSystemContext,
   initSystemPromptCache,
-  invalidateSystemPromptCache
+  invalidateSystemPromptCache,
 };

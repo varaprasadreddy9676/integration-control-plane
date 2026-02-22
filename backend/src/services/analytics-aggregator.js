@@ -13,7 +13,7 @@ class AnalyticsAggregator {
 
   getFromCache(key) {
     const cached = this.cache.get(key);
-    if (cached && (Date.now() - cached.timestamp < this.cacheTimeoutMs)) {
+    if (cached && Date.now() - cached.timestamp < this.cacheTimeoutMs) {
       return cached.data;
     }
     if (cached) {
@@ -33,12 +33,7 @@ class AnalyticsAggregator {
   }
 
   async getIntegrationMetrics(orgId, options = {}) {
-    const {
-      days = 30,
-      integrationId,
-      eventTypes = [],
-      includeHourly = false
-    } = options;
+    const { days = 30, integrationId, eventTypes = [], includeHourly = false } = options;
 
     const cacheKey = this.getCacheKey(orgId, 'integrationMetrics', options);
     const cached = this.getFromCache(cacheKey);
@@ -53,7 +48,7 @@ class AnalyticsAggregator {
         endDate: new Date().toISOString(),
         // Use high limit to avoid capping analytics aggregation data
         // TODO: Refactor to use MongoDB aggregation for better performance
-        limit: 100000
+        limit: 100000,
       };
 
       if (integrationId) {
@@ -63,21 +58,18 @@ class AnalyticsAggregator {
       const logs = await data.listLogs(orgId, filters);
 
       // Filter by event types if specified
-      const filteredLogs = eventTypes.length > 0
-        ? logs.filter(log => eventTypes.includes(log.eventType))
-        : logs;
+      const filteredLogs = eventTypes.length > 0 ? logs.filter((log) => eventTypes.includes(log.eventType)) : logs;
 
       // Calculate metrics
       const metrics = this.calculateMetrics(filteredLogs, days, includeHourly);
 
       this.setCache(cacheKey, metrics);
       return metrics;
-
     } catch (error) {
       log('error', 'Integration metrics calculation failed', {
         orgId,
         error: error.message,
-        options
+        options,
       });
       throw error;
     }
@@ -85,24 +77,24 @@ class AnalyticsAggregator {
 
   calculateMetrics(logs, days, includeHourly = false) {
     const total = logs.length;
-    const successful = logs.filter(l => l.status === 'SUCCESS').length;
-    const failed = logs.filter(l => l.status === 'FAILED').length;
-    const retrying = logs.filter(l => l.status === 'RETRYING').length;
-    const pending = logs.filter(l => l.status === 'PENDING').length;
+    const successful = logs.filter((l) => l.status === 'SUCCESS').length;
+    const failed = logs.filter((l) => l.status === 'FAILED').length;
+    const retrying = logs.filter((l) => l.status === 'RETRYING').length;
+    const pending = logs.filter((l) => l.status === 'PENDING').length;
 
-    const successRate = total > 0 ? (successful / total * 100) : 0;
+    const successRate = total > 0 ? (successful / total) * 100 : 0;
 
     // Response time calculations
     const responseTimes = logs
-      .filter(l => l.status === 'SUCCESS' && l.responseTimeMs > 0)
-      .map(l => l.responseTimeMs)
+      .filter((l) => l.status === 'SUCCESS' && l.responseTimeMs > 0)
+      .map((l) => l.responseTimeMs)
       .sort((a, b) => a - b);
 
     const responseTimeStats = this.calculateResponseTimeStats(responseTimes);
 
     // Event type breakdown
     const eventTypeBreakdown = {};
-    logs.forEach(log => {
+    logs.forEach((log) => {
       if (!eventTypeBreakdown[log.eventType]) {
         eventTypeBreakdown[log.eventType] = {
           total: 0,
@@ -110,7 +102,7 @@ class AnalyticsAggregator {
           failed: 0,
           avgResponseTime: 0,
           responseTimeSum: 0,
-          responseTimeCount: 0
+          responseTimeCount: 0,
         };
       }
 
@@ -120,18 +112,17 @@ class AnalyticsAggregator {
       if (log.status === 'SUCCESS') {
         stats.successful++;
         stats.responseTimeSum += log.responseTimeMs || 0;
-        stats.responseTimeCount += (log.responseTimeMs > 0) ? 1 : 0;
+        stats.responseTimeCount += log.responseTimeMs > 0 ? 1 : 0;
       } else if (log.status === 'FAILED') {
         stats.failed++;
       }
     });
 
     // Calculate averages for each event type
-    Object.values(eventTypeBreakdown).forEach(stats => {
-      stats.successRate = stats.total > 0 ? (stats.successful / stats.total * 100) : 0;
-      stats.avgResponseTime = stats.responseTimeCount > 0
-        ? Math.round(stats.responseTimeSum / stats.responseTimeCount)
-        : 0;
+    Object.values(eventTypeBreakdown).forEach((stats) => {
+      stats.successRate = stats.total > 0 ? (stats.successful / stats.total) * 100 : 0;
+      stats.avgResponseTime =
+        stats.responseTimeCount > 0 ? Math.round(stats.responseTimeSum / stats.responseTimeCount) : 0;
 
       // Clean up internal calculations
       delete stats.responseTimeSum;
@@ -140,7 +131,7 @@ class AnalyticsAggregator {
 
     // Integration breakdown
     const integrationBreakdown = {};
-    logs.forEach(log => {
+    logs.forEach((log) => {
       const integrationKey = log.__KEEP___KEEP_integrationConfig__Id__;
       if (!integrationBreakdown[integrationKey]) {
         integrationBreakdown[integrationKey] = {
@@ -153,7 +144,7 @@ class AnalyticsAggregator {
           responseTimeSum: 0,
           responseTimeCount: 0,
           lastSuccess: null,
-          lastFailure: null
+          lastFailure: null,
         };
       }
 
@@ -163,7 +154,7 @@ class AnalyticsAggregator {
       if (log.status === 'SUCCESS') {
         integration.successful++;
         integration.responseTimeSum += log.responseTimeMs || 0;
-        integration.responseTimeCount += (log.responseTimeMs > 0) ? 1 : 0;
+        integration.responseTimeCount += log.responseTimeMs > 0 ? 1 : 0;
         integration.lastSuccess = log.createdAt;
       } else if (log.status === 'FAILED') {
         integration.failed++;
@@ -174,11 +165,10 @@ class AnalyticsAggregator {
     });
 
     // Calculate integration averages
-    Object.values(integrationBreakdown).forEach(integration => {
-      integration.successRate = integration.total > 0 ? (integration.successful / integration.total * 100) : 0;
-      integration.avgResponseTime = integration.responseTimeCount > 0
-        ? Math.round(integration.responseTimeSum / integration.responseTimeCount)
-        : 0;
+    Object.values(integrationBreakdown).forEach((integration) => {
+      integration.successRate = integration.total > 0 ? (integration.successful / integration.total) * 100 : 0;
+      integration.avgResponseTime =
+        integration.responseTimeCount > 0 ? Math.round(integration.responseTimeSum / integration.responseTimeCount) : 0;
 
       delete integration.responseTimeSum;
       delete integration.responseTimeCount;
@@ -188,7 +178,7 @@ class AnalyticsAggregator {
       period: {
         days,
         startDate: new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString(),
-        endDate: new Date().toISOString()
+        endDate: new Date().toISOString(),
       },
       summary: {
         total,
@@ -196,11 +186,11 @@ class AnalyticsAggregator {
         failed,
         retrying,
         pending,
-        successRate: Math.round(successRate * 100) / 100
+        successRate: Math.round(successRate * 100) / 100,
       },
       performance: responseTimeStats,
       eventTypes: eventTypeBreakdown,
-      integrations: Object.values(integrationBreakdown).sort((a, b) => b.total - a.total)
+      integrations: Object.values(integrationBreakdown).sort((a, b) => b.total - a.total),
     };
 
     if (includeHourly) {
@@ -221,12 +211,12 @@ class AnalyticsAggregator {
         p75: 0,
         p90: 0,
         p95: 0,
-        p99: 0
+        p99: 0,
       };
     }
 
     const getPercentile = (arr, p) => {
-      const index = Math.ceil(arr.length * p / 100) - 1;
+      const index = Math.ceil((arr.length * p) / 100) - 1;
       return arr[Math.max(0, Math.min(index, arr.length - 1))];
     };
 
@@ -239,7 +229,7 @@ class AnalyticsAggregator {
       p75: getPercentile(responseTimes, 75),
       p90: getPercentile(responseTimes, 90),
       p95: getPercentile(responseTimes, 95),
-      p99: getPercentile(responseTimes, 99)
+      p99: getPercentile(responseTimes, 99),
     };
   }
 
@@ -259,12 +249,12 @@ class AnalyticsAggregator {
         failed: 0,
         avgResponseTime: 0,
         responseTimeSum: 0,
-        responseTimeCount: 0
+        responseTimeCount: 0,
       };
     }
 
     // Populate hourly data
-    logs.forEach(log => {
+    logs.forEach((log) => {
       const logDate = new Date(log.createdAt);
       const hourKey = new Date(
         logDate.getFullYear(),
@@ -293,11 +283,9 @@ class AnalyticsAggregator {
     });
 
     // Calculate averages and clean up
-    Object.values(hourly).forEach(hour => {
-      hour.avgResponseTime = hour.responseTimeCount > 0
-        ? Math.round(hour.responseTimeSum / hour.responseTimeCount)
-        : 0;
-      hour.successRate = hour.total > 0 ? (hour.successful / hour.total * 100) : 0;
+    Object.values(hourly).forEach((hour) => {
+      hour.avgResponseTime = hour.responseTimeCount > 0 ? Math.round(hour.responseTimeSum / hour.responseTimeCount) : 0;
+      hour.successRate = hour.total > 0 ? (hour.successful / hour.total) * 100 : 0;
 
       delete hour.responseTimeSum;
       delete hour.responseTimeCount;
@@ -321,7 +309,7 @@ class AnalyticsAggregator {
         endDate: new Date().toISOString(),
         // Use high limit to avoid capping error trends data
         // TODO: Refactor to use MongoDB aggregation for better performance
-        limit: 100000
+        limit: 100000,
       };
 
       const logs = await data.listLogs(orgId, filters);
@@ -329,7 +317,7 @@ class AnalyticsAggregator {
       // Group errors by day and error type
       const errorTrends = {};
 
-      logs.forEach(log => {
+      logs.forEach((log) => {
         const day = new Date(log.createdAt).toISOString().split('T')[0];
         const errorType = this.categorizeError(log);
 
@@ -338,7 +326,7 @@ class AnalyticsAggregator {
             date: day,
             total: 0,
             byType: {},
-            byIntegration: {}
+            byIntegration: {},
           };
         }
 
@@ -362,11 +350,10 @@ class AnalyticsAggregator {
 
       this.setCache(cacheKey, trends);
       return trends;
-
     } catch (error) {
       log('error', 'Error trends calculation failed', {
         orgId,
-        error: error.message
+        error: error.message,
       });
       throw error;
     }

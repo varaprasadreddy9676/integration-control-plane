@@ -48,16 +48,16 @@ class SmtpAdapter {
       to: Array.isArray(to) ? to.join(', ') : to,
       subject: subject || '(No Subject)',
       text: text,
-      html: html
+      html: html,
     };
 
     // Add attachments if provided
     if (attachments && Array.isArray(attachments) && attachments.length > 0) {
-      mailOptions.attachments = attachments.map(att => ({
+      mailOptions.attachments = attachments.map((att) => ({
         filename: att.filename,
         content: att.content,
         encoding: att.encoding || 'base64',
-        contentType: att.contentType
+        contentType: att.contentType,
       }));
     }
 
@@ -65,7 +65,7 @@ class SmtpAdapter {
       to: mailOptions.to,
       subject: mailOptions.subject,
       hasAttachments: !!(attachments && attachments.length > 0),
-      attachmentCount: attachments ? attachments.length : 0
+      attachmentCount: attachments ? attachments.length : 0,
     });
 
     // Send email
@@ -75,7 +75,7 @@ class SmtpAdapter {
       messageId: info.messageId,
       accepted: info.accepted,
       rejected: info.rejected,
-      response: info.response
+      response: info.response,
     });
 
     return {
@@ -84,7 +84,7 @@ class SmtpAdapter {
       accepted: info.accepted,
       rejected: info.rejected,
       provider: 'SMTP',
-      timestamp: new Date()
+      timestamp: new Date(),
     };
   }
 
@@ -100,7 +100,7 @@ class SmtpAdapter {
 
       log('info', '[SMTP] Configuration verified successfully', {
         host: config.host,
-        port: config.port
+        port: config.port,
       });
 
       return { success: true, message: 'SMTP configuration is valid' };
@@ -108,13 +108,13 @@ class SmtpAdapter {
       log('error', '[SMTP] Configuration verification failed', {
         error: error.message,
         host: config.host,
-        port: config.port
+        port: config.port,
       });
 
       return {
         success: false,
         message: 'SMTP verification failed',
-        error: error.message
+        error: error.message,
       };
     }
   }
@@ -157,10 +157,13 @@ class SmtpAdapter {
       host,
       port,
       secure: secure !== undefined ? secure : port === 465, // Auto-detect TLS
-      auth: username && password ? {
-        user: username,
-        pass: password
-      } : undefined
+      auth:
+        username && password
+          ? {
+              user: username,
+              pass: password,
+            }
+          : undefined,
     });
   }
 

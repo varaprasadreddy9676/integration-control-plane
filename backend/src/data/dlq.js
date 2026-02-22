@@ -1,4 +1,4 @@
-const { getDbSafe, ObjectId, toObjectId } = require('../mongodb');
+const { getDbSafe, toObjectId } = require('../mongodb');
 const { log } = require('../logger');
 const { uuidv4 } = require('../utils/runtime');
 
@@ -38,7 +38,7 @@ async function createDLQEntry(failureData) {
       stack: failureData.error?.stack || null,
       code: failureData.error?.code || 'UNKNOWN_ERROR',
       category: categorizeError(failureData.error),
-      statusCode: failureData.error?.statusCode || null
+      statusCode: failureData.error?.statusCode || null,
     },
 
     // Retry tracking
@@ -60,7 +60,7 @@ async function createDLQEntry(failureData) {
     // Timestamps
     failedAt: now,
     createdAt: now,
-    updatedAt: now
+    updatedAt: now,
   };
 
   await db.collection('failed_deliveries').insertOne(entry);
@@ -69,7 +69,7 @@ async function createDLQEntry(failureData) {
     dlqId,
     traceId: failureData.traceId,
     orgId: failureData.orgId,
-    errorCode: entry.error.code
+    errorCode: entry.error.code,
   });
 
   return dlqId;
@@ -119,7 +119,7 @@ function calculateNextRetry(retryCount, strategy = 'exponential') {
   switch (strategy) {
     case 'exponential':
       // 1min, 2min, 4min, 8min, 16min, ...
-      delayMs = Math.min(Math.pow(2, retryCount) * 60 * 1000, 60 * 60 * 1000); // Max 1 hour
+      delayMs = Math.min(2 ** retryCount * 60 * 1000, 60 * 60 * 1000); // Max 1 hour
       break;
     case 'linear':
       // 5min, 10min, 15min, 20min, ...
@@ -147,7 +147,7 @@ async function getDLQEntry(dlqId, orgId) {
 
   return await db.collection('failed_deliveries').findOne({
     dlqId,
-    orgId
+    orgId,
   });
 }
 
@@ -193,13 +193,8 @@ async function listDLQEntries(orgId, filters = {}, pagination = {}) {
   const offset = pagination.offset || 0;
 
   const [entries, total] = await Promise.all([
-    db.collection('failed_deliveries')
-      .find(query)
-      .sort({ failedAt: -1 })
-      .skip(offset)
-      .limit(limit)
-      .toArray(),
-    db.collection('failed_deliveries').countDocuments(query)
+    db.collection('failed_deliveries').find(query).sort({ failedAt: -1 }).skip(offset).limit(limit).toArray(),
+    db.collection('failed_deliveries').countDocuments(query),
   ]);
 
   return {
@@ -207,7 +202,7 @@ async function listDLQEntries(orgId, filters = {}, pagination = {}) {
     total,
     hasMore: offset + entries.length < total,
     limit,
-    offset
+    offset,
   };
 }
 
@@ -222,13 +217,10 @@ async function updateDLQEntry(dlqId, orgId, updates) {
 
   const updateDoc = {
     ...updates,
-    updatedAt: new Date()
+    updatedAt: new Date(),
   };
 
-  await db.collection('failed_deliveries').updateOne(
-    { dlqId, orgId },
-    { $set: updateDoc }
-  );
+  await db.collection('failed_deliveries').updateOne({ dlqId, orgId }, { $set: updateDoc });
 }
 
 /**
@@ -274,9 +266,9 @@ async function recordRetryAttempt(dlqId, orgId, result) {
           resolvedAt: new Date(),
           resolvedBy: 'system',
           resolutionMethod: 'auto_retry',
-          updatedAt: new Date()
+          updatedAt: new Date(),
         },
-        $inc: { retryCount: 1 }
+        $inc: { retryCount: 1 },
       }
     );
 
@@ -292,16 +284,16 @@ async function recordRetryAttempt(dlqId, orgId, result) {
             resolvedAt: new Date(),
             resolvedBy: 'system',
             resolutionMethod: 'max_retries_exceeded',
-            updatedAt: new Date()
+            updatedAt: new Date(),
           },
-          $inc: { retryCount: 1 }
+          $inc: { retryCount: 1 },
         }
       );
 
       log('warn', 'DLQ entry abandoned - max retries exceeded', {
         dlqId,
         retryCount: newRetryCount,
-        maxRetries: entry.maxRetries
+        maxRetries: entry.maxRetries,
       });
     } else {
       // Schedule next retry
@@ -313,16 +305,16 @@ async function recordRetryAttempt(dlqId, orgId, result) {
           $set: {
             status: 'pending',
             nextRetryAt,
-            updatedAt: new Date()
+            updatedAt: new Date(),
           },
-          $inc: { retryCount: 1 }
+          $inc: { retryCount: 1 },
         }
       );
 
       log('info', 'DLQ retry failed, rescheduled', {
         dlqId,
         retryCount: newRetryCount,
-        nextRetryAt
+        nextRetryAt,
       });
     }
   }
@@ -353,8 +345,8 @@ async function manualRetryDLQ(dlqId, orgId, userId) {
     {
       $set: {
         status: 'retrying',
-        updatedAt: new Date()
-      }
+        updatedAt: new Date(),
+      },
     }
   );
 
@@ -382,8 +374,8 @@ async function abandonDLQEntry(dlqId, orgId, userId, notes) {
         resolvedBy: userId,
         resolutionMethod: 'manual_abandon',
         resolutionNotes: notes,
-        updatedAt: new Date()
-      }
+        updatedAt: new Date(),
+      },
     }
   );
 
@@ -400,10 +392,11 @@ async function getDLQEntriesForRetry(limit = 100) {
 
   const now = new Date();
 
-  return await db.collection('failed_deliveries')
+  return await db
+    .collection('failed_deliveries')
     .find({
       status: 'pending',
-      nextRetryAt: { $lte: now }
+      nextRetryAt: { $lte: now },
     })
     .sort({ nextRetryAt: 1 })
     .limit(limit)
@@ -430,34 +423,28 @@ async function getDLQStats(orgId, filters = {}) {
     if (filters.endDate) matchStage.failedAt.$lte = new Date(filters.endDate);
   }
 
-  const stats = await db.collection('failed_deliveries').aggregate([
-    { $match: matchStage },
-    {
-      $facet: {
-        statusBreakdown: [
-          { $group: { _id: '$status', count: { $sum: 1 } } }
-        ],
-        categoryBreakdown: [
-          { $group: { _id: '$error.category', count: { $sum: 1 } } },
-          { $sort: { count: -1 } }
-        ],
-        topErrors: [
-          { $group: { _id: '$error.code', count: { $sum: 1 } } },
-          { $sort: { count: -1 } },
-          { $limit: 10 }
-        ],
-        retryStats: [
-          {
-            $group: {
-              _id: null,
-              avgRetries: { $avg: '$retryCount' },
-              maxRetries: { $max: '$retryCount' }
-            }
-          }
-        ]
-      }
-    }
-  ]).toArray();
+  const stats = await db
+    .collection('failed_deliveries')
+    .aggregate([
+      { $match: matchStage },
+      {
+        $facet: {
+          statusBreakdown: [{ $group: { _id: '$status', count: { $sum: 1 } } }],
+          categoryBreakdown: [{ $group: { _id: '$error.category', count: { $sum: 1 } } }, { $sort: { count: -1 } }],
+          topErrors: [{ $group: { _id: '$error.code', count: { $sum: 1 } } }, { $sort: { count: -1 } }, { $limit: 10 }],
+          retryStats: [
+            {
+              $group: {
+                _id: null,
+                avgRetries: { $avg: '$retryCount' },
+                maxRetries: { $max: '$retryCount' },
+              },
+            },
+          ],
+        },
+      },
+    ])
+    .toArray();
 
   const result = stats[0];
 
@@ -468,7 +455,7 @@ async function getDLQStats(orgId, filters = {}) {
     }, {}),
     categoryBreakdown: result.categoryBreakdown,
     topErrors: result.topErrors,
-    retryStats: result.retryStats[0] || { avgRetries: 0, maxRetries: 0 }
+    retryStats: result.retryStats[0] || { avgRetries: 0, maxRetries: 0 },
   };
 }
 
@@ -484,5 +471,5 @@ module.exports = {
   getDLQEntriesForRetry,
   getDLQStats,
   categorizeError,
-  calculateNextRetry
+  calculateNextRetry,
 };

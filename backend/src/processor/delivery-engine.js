@@ -1,7 +1,7 @@
 const { fetch, AbortController } = require('../utils/runtime');
 const config = require('../config');
 const data = require('../data');
-const mongodb = require('../mongodb');
+const _mongodb = require('../mongodb');
 const { log } = require('../logger');
 const { applyTransform } = require('../services/transformer');
 const { validateTargetUrl } = require('../utils/url-check');
@@ -33,14 +33,23 @@ async function resolveMultiActionDelayMs(orgId) {
   } catch (err) {
     log('warn', 'Failed to read ui_config for multi-action delay; using config.json value', {
       orgId,
-      error: err.message
+      error: err.message,
     });
   }
 
   return defaultDelay;
 }
 
-async function deliverSingleAction(integration, action, evt, pollCount = 0, actionIndex = 0, correlationId = null, executionLogger = null, options = {}) {
+async function deliverSingleAction(
+  integration,
+  action,
+  evt,
+  pollCount = 0,
+  actionIndex = 0,
+  correlationId = null,
+  executionLogger = null,
+  options = {}
+) {
   const prefix = pollCount > 0 ? `[POLL #${pollCount}] ` : '';
   const traceId = correlationId || generateCorrelationId();
   const actionName = action.name || `Action ${actionIndex + 1}`;
@@ -62,12 +71,12 @@ async function deliverSingleAction(integration, action, evt, pollCount = 0, acti
         messageId: evt.eventId || evt.id || null,
         integrationConfigId: integration.id,
         orgId,
-        direction: integration.direction || 'OUTBOUND',  // FIX: Use integration's direction
+        direction: integration.direction || 'OUTBOUND', // FIX: Use integration's direction
         payload: evt.payload,
         error: {
           message: errorMessage || 'Action delivery failed',
           code: errorCode || 'ACTION_FAILURE',
-          statusCode: responseStatus || null
+          statusCode: responseStatus || null,
         },
         metadata: {
           logId,
@@ -76,15 +85,16 @@ async function deliverSingleAction(integration, action, evt, pollCount = 0, acti
           eventType: evt.event_type,
           __KEEP_integrationName__: integration.name,
           targetUrl: action.targetUrl || integration.targetUrl,
-          httpMethod: action.httpMethod || integration.httpMethod || (action.kind === 'COMMUNICATION' ? 'COMMUNICATION' : 'POST'),
-          responseBody
-        }
+          httpMethod:
+            action.httpMethod || integration.httpMethod || (action.kind === 'COMMUNICATION' ? 'COMMUNICATION' : 'POST'),
+          responseBody,
+        },
       });
     } catch (err) {
       log('warn', 'Failed to create DLQ entry for action failure', {
         integrationId: integration.id,
         actionName,
-        error: err.message
+        error: err.message,
       });
     }
   };
@@ -100,12 +110,14 @@ async function deliverSingleAction(integration, action, evt, pollCount = 0, acti
     const urlCheck = validateTargetUrl(targetUrl, config.security);
     if (!urlCheck.valid) {
       if (executionLogger) {
-        await executionLogger.addStep('action_url_validation', {
-          status: 'failed',
-          durationMs: 0,
-          metadata: { actionName, actionIndex, url: targetUrl },
-          error: { message: urlCheck.reason }
-        }).catch(() => {});
+        await executionLogger
+          .addStep('action_url_validation', {
+            status: 'failed',
+            durationMs: 0,
+            metadata: { actionName, actionIndex, url: targetUrl },
+            error: { message: urlCheck.reason },
+          })
+          .catch(() => {});
       }
 
       const logId = await data.recordLog(orgId, {
@@ -131,13 +143,13 @@ async function deliverSingleAction(integration, action, evt, pollCount = 0, acti
         correlationId: traceId,
         traceId: traceId,
         // Request details (not available yet at URL validation stage)
-        requestHeaders: null
+        requestHeaders: null,
       });
       await maybeCreateActionDLQ({
         logId,
         errorMessage: `${prefix}${urlCheck.reason}`,
         errorCode: 'INVALID_URL',
-        responseStatus: 400
+        responseStatus: 400,
       });
       return { status: 'FAILED', logId };
     }
@@ -152,34 +164,36 @@ async function deliverSingleAction(integration, action, evt, pollCount = 0, acti
       const actionAsIntegration = {
         ...integration,
         transformation: action.transformation,
-        transformationMode: action.transformationMode
+        transformationMode: action.transformationMode,
       };
       transformed = await applyTransform(actionAsIntegration, evt.payload, {
         eventType: evt.event_type,
-        orgId
+        orgId,
       });
     } else {
       // Use integration-level transformation
       transformed = await applyTransform(integration, evt.payload, {
         eventType: evt.event_type,
-        orgId
+        orgId,
       });
     }
 
     const transformedIsNull = transformed === null;
     if (executionLogger) {
-      await executionLogger.addStep('action_transformation', {
-        status: transformedIsNull ? 'warning' : 'success',
-        durationMs: Date.now() - transformStart,
-        metadata: { actionName, actionIndex, result: transformedIsNull ? 'skipped' : 'transformed' }
-      }).catch(() => {});
+      await executionLogger
+        .addStep('action_transformation', {
+          status: transformedIsNull ? 'warning' : 'success',
+          durationMs: Date.now() - transformStart,
+          metadata: { actionName, actionIndex, result: transformedIsNull ? 'skipped' : 'transformed' },
+        })
+        .catch(() => {});
     }
 
     if (transformedIsNull) {
       const skipMessage = `${prefix}Skipping delivery for ${actionName}: transformation returned null`;
       log('info', skipMessage, {
         integrationId: integration.id,
-        actionName
+        actionName,
       });
 
       const logId = await data.recordLog(orgId, {
@@ -203,7 +217,7 @@ async function deliverSingleAction(integration, action, evt, pollCount = 0, acti
         httpMethod: action.httpMethod || integration.httpMethod || 'POST',
         correlationId: traceId,
         traceId: traceId,
-        requestHeaders: null
+        requestHeaders: null,
       });
 
       await data.recordDeliverySuccess(integration.id);
@@ -218,16 +232,18 @@ async function deliverSingleAction(integration, action, evt, pollCount = 0, acti
     log('error', errorMessage, {
       integrationId: integration.id,
       actionName,
-      stack: err.stack
+      stack: err.stack,
     });
 
     if (executionLogger) {
-      await executionLogger.addStep('action_transformation', {
-        status: 'failed',
-        durationMs: Date.now() - transformStart,
-        metadata: { actionName, actionIndex },
-        error: { message: err.message, stack: err.stack }
-      }).catch(() => {});
+      await executionLogger
+        .addStep('action_transformation', {
+          status: 'failed',
+          durationMs: Date.now() - transformStart,
+          metadata: { actionName, actionIndex },
+          error: { message: err.message, stack: err.stack },
+        })
+        .catch(() => {});
     }
     const logId = await data.recordLog(orgId, {
       id: existingLogId,
@@ -252,19 +268,19 @@ async function deliverSingleAction(integration, action, evt, pollCount = 0, acti
       correlationId: traceId,
       traceId: traceId,
       // Request details (not available yet at transformation stage)
-      requestHeaders: null
+      requestHeaders: null,
     });
     await maybeCreateActionDLQ({
       logId,
       errorMessage,
       errorCode: 'TRANSFORMATION_ERROR',
-      responseStatus: 500
+      responseStatus: 500,
     });
     return { status: 'FAILED', logId };
   }
 
   // Rate limit check (per integration)
-  if (integration.rateLimits && integration.rateLimits.enabled) {
+  if (integration.rateLimits?.enabled) {
     const rateStart = Date.now();
     try {
       const rateResult = await checkRateLimit(integration.id, orgId, integration.rateLimits);
@@ -273,19 +289,21 @@ async function deliverSingleAction(integration, action, evt, pollCount = 0, acti
       const windowSeconds = integration.rateLimits.windowSeconds || 60;
 
       if (executionLogger) {
-        await executionLogger.addStep('rate_limit', {
-          status: rateResult.allowed ? 'success' : 'failed',
-          durationMs,
-          metadata: {
-            actionName,
-            actionIndex,
-            remaining: rateResult.remaining,
-            resetAt: rateResult.resetAt,
-            maxRequests,
-            windowSeconds
-          },
-          error: rateResult.allowed ? null : { message: 'Rate limit exceeded' }
-        }).catch(() => {});
+        await executionLogger
+          .addStep('rate_limit', {
+            status: rateResult.allowed ? 'success' : 'failed',
+            durationMs,
+            metadata: {
+              actionName,
+              actionIndex,
+              remaining: rateResult.remaining,
+              resetAt: rateResult.resetAt,
+              maxRequests,
+              windowSeconds,
+            },
+            error: rateResult.allowed ? null : { message: 'Rate limit exceeded' },
+          })
+          .catch(() => {});
       }
 
       if (!rateResult.allowed) {
@@ -314,7 +332,7 @@ async function deliverSingleAction(integration, action, evt, pollCount = 0, acti
           httpMethod: action.httpMethod || integration.httpMethod || 'POST',
           correlationId: traceId,
           traceId: traceId,
-          requestHeaders: null
+          requestHeaders: null,
         });
 
         if (executionLogger) {
@@ -327,7 +345,7 @@ async function deliverSingleAction(integration, action, evt, pollCount = 0, acti
       log('warn', 'Rate limit check failed', {
         integrationId: integration.id,
         actionName,
-        error: error.message
+        error: error.message,
       });
     }
   }
@@ -344,21 +362,23 @@ async function deliverSingleAction(integration, action, evt, pollCount = 0, acti
         integrationId: integration.id,
         actionName,
         channel,
-        provider
+        provider,
       });
 
       if (executionLogger) {
-        await executionLogger.addStep('communication_delivery', {
-          status: 'running',
-          durationMs: 0,
-          metadata: { actionName, actionIndex, channel, provider }
-        }).catch(() => {});
+        await executionLogger
+          .addStep('communication_delivery', {
+            status: 'running',
+            durationMs: 0,
+            metadata: { actionName, actionIndex, channel, provider },
+          })
+          .catch(() => {});
       }
 
       // Normalize provider name to config key
       // SMTP → smtp, GMAIL_OAUTH → gmail, OUTLOOK_OAUTH → outlook, TWILIO → twilio
       const normalizeProviderKey = (providerName) => {
-        const normalized = providerName.split('_')[0].toLowerCase();  // Take first part before underscore
+        const normalized = providerName.split('_')[0].toLowerCase(); // Take first part before underscore
         return normalized;
       };
 
@@ -371,24 +391,26 @@ async function deliverSingleAction(integration, action, evt, pollCount = 0, acti
       const result = await adapterRegistry.send(
         channel,
         provider,
-        transformed,  // Already transformed (should contain: to, subject, html, etc.)
+        transformed, // Already transformed (should contain: to, subject, html, etc.)
         adapterConfig
       );
 
       const communicationTimeMs = Date.now() - communicationStart;
 
       if (executionLogger) {
-        await executionLogger.addStep('communication_delivery', {
-          status: 'success',
-          durationMs: communicationTimeMs,
-          metadata: {
-            actionName,
-            actionIndex,
-            channel,
-            provider,
-            messageId: result.messageId
-          }
-        }).catch(() => {});
+        await executionLogger
+          .addStep('communication_delivery', {
+            status: 'success',
+            durationMs: communicationTimeMs,
+            metadata: {
+              actionName,
+              actionIndex,
+              channel,
+              provider,
+              messageId: result.messageId,
+            },
+          })
+          .catch(() => {});
       }
 
       // Record successful delivery log
@@ -398,7 +420,7 @@ async function deliverSingleAction(integration, action, evt, pollCount = 0, acti
         __KEEP_integrationName__: `${integration.name} - ${actionName}`,
         eventId: evt.id || null,
         eventType: evt.event_type,
-        direction: 'COMMUNICATION',  // Use COMMUNICATION direction for filtering
+        direction: 'COMMUNICATION', // Use COMMUNICATION direction for filtering
         triggerType,
         actionName,
         actionIndex,
@@ -414,7 +436,7 @@ async function deliverSingleAction(integration, action, evt, pollCount = 0, acti
         correlationId: traceId,
         traceId: traceId,
         messageId: result.messageId,
-        requestHeaders: { channel, provider }
+        requestHeaders: { channel, provider },
       });
 
       await data.recordDeliverySuccess(integration.id);
@@ -427,27 +449,28 @@ async function deliverSingleAction(integration, action, evt, pollCount = 0, acti
         integrationId: integration.id,
         actionName,
         messageId: result.messageId,
-        responseTimeMs: communicationTimeMs
+        responseTimeMs: communicationTimeMs,
       });
 
       return { status: 'SUCCESS', logId };
-
     } catch (error) {
       const errorMessage = `${prefix}COMMUNICATION delivery failed for ${actionName}: ${error.message}`;
       log('error', errorMessage, {
         integrationId: integration.id,
         actionName,
         error: error.message,
-        stack: error.stack
+        stack: error.stack,
       });
 
       if (executionLogger) {
-        await executionLogger.addStep('communication_delivery', {
-          status: 'failed',
-          durationMs: Date.now() - communicationStart,
-          metadata: { actionName, actionIndex },
-          error: { message: error.message, stack: error.stack }
-        }).catch(() => {});
+        await executionLogger
+          .addStep('communication_delivery', {
+            status: 'failed',
+            durationMs: Date.now() - communicationStart,
+            metadata: { actionName, actionIndex },
+            error: { message: error.message, stack: error.stack },
+          })
+          .catch(() => {});
       }
 
       const logId = await data.recordLog(orgId, {
@@ -456,7 +479,7 @@ async function deliverSingleAction(integration, action, evt, pollCount = 0, acti
         __KEEP_integrationName__: `${integration.name} - ${actionName}`,
         eventId: evt.id || null,
         eventType: evt.event_type,
-        direction: 'COMMUNICATION',  // Use COMMUNICATION direction for filtering
+        direction: 'COMMUNICATION', // Use COMMUNICATION direction for filtering
         triggerType,
         actionName,
         actionIndex,
@@ -468,18 +491,20 @@ async function deliverSingleAction(integration, action, evt, pollCount = 0, acti
         requestPayload: transformed,
         errorMessage,
         errorCode: 'COMMUNICATION_ERROR',
-        targetUrl: action.communicationConfig ? `${action.communicationConfig.channel}:${action.communicationConfig.provider}` : 'unknown',
+        targetUrl: action.communicationConfig
+          ? `${action.communicationConfig.channel}:${action.communicationConfig.provider}`
+          : 'unknown',
         httpMethod: 'COMMUNICATION',
         correlationId: traceId,
         traceId: traceId,
-        requestHeaders: null
+        requestHeaders: null,
       });
 
       await maybeCreateActionDLQ({
         logId,
         errorMessage,
         errorCode: 'COMMUNICATION_ERROR',
-        responseStatus: 500
+        responseStatus: 500,
       });
 
       if (executionLogger) {
@@ -517,12 +542,7 @@ async function deliverSingleAction(integration, action, evt, pollCount = 0, acti
         const payloadString = JSON.stringify(transformed); // Payload as string
 
         // Generate signature headers (supports multiple secrets for rotation)
-        signatureHeaders = generateSignatureHeaders(
-          integration.signingSecrets,
-          messageId,
-          timestamp,
-          payloadString
-        );
+        signatureHeaders = generateSignatureHeaders(integration.signingSecrets, messageId, timestamp, payloadString);
 
         // Add signature headers to request
         Object.assign(headers, signatureHeaders);
@@ -532,13 +552,13 @@ async function deliverSingleAction(integration, action, evt, pollCount = 0, acti
           timestamp,
           integrationId: integration.id,
           actionName,
-          secretCount: integration.signingSecrets.length
+          secretCount: integration.signingSecrets.length,
         });
       } catch (signError) {
         log('warn', `${pollCount > 0 ? `[POLL #${pollCount}] ` : ''}Failed to generate integration signature`, {
           error: signError.message,
           integrationId: integration.id,
-          actionName
+          actionName,
         });
         // Continue delivery even if signing fails (graceful degradation)
       }
@@ -548,7 +568,7 @@ async function deliverSingleAction(integration, action, evt, pollCount = 0, acti
       method: httpMethod,
       headers,
       body: JSON.stringify(transformed),
-      signal: controller.signal
+      signal: controller.signal,
     });
 
     clearTimeout(timer);
@@ -556,18 +576,20 @@ async function deliverSingleAction(integration, action, evt, pollCount = 0, acti
     const statusOk = resp.status >= 200 && resp.status < 300;
 
     if (executionLogger) {
-      await executionLogger.addStep('action_http_request', {
-        status: statusOk ? 'success' : 'failed',
-        durationMs: responseTimeMs,
-        metadata: {
-          actionName,
-          actionIndex,
-          statusCode: resp.status,
-          method: httpMethod,
-          url: targetUrl
-        },
-        error: statusOk ? null : { message: `HTTP ${resp.status}` }
-      }).catch(() => {});
+      await executionLogger
+        .addStep('action_http_request', {
+          status: statusOk ? 'success' : 'failed',
+          durationMs: responseTimeMs,
+          metadata: {
+            actionName,
+            actionIndex,
+            statusCode: resp.status,
+            method: httpMethod,
+            url: targetUrl,
+          },
+          error: statusOk ? null : { message: `HTTP ${resp.status}` },
+        })
+        .catch(() => {});
     }
 
     // Check for token expiration in 200 OK responses (for multi-action)
@@ -581,7 +603,7 @@ async function deliverSingleAction(integration, action, evt, pollCount = 0, acti
         const extractedValue = extractValueByPath(responseBody, detection.responseBodyPath || 'error');
         if (extractedValue && detection.expirationValues && detection.expirationValues.length > 0) {
           const valueStr = String(extractedValue).toLowerCase();
-          const isExpired = detection.expirationValues.some(expVal =>
+          const isExpired = detection.expirationValues.some((expVal) =>
             valueStr.includes(String(expVal).toLowerCase())
           );
 
@@ -590,13 +612,13 @@ async function deliverSingleAction(integration, action, evt, pollCount = 0, acti
             log('info', 'Token expiration detected in 200 OK response (action)', {
               integrationId: integration._id?.toString(),
               actionName,
-              extractedValue
+              extractedValue,
             });
           }
         }
       } catch (err) {
         log('warn', 'Failed to check token expiration in response body (action)', {
-          error: err.message
+          error: err.message,
         });
       }
     }
@@ -611,15 +633,15 @@ async function deliverSingleAction(integration, action, evt, pollCount = 0, acti
 
       if (integration.outgoingAuthType === 'OAUTH2' || integration.outgoingAuthType === 'CUSTOM') {
         const { clearCachedToken } = require('./auth-helper');
-        clearCachedToken(integration._id).catch(err => {
+        clearCachedToken(integration._id).catch((err) => {
           log('warn', 'Failed to clear cached token after body expiration (action)', {
             integrationId: integration._id?.toString(),
-            error: err.message
+            error: err.message,
           });
         });
         log('info', 'Cleared cached token after detecting expiration in response body (action)', {
           integrationId: integration._id?.toString(),
-          actionName
+          actionName,
         });
       }
     } else if (!statusOk) {
@@ -637,18 +659,18 @@ async function deliverSingleAction(integration, action, evt, pollCount = 0, acti
         // Clear cached token for OAuth2/Custom auth (async, don't wait)
         if (integration.outgoingAuthType === 'OAUTH2' || integration.outgoingAuthType === 'CUSTOM') {
           const { clearCachedToken } = require('./auth-helper');
-          clearCachedToken(integration._id).catch(err => {
+          clearCachedToken(integration._id).catch((err) => {
             log('warn', 'Failed to clear cached token after auth error (action)', {
               integrationId: integration._id?.toString(),
               status: resp.status,
-              error: err.message
+              error: err.message,
             });
           });
           log('info', 'Cleared cached token after auth error (action)', {
             integrationId: integration._id?.toString(),
             status: resp.status,
             authType: integration.outgoingAuthType,
-            actionName
+            actionName,
           });
         }
       } else if (resp.status >= 400 && resp.status < 500) {
@@ -666,20 +688,23 @@ async function deliverSingleAction(integration, action, evt, pollCount = 0, acti
     // maxRetries is the TOTAL number of attempts allowed
     // So if maxRetries=3, we allow attempts 1, 2, 3 (stop at 4)
     const maxRetries = integration.retryCount || 3;
-    let finalStatus = statusOk ? 'SUCCESS' : (shouldRetry ? 'RETRYING' : 'FAILED');
+    let finalStatus = statusOk ? 'SUCCESS' : shouldRetry ? 'RETRYING' : 'FAILED';
     if (shouldRetry && attemptCount > maxRetries) {
       finalStatus = 'ABANDONED';
       errorMessage = `${errorMessage} - Max retries (${maxRetries}) reached`;
     }
 
     const responseBody = await safeRead(resp);
-    const attemptDetails = attemptCount > 1 ? {
-      attemptNumber: attemptCount,
-      requestHeaders: headers,
-      targetUrl,
-      httpMethod,
-      retryReason: manualReason || (shouldRetry ? errorMessage : null)
-    } : null;
+    const attemptDetails =
+      attemptCount > 1
+        ? {
+            attemptNumber: attemptCount,
+            requestHeaders: headers,
+            targetUrl,
+            httpMethod,
+            retryReason: manualReason || (shouldRetry ? errorMessage : null),
+          }
+        : null;
 
     const logId = await data.recordLog(orgId, {
       id: existingLogId,
@@ -696,7 +721,7 @@ async function deliverSingleAction(integration, action, evt, pollCount = 0, acti
       responseTimeMs,
       attemptCount,
       originalPayload: evt.payload, // Store original payload from notification_queue
-      requestPayload: transformed,  // Store transformed payload actually sent
+      requestPayload: transformed, // Store transformed payload actually sent
       responseBody,
       errorMessage,
       shouldRetry: shouldRetry && attemptCount <= maxRetries, // Don't retry if exceeded max
@@ -712,7 +737,7 @@ async function deliverSingleAction(integration, action, evt, pollCount = 0, acti
       messageId,
       timestamp,
       signature: signatureHeaders ? signatureHeaders['X-Integration-Signature'] : null,
-      signatureHeaders
+      signatureHeaders,
     });
 
     // CIRCUIT BREAKER: Record success or failure
@@ -725,19 +750,20 @@ async function deliverSingleAction(integration, action, evt, pollCount = 0, acti
     }
 
     if (finalStatus === 'FAILED' || finalStatus === 'ABANDONED') {
-      const errorCode = resp.status === 429
-        ? 'RATE_LIMIT'
-        : resp.status >= 500
-          ? 'SERVER_ERROR'
-          : resp.status >= 400
-            ? 'CLIENT_ERROR'
-            : 'HTTP_ERROR';
+      const errorCode =
+        resp.status === 429
+          ? 'RATE_LIMIT'
+          : resp.status >= 500
+            ? 'SERVER_ERROR'
+            : resp.status >= 400
+              ? 'CLIENT_ERROR'
+              : 'HTTP_ERROR';
       await maybeCreateActionDLQ({
         logId,
         errorMessage,
         errorCode,
         responseStatus: resp.status,
-        responseBody
+        responseBody,
       });
     }
 
@@ -747,27 +773,29 @@ async function deliverSingleAction(integration, action, evt, pollCount = 0, acti
     log('error', catchErrorMessage, {
       integrationId: integration.id,
       actionName,
-      stack: err.stack
+      stack: err.stack,
     });
 
     if (executionLogger) {
-      await executionLogger.addStep('action_http_request', {
-        status: 'failed',
-        durationMs: Date.now() - start,
-        metadata: { actionName, actionIndex },
-        error: { message: err.message, stack: err.stack, code: err.code }
-      }).catch(() => {});
+      await executionLogger
+        .addStep('action_http_request', {
+          status: 'failed',
+          durationMs: Date.now() - start,
+          metadata: { actionName, actionIndex },
+          error: { message: err.message, stack: err.stack, code: err.code },
+        })
+        .catch(() => {});
     }
 
     // Network/connection errors should be retried (timeout, DNS, connection refused, etc.)
     const maxRetries = integration.retryCount || 3;
     // attemptCount > maxRetries means we've exceeded the limit
-    const finalStatus = isTest ? 'FAILED' : (attemptCount > maxRetries ? 'ABANDONED' : 'RETRYING');
+    const finalStatus = isTest ? 'FAILED' : attemptCount > maxRetries ? 'ABANDONED' : 'RETRYING';
     const finalErrorMessage = isTest
       ? `${catchErrorMessage} - Test event (no retry)`
-      : (attemptCount > maxRetries
+      : attemptCount > maxRetries
         ? `${catchErrorMessage} - Max retries (${maxRetries}) reached`
-        : catchErrorMessage);
+        : catchErrorMessage;
 
     const logId = await data.recordLog(orgId, {
       id: existingLogId,
@@ -793,34 +821,38 @@ async function deliverSingleAction(integration, action, evt, pollCount = 0, acti
       traceId: traceId,
       // Request details for debugging
       requestHeaders: headers || null,
-      attemptDetails: attemptCount > 1 ? {
-        attemptNumber: attemptCount,
-        requestHeaders: headers || null,
-        targetUrl,
-        httpMethod: action.httpMethod || integration.httpMethod || 'POST',
-        retryReason: manualReason || (finalStatus === 'RETRYING' ? finalErrorMessage : null)
-      } : null,
+      attemptDetails:
+        attemptCount > 1
+          ? {
+              attemptNumber: attemptCount,
+              requestHeaders: headers || null,
+              targetUrl,
+              httpMethod: action.httpMethod || integration.httpMethod || 'POST',
+              retryReason: manualReason || (finalStatus === 'RETRYING' ? finalErrorMessage : null),
+            }
+          : null,
       // Integration signing audit trail
       messageId,
       timestamp,
       signature: signatureHeaders ? signatureHeaders['X-Integration-Signature'] : null,
-      signatureHeaders
+      signatureHeaders,
     });
 
     // CIRCUIT BREAKER: Always record failure on exceptions
     await data.recordDeliveryFailure(integration.id);
 
     if (finalStatus === 'FAILED' || finalStatus === 'ABANDONED') {
-      const errorCode = err.code === 'ETIMEDOUT' || err.code === 'ECONNABORTED'
-        ? 'TIMEOUT'
-        : err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND'
-          ? 'NETWORK_ERROR'
-          : 'NETWORK_ERROR';
+      const errorCode =
+        err.code === 'ETIMEDOUT' || err.code === 'ECONNABORTED'
+          ? 'TIMEOUT'
+          : err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND'
+            ? 'NETWORK_ERROR'
+            : 'NETWORK_ERROR';
       await maybeCreateActionDLQ({
         logId,
         errorMessage: finalErrorMessage,
         errorCode,
-        responseStatus: 500
+        responseStatus: 500,
       });
     }
 
@@ -832,7 +864,13 @@ async function deliverSingleAction(integration, action, evt, pollCount = 0, acti
  * Process multi-action integration - execute multiple actions sequentially
  */
 
-async function deliverMultiActionIntegration(integration, evt, pollCount = 0, correlationId = null, executionLogger = null) {
+async function deliverMultiActionIntegration(
+  integration,
+  evt,
+  pollCount = 0,
+  correlationId = null,
+  executionLogger = null
+) {
   const prefix = pollCount > 0 ? `[POLL #${pollCount}] ` : '';
   const traceId = correlationId || generateCorrelationId();
   const actions = integration.actions || [];
@@ -843,7 +881,7 @@ async function deliverMultiActionIntegration(integration, evt, pollCount = 0, co
     correlationId: traceId,
     integrationId: integration.id,
     __KEEP_integrationName__: integration.name,
-    actionCount: actions.length
+    actionCount: actions.length,
   });
 
   const results = [];
@@ -860,51 +898,57 @@ async function deliverMultiActionIntegration(integration, evt, pollCount = 0, co
     const conditionContext = {
       eventType: evt.event_type,
       orgId,
-      payload: evt.payload
+      payload: evt.payload,
     };
 
     const shouldExecute = evaluateCondition(action.condition, conditionContext);
 
     if (!shouldExecute) {
       if (executionLogger) {
-        await executionLogger.addStep('action_condition', {
-          status: 'warning',
-          durationMs: 0,
-          metadata: {
-            actionName,
-            actionIndex: i,
-            result: 'skipped'
-          }
-        }).catch(() => {});
+        await executionLogger
+          .addStep('action_condition', {
+            status: 'warning',
+            durationMs: 0,
+            metadata: {
+              actionName,
+              actionIndex: i,
+              result: 'skipped',
+            },
+          })
+          .catch(() => {});
       }
 
       log('info', `${prefix}Skipping action due to condition`, {
         actionName,
-        condition: action.condition
+        condition: action.condition,
       });
       results.push({ action: actionName, status: 'SKIPPED' });
       continue;
     }
 
     if (executionLogger) {
-      await executionLogger.addStep('action_condition', {
-        status: 'success',
-        durationMs: 0,
-        metadata: {
-          actionName,
-          actionIndex: i,
-          result: 'executed'
-        }
-      }).catch(() => {});
+      await executionLogger
+        .addStep('action_condition', {
+          status: 'success',
+          durationMs: 0,
+          metadata: {
+            actionName,
+            actionIndex: i,
+            result: 'executed',
+          },
+        })
+        .catch(() => {});
     }
 
     log('info', `${prefix}Executing action`, {
       actionName,
-      targetUrl: action.targetUrl || integration.targetUrl
+      targetUrl: action.targetUrl || integration.targetUrl,
     });
 
     // eslint-disable-next-line no-await-in-loop
-    const result = await deliverSingleAction(integration, action, evt, pollCount, i, traceId, executionLogger, { triggerType: 'EVENT' });
+    const result = await deliverSingleAction(integration, action, evt, pollCount, i, traceId, executionLogger, {
+      triggerType: 'EVENT',
+    });
     const actionStatus = result?.status || 'FAILED';
     results.push({ action: actionName, status: actionStatus });
     if (result?.logId) {
@@ -930,7 +974,7 @@ async function deliverMultiActionIntegration(integration, evt, pollCount = 0, co
     successCount,
     failureCount,
     skippedCount,
-    results
+    results,
   });
 
   // Return overall status and record circuit breaker state
@@ -954,40 +998,52 @@ async function deliverMultiActionIntegration(integration, evt, pollCount = 0, co
   }
 
   if (executionLogger) {
-    const hasRetrying = results.some(result => result.status === 'RETRYING');
+    const hasRetrying = results.some((result) => result.status === 'RETRYING');
     if (overallStatus === 'SUCCESS') {
-      await executionLogger.success({
-        response: {
-          statusCode: 200,
-          body: { results }
-        },
-        metadata: { successCount, failureCount, skippedCount }
-      }).catch(() => {});
+      await executionLogger
+        .success({
+          response: {
+            statusCode: 200,
+            body: { results },
+          },
+          metadata: { successCount, failureCount, skippedCount },
+        })
+        .catch(() => {});
     } else if (overallStatus === 'SKIPPED') {
       await executionLogger.updateStatus('skipped').catch(() => {});
     } else if (hasRetrying) {
       await executionLogger.updateStatus('retrying').catch(() => {});
     } else {
-      const error = new Error(overallStatus === 'PARTIAL_SUCCESS'
-        ? 'One or more actions failed'
-        : 'All actions failed');
+      const error = new Error(
+        overallStatus === 'PARTIAL_SUCCESS' ? 'One or more actions failed' : 'All actions failed'
+      );
       error.code = overallStatus === 'PARTIAL_SUCCESS' ? 'PARTIAL_FAILURE' : 'ACTION_FAILURE';
-      await executionLogger.fail(error, {
-        createDLQ: false,
-        response: {
-          statusCode: 500,
-          body: { results }
-        },
-        metadata: { successCount, failureCount, skippedCount }
-      }).catch(() => {});
+      await executionLogger
+        .fail(error, {
+          createDLQ: false,
+          response: {
+            statusCode: 500,
+            body: { results },
+          },
+          metadata: { successCount, failureCount, skippedCount },
+        })
+        .catch(() => {});
     }
   }
 
   return { status: overallStatus, logIds };
 }
 
-
-async function deliverToIntegration(integration, evt, isReplay = false, pollCount = 0, existingLogId = null, correlationId = null, returnLogId = false, options = {}) {
+async function deliverToIntegration(
+  integration,
+  evt,
+  isReplay = false,
+  pollCount = 0,
+  existingLogId = null,
+  correlationId = null,
+  returnLogId = false,
+  options = {}
+) {
   const prefix = pollCount > 0 ? `[POLL #${pollCount}] ` : '';
   const traceId = correlationId || generateCorrelationId();
   const buildResult = (status, logId = null, logIds = null) => (returnLogId ? { status, logId, logIds } : status);
@@ -1002,7 +1058,7 @@ async function deliverToIntegration(integration, evt, isReplay = false, pollCoun
       requestHeaders: requestHeaders || null,
       targetUrl,
       httpMethod: httpMethod || 'POST',
-      retryReason
+      retryReason,
     };
   };
 
@@ -1021,8 +1077,8 @@ async function deliverToIntegration(integration, evt, isReplay = false, pollCoun
       url: integration.targetUrl,
       method: integration.httpMethod || 'POST',
       headers: {},
-      body: evt.payload
-    }
+      body: evt.payload,
+    },
   });
 
   // Check if this is a multi-action integration (check early to avoid creating parent log)
@@ -1030,10 +1086,12 @@ async function deliverToIntegration(integration, evt, isReplay = false, pollCoun
 
   // Start execution logging (non-blocking - failures won't stop delivery)
   // Skip creating parent log for multi-action integrations - each action will create its own log
-  const executionLogId = !isMultiAction ? await executionLogger.start().catch(err => {
-    log('warn', 'Failed to start execution logger', { error: err.message, traceId });
-    return null;
-  }) : null;
+  const executionLogId = !isMultiAction
+    ? await executionLogger.start().catch((err) => {
+        log('warn', 'Failed to start execution logger', { error: err.message, traceId });
+        return null;
+      })
+    : null;
 
   // Use execution log ID for updates instead of creating new logs
   const logIdForUpdates = executionLogId || existingLogId;
@@ -1046,7 +1104,7 @@ async function deliverToIntegration(integration, evt, isReplay = false, pollCoun
       integrationId: integration.id,
       __KEEP_integrationName__: integration.name,
       circuitState: circuitStatus.state,
-      reason: circuitStatus.reason
+      reason: circuitStatus.reason,
     });
     const logId = await data.recordLog(orgId, {
       id: logIdForUpdates,
@@ -1061,14 +1119,18 @@ async function deliverToIntegration(integration, evt, isReplay = false, pollCoun
       originalPayload: evt.payload,
       requestPayload: evt.payload,
       errorMessage: `${prefix}Circuit breaker OPEN: ${circuitStatus.reason}`,
-      targetUrl: integration.targetUrl || (integration.actions && integration.actions[0]?.targetUrl),
+      targetUrl: integration.targetUrl || integration.actions?.[0]?.targetUrl,
       httpMethod: integration.httpMethod || 'POST',
-      attemptDetails: buildAttemptDetails(null, integration.targetUrl || (integration.actions && integration.actions[0]?.targetUrl), integration.httpMethod || 'POST'),
+      attemptDetails: buildAttemptDetails(
+        null,
+        integration.targetUrl || integration.actions?.[0]?.targetUrl,
+        integration.httpMethod || 'POST'
+      ),
       // Distributed tracing
       correlationId: traceId,
       traceId: traceId,
       // Request details (not attempted due to circuit breaker)
-      requestHeaders: null
+      requestHeaders: null,
     });
     return buildResult('FAILED', logId);
   }
@@ -1079,14 +1141,14 @@ async function deliverToIntegration(integration, evt, isReplay = false, pollCoun
       integrationId: integration.id,
       __KEEP_integrationName__: integration.name,
       circuitState: circuitStatus.state,
-      reason: circuitStatus.reason
+      reason: circuitStatus.reason,
     });
   }
 
   log('debug', `${prefix}Circuit breaker check passed`, {
     correlationId: traceId,
     integrationId: integration.id,
-    circuitState: circuitStatus.state
+    circuitState: circuitStatus.state,
   });
 
   // Handle multi-action integration (each action creates its own log, no parent log needed)
@@ -1102,11 +1164,13 @@ async function deliverToIntegration(integration, evt, isReplay = false, pollCoun
   const urlCheck = validateTargetUrl(integration.targetUrl, config.security);
   if (!urlCheck.valid) {
     // Log validation step failure
-    await executionLogger.addStep('url_validation', {
-      status: 'failed',
-      durationMs: 0,
-      error: { message: urlCheck.reason }
-    }).catch(() => {});
+    await executionLogger
+      .addStep('url_validation', {
+        status: 'failed',
+        durationMs: 0,
+        error: { message: urlCheck.reason },
+      })
+      .catch(() => {});
 
     const logId = await data.recordLog(orgId, {
       id: logIdForUpdates,
@@ -1128,7 +1192,7 @@ async function deliverToIntegration(integration, evt, isReplay = false, pollCoun
       correlationId: traceId,
       traceId: traceId,
       // Request details (not available yet at URL validation stage)
-      requestHeaders: null
+      requestHeaders: null,
     });
     // CIRCUIT BREAKER: Don't trip circuit for URL validation errors (business logic failure)
     await data.recordDeliveryFailure(integration.id, { shouldTripCircuit: false });
@@ -1136,36 +1200,42 @@ async function deliverToIntegration(integration, evt, isReplay = false, pollCoun
     // Mark execution as failed with DLQ entry
     const error = new Error(urlCheck.reason);
     error.code = 'INVALID_URL';
-    await executionLogger.fail(error, {
-      payload: evt.payload,
-      statusCode: 400
-    }).catch(() => {});
+    await executionLogger
+      .fail(error, {
+        payload: evt.payload,
+        statusCode: 400,
+      })
+      .catch(() => {});
 
     return buildResult('FAILED', logId);
   }
 
   // Log successful URL validation
-  await executionLogger.addStep('url_validation', {
-    status: 'success',
-    durationMs: 0
-  }).catch(() => {});
+  await executionLogger
+    .addStep('url_validation', {
+      status: 'success',
+      durationMs: 0,
+    })
+    .catch(() => {});
 
   const start = Date.now();
   let transformed = evt.payload;
   let errorMessage;
-  let transformStart = Date.now();
+  const transformStart = Date.now();
   try {
     transformed = await applyTransform(integration, evt.payload, {
       eventType: evt.event_type,
-      orgId
+      orgId,
     });
     const transformedIsNull = transformed === null;
     // Log transformation (success or skipped)
-    await executionLogger.addStep('transformation', {
-      status: transformedIsNull ? 'warning' : 'success',
-      durationMs: Date.now() - transformStart,
-      metadata: { result: transformedIsNull ? 'skipped' : 'transformed' }
-    }).catch(() => {});
+    await executionLogger
+      .addStep('transformation', {
+        status: transformedIsNull ? 'warning' : 'success',
+        durationMs: Date.now() - transformStart,
+        metadata: { result: transformedIsNull ? 'skipped' : 'transformed' },
+      })
+      .catch(() => {});
   } catch (err) {
     errorMessage = `${prefix}Transform failed: ${err.message}`;
     log('error', errorMessage, {
@@ -1173,15 +1243,17 @@ async function deliverToIntegration(integration, evt, isReplay = false, pollCoun
       __KEEP_integrationName__: integration.name,
       eventType: evt.event_type,
       pollCount,
-      stack: err.stack
+      stack: err.stack,
     });
 
     // Log transformation failure
-    await executionLogger.addStep('transformation', {
-      status: 'failed',
-      durationMs: Date.now() - transformStart,
-      error: { message: err.message, stack: err.stack }
-    }).catch(() => {});
+    await executionLogger
+      .addStep('transformation', {
+        status: 'failed',
+        durationMs: Date.now() - transformStart,
+        error: { message: err.message, stack: err.stack },
+      })
+      .catch(() => {});
   }
 
   if (errorMessage) {
@@ -1205,7 +1277,7 @@ async function deliverToIntegration(integration, evt, isReplay = false, pollCoun
       correlationId: traceId,
       traceId: traceId,
       // Request details (not available yet at transformation stage)
-      requestHeaders: null
+      requestHeaders: null,
     });
     // CIRCUIT BREAKER: Don't trip circuit for transformation errors (business logic failure)
     await data.recordDeliveryFailure(integration.id, { shouldTripCircuit: false });
@@ -1213,10 +1285,12 @@ async function deliverToIntegration(integration, evt, isReplay = false, pollCoun
     // Mark execution as failed with DLQ entry
     const error = new Error(errorMessage);
     error.code = 'TRANSFORMATION_ERROR';
-    await executionLogger.fail(error, {
-      payload: evt.payload,
-      statusCode: 500
-    }).catch(() => {});
+    await executionLogger
+      .fail(error, {
+        payload: evt.payload,
+        statusCode: 500,
+      })
+      .catch(() => {});
 
     return buildResult('FAILED', logId);
   }
@@ -1226,7 +1300,7 @@ async function deliverToIntegration(integration, evt, isReplay = false, pollCoun
     log('info', skipMessage, {
       integrationId: integration.id,
       __KEEP_integrationName__: integration.name,
-      eventType: evt.event_type
+      eventType: evt.event_type,
     });
 
     const logId = await data.recordLog(orgId, {
@@ -1247,7 +1321,7 @@ async function deliverToIntegration(integration, evt, isReplay = false, pollCoun
       attemptDetails: buildAttemptDetails(logIdForUpdates, integration.targetUrl, integration.httpMethod || 'POST'),
       correlationId: traceId,
       traceId: traceId,
-      requestHeaders: null
+      requestHeaders: null,
     });
 
     await data.recordDeliverySuccess(integration.id);
@@ -1257,7 +1331,7 @@ async function deliverToIntegration(integration, evt, isReplay = false, pollCoun
   }
 
   // Rate limit check (per integration)
-  if (integration.rateLimits && integration.rateLimits.enabled) {
+  if (integration.rateLimits?.enabled) {
     const rateStart = Date.now();
     try {
       const rateResult = await checkRateLimit(integration.id, orgId, integration.rateLimits);
@@ -1265,17 +1339,19 @@ async function deliverToIntegration(integration, evt, isReplay = false, pollCoun
       const maxRequests = integration.rateLimits.maxRequests || 100;
       const windowSeconds = integration.rateLimits.windowSeconds || 60;
 
-      await executionLogger.addStep('rate_limit', {
-        status: rateResult.allowed ? 'success' : 'failed',
-        durationMs,
-        metadata: {
-          remaining: rateResult.remaining,
-          resetAt: rateResult.resetAt,
-          maxRequests,
-          windowSeconds
-        },
-        error: rateResult.allowed ? null : { message: 'Rate limit exceeded' }
-      }).catch(() => {});
+      await executionLogger
+        .addStep('rate_limit', {
+          status: rateResult.allowed ? 'success' : 'failed',
+          durationMs,
+          metadata: {
+            remaining: rateResult.remaining,
+            resetAt: rateResult.resetAt,
+            maxRequests,
+            windowSeconds,
+          },
+          error: rateResult.allowed ? null : { message: 'Rate limit exceeded' },
+        })
+        .catch(() => {});
 
       if (!rateResult.allowed) {
         const attemptCount = (evt.attempt_count || 0) + 1;
@@ -1301,7 +1377,7 @@ async function deliverToIntegration(integration, evt, isReplay = false, pollCoun
           attemptDetails: buildAttemptDetails(null, integration.targetUrl, integration.httpMethod || 'POST'),
           correlationId: traceId,
           traceId: traceId,
-          requestHeaders: null
+          requestHeaders: null,
         });
 
         await executionLogger.updateStatus('retrying').catch(() => {});
@@ -1310,7 +1386,7 @@ async function deliverToIntegration(integration, evt, isReplay = false, pollCoun
     } catch (error) {
       log('warn', 'Rate limit check failed', {
         integrationId: integration.id,
-        error: error.message
+        error: error.message,
       });
     }
   }
@@ -1344,12 +1420,7 @@ async function deliverToIntegration(integration, evt, isReplay = false, pollCoun
         const payloadString = JSON.stringify(transformed); // Payload as string
 
         // Generate signature headers (supports multiple secrets for rotation)
-        signatureHeaders = generateSignatureHeaders(
-          integration.signingSecrets,
-          messageId,
-          timestamp,
-          payloadString
-        );
+        signatureHeaders = generateSignatureHeaders(integration.signingSecrets, messageId, timestamp, payloadString);
 
         // Add signature headers to request
         Object.assign(headers, signatureHeaders);
@@ -1359,13 +1430,13 @@ async function deliverToIntegration(integration, evt, isReplay = false, pollCoun
           timestamp,
           integrationId: integration.id,
           __KEEP_integrationName__: integration.name,
-          secretCount: integration.signingSecrets.length
+          secretCount: integration.signingSecrets.length,
         });
       } catch (signError) {
         log('warn', `${prefix}Failed to generate integration signature`, {
           error: signError.message,
           integrationId: integration.id,
-          __KEEP_integrationName__: integration.name
+          __KEEP_integrationName__: integration.name,
         });
         // Continue delivery even if signing fails (graceful degradation)
       }
@@ -1376,7 +1447,7 @@ async function deliverToIntegration(integration, evt, isReplay = false, pollCoun
       method: httpMethod,
       headers,
       body: JSON.stringify(transformed),
-      signal: controller.signal
+      signal: controller.signal,
     });
     clearTimeout(timer);
     const responseTimeMs = Date.now() - start;
@@ -1385,16 +1456,18 @@ async function deliverToIntegration(integration, evt, isReplay = false, pollCoun
     const attemptCount = (evt.attempt_count || 0) + 1;
 
     // Log HTTP request step
-    await executionLogger.addStep('http_request', {
-      status: statusOk ? 'success' : 'failed',
-      durationMs: httpDuration,
-      metadata: {
-        statusCode: resp.status,
-        method: httpMethod,
-        url: integration.targetUrl
-      },
-      error: statusOk ? null : { message: `HTTP ${resp.status}` }
-    }).catch(() => {});
+    await executionLogger
+      .addStep('http_request', {
+        status: statusOk ? 'success' : 'failed',
+        durationMs: httpDuration,
+        metadata: {
+          statusCode: resp.status,
+          method: httpMethod,
+          url: integration.targetUrl,
+        },
+        error: statusOk ? null : { message: `HTTP ${resp.status}` },
+      })
+      .catch(() => {});
 
     // Check for token expiration in 200 OK responses (some APIs return errors in response body)
     let tokenExpiredInBody = false;
@@ -1410,7 +1483,7 @@ async function deliverToIntegration(integration, evt, isReplay = false, pollCoun
         // Check if extracted value matches any configured expiration values
         if (extractedValue && detection.expirationValues && detection.expirationValues.length > 0) {
           const valueStr = String(extractedValue).toLowerCase();
-          const isExpired = detection.expirationValues.some(expVal =>
+          const isExpired = detection.expirationValues.some((expVal) =>
             valueStr.includes(String(expVal).toLowerCase())
           );
 
@@ -1420,14 +1493,14 @@ async function deliverToIntegration(integration, evt, isReplay = false, pollCoun
               integrationId: integration._id?.toString(),
               extractedValue,
               bodyPath: detection.responseBodyPath,
-              expirationValues: detection.expirationValues
+              expirationValues: detection.expirationValues,
             });
           }
         }
       } catch (err) {
         log('warn', 'Failed to check token expiration in response body', {
           integrationId: integration._id?.toString(),
-          error: err.message
+          error: err.message,
         });
       }
     }
@@ -1444,15 +1517,15 @@ async function deliverToIntegration(integration, evt, isReplay = false, pollCoun
       // Clear cached token for OAuth2/Custom auth (async, don't wait)
       if (integration.outgoingAuthType === 'OAUTH2' || integration.outgoingAuthType === 'CUSTOM') {
         const { clearCachedToken } = require('./auth-helper');
-        clearCachedToken(integration._id).catch(err => {
+        clearCachedToken(integration._id).catch((err) => {
           log('warn', 'Failed to clear cached token after body expiration detection', {
             integrationId: integration._id?.toString(),
-            error: err.message
+            error: err.message,
           });
         });
         log('info', 'Cleared cached token after detecting expiration in response body', {
           integrationId: integration._id?.toString(),
-          authType: integration.outgoingAuthType
+          authType: integration.outgoingAuthType,
         });
       }
     } else if (!statusOk) {
@@ -1470,17 +1543,17 @@ async function deliverToIntegration(integration, evt, isReplay = false, pollCoun
         // Clear cached token for OAuth2/Custom auth (async, don't wait)
         if (integration.outgoingAuthType === 'OAUTH2' || integration.outgoingAuthType === 'CUSTOM') {
           const { clearCachedToken } = require('./auth-helper');
-          clearCachedToken(integration._id).catch(err => {
+          clearCachedToken(integration._id).catch((err) => {
             log('warn', 'Failed to clear cached token after auth error', {
               integrationId: integration._id?.toString(),
               status: resp.status,
-              error: err.message
+              error: err.message,
             });
           });
           log('info', 'Cleared cached token after auth error', {
             integrationId: integration._id?.toString(),
             status: resp.status,
-            authType: integration.outgoingAuthType
+            authType: integration.outgoingAuthType,
           });
         }
       } else if (resp.status >= 400 && resp.status < 500) {
@@ -1498,7 +1571,7 @@ async function deliverToIntegration(integration, evt, isReplay = false, pollCoun
     // maxRetries is the TOTAL number of attempts allowed
     // So if maxRetries=3, we allow attempts 1, 2, 3 (stop at 4)
     const maxRetries = integration.retryCount || 3;
-    let finalStatus = statusOk ? 'SUCCESS' : (shouldRetry ? 'RETRYING' : 'FAILED');
+    let finalStatus = statusOk ? 'SUCCESS' : shouldRetry ? 'RETRYING' : 'FAILED';
     if (shouldRetry && attemptCount > maxRetries) {
       finalStatus = 'ABANDONED';
       errorMessage = `${errorMessage} - Max retries (${maxRetries}) reached`;
@@ -1531,7 +1604,7 @@ async function deliverToIntegration(integration, evt, isReplay = false, pollCoun
       messageId,
       timestamp,
       signature: signatureHeaders ? signatureHeaders['X-Integration-Signature'] : null,
-      signatureHeaders
+      signatureHeaders,
     });
 
     // CIRCUIT BREAKER: Record success or failure based on final status
@@ -1539,12 +1612,14 @@ async function deliverToIntegration(integration, evt, isReplay = false, pollCoun
       await data.recordDeliverySuccess(integration.id);
 
       // Mark execution as successful
-      await executionLogger.success({
-        response: {
-          statusCode: resp.status,
-          body: await safeRead(resp)
-        }
-      }).catch(() => {});
+      await executionLogger
+        .success({
+          response: {
+            statusCode: resp.status,
+            body: await safeRead(resp),
+          },
+        })
+        .catch(() => {});
 
       return buildResult('SUCCESS', logId);
     } else {
@@ -1557,11 +1632,13 @@ async function deliverToIntegration(integration, evt, isReplay = false, pollCoun
         const error = new Error(errorMessage || `HTTP ${resp.status}`);
         error.code = resp.status === 429 ? 'RATE_LIMIT' : resp.status >= 500 ? 'SERVER_ERROR' : 'CLIENT_ERROR';
         error.statusCode = resp.status;
-        await executionLogger.fail(error, {
-          payload: evt.payload,
-          statusCode: resp.status,
-          response: { statusCode: resp.status, body: await safeRead(resp) }
-        }).catch(() => {});
+        await executionLogger
+          .fail(error, {
+            payload: evt.payload,
+            statusCode: resp.status,
+            response: { statusCode: resp.status, body: await safeRead(resp) },
+          })
+          .catch(() => {});
       } else {
         // For retrying status, update execution log but don't create DLQ yet
         await executionLogger.updateStatus('retrying').catch(() => {});
@@ -1580,27 +1657,29 @@ async function deliverToIntegration(integration, evt, isReplay = false, pollCoun
       __KEEP_integrationName__: integration.name,
       eventType: evt.event_type,
       pollCount,
-      stack: err.stack
+      stack: err.stack,
     });
 
     // Log HTTP request failure
-    await executionLogger.addStep('http_request', {
-      status: 'failed',
-      durationMs: Date.now() - start,
-      error: { message: err.message, stack: err.stack, code: err.code }
-    }).catch(() => {});
+    await executionLogger
+      .addStep('http_request', {
+        status: 'failed',
+        durationMs: Date.now() - start,
+        error: { message: err.message, stack: err.stack, code: err.code },
+      })
+      .catch(() => {});
 
     // Network/connection errors should be retried (timeout, DNS, connection refused, etc.)
     // These are transient errors, not permanent failures like 4xx client errors
     const attemptCount = (evt.attempt_count || 0) + 1;
     const maxRetries = integration.retryCount || 3;
     // isTest is already defined earlier in the try block
-    const finalStatus = isTest ? 'FAILED' : (attemptCount > maxRetries ? 'ABANDONED' : 'RETRYING');
+    const finalStatus = isTest ? 'FAILED' : attemptCount > maxRetries ? 'ABANDONED' : 'RETRYING';
     const finalErrorMessage = isTest
       ? `${catchErrorMessage} - Test event (no retry)`
-      : (attemptCount > maxRetries
+      : attemptCount > maxRetries
         ? `${catchErrorMessage} - Max retries (${maxRetries}) reached`
-        : catchErrorMessage);
+        : catchErrorMessage;
 
     const logId = await data.recordLog(orgId, {
       id: logIdForUpdates,
@@ -1627,7 +1706,7 @@ async function deliverToIntegration(integration, evt, isReplay = false, pollCoun
       messageId,
       timestamp,
       signature: signatureHeaders ? signatureHeaders['X-Integration-Signature'] : null,
-      signatureHeaders
+      signatureHeaders,
     });
 
     // CIRCUIT BREAKER: Always record failure on exceptions
@@ -1639,10 +1718,12 @@ async function deliverToIntegration(integration, evt, isReplay = false, pollCoun
       error.code = err.code || (err.name === 'AbortError' ? 'TIMEOUT' : 'NETWORK_ERROR');
       error.stack = err.stack;
       error.statusCode = 500;
-      await executionLogger.fail(error, {
-        payload: evt.payload,
-        statusCode: 500
-      }).catch(() => {});
+      await executionLogger
+        .fail(error, {
+          payload: evt.payload,
+          statusCode: 500,
+        })
+        .catch(() => {});
     } else {
       // For retrying status, update execution log but don't create DLQ yet
       await executionLogger.updateStatus('retrying').catch(() => {});
@@ -1652,10 +1733,9 @@ async function deliverToIntegration(integration, evt, isReplay = false, pollCoun
   }
 }
 
-
 module.exports = {
   resolveMultiActionDelayMs,
   deliverSingleAction,
   deliverMultiActionIntegration,
-  deliverToIntegration
+  deliverToIntegration,
 };

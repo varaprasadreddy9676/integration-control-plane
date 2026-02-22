@@ -10,7 +10,7 @@ async function connect(retries = 3) {
 
   const mongoConfig = config.mongodb || {
     uri: 'mongodb://localhost:27017',
-    database: 'integration_gateway'
+    database: 'integration_gateway',
   };
 
   for (let attempt = 0; attempt <= retries; attempt++) {
@@ -19,7 +19,7 @@ async function connect(retries = 3) {
         ...mongoConfig.options,
         useNewUrlParser: true,
         useUnifiedTopology: true,
-        serverSelectionTimeoutMS: 5000
+        serverSelectionTimeoutMS: 5000,
       });
 
       await client.connect();
@@ -28,7 +28,7 @@ async function connect(retries = 3) {
       log('info', 'Connected to MongoDB', {
         database: mongoConfig.database,
         uri: mongoConfig.uri.replace(/\/\/([^:]+):([^@]+)@/, '//$1:***@'), // Hide password in logs
-        attempt: attempt + 1
+        attempt: attempt + 1,
       });
 
       // Create indexes
@@ -39,18 +39,18 @@ async function connect(retries = 3) {
       const isLastAttempt = attempt === retries;
 
       if (!isLastAttempt) {
-        const delayMs = Math.min(2000 * Math.pow(2, attempt), 10000); // Max 10s
+        const delayMs = Math.min(2000 * 2 ** attempt, 10000); // Max 10s
         log('warn', 'MongoDB connection failed, retrying', {
           attempt: attempt + 1,
           maxRetries: retries + 1,
           error: error.message,
-          delayMs
+          delayMs,
         });
-        await new Promise(resolve => setTimeout(resolve, delayMs));
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
       } else {
         log('error', 'MongoDB connection failed after all retries', {
           error: error.message,
-          attempts: retries + 1
+          attempts: retries + 1,
         });
         throw error;
       }
@@ -68,26 +68,26 @@ async function createIndexes() {
       { key: { isActive: 1 }, name: 'active_idx' },
       { key: { updatedAt: -1 }, name: 'updated_idx' },
       // Token expiration index - sparse index for OAuth2/Custom auth token management
-      { key: { 'outgoingAuthConfig._tokenExpiresAt': 1 }, name: 'token_expiry_idx', sparse: true }
+      { key: { 'outgoingAuthConfig._tokenExpiresAt': 1 }, name: 'token_expiry_idx', sparse: true },
     ]);
 
     // Users indexes
     await db.collection('users').createIndexes([
       { key: { email: 1 }, name: 'email_unique_idx', unique: true },
       { key: { orgId: 1, role: 1 }, name: 'org_role_idx' },
-      { key: { isActive: 1 }, name: 'active_idx' }
+      { key: { isActive: 1 }, name: 'active_idx' },
     ]);
 
     // Organizations indexes
     await db.collection('organizations').createIndexes([
       { key: { orgId: 1 }, name: 'org_id_unique_idx', unique: true },
-      { key: { name: 1 }, name: 'org_name_idx' }
+      { key: { name: 1 }, name: 'org_name_idx' },
     ]);
 
     // Organization units indexes
     await db.collection('org_units').createIndexes([
       { key: { rid: 1 }, name: 'unit_rid_unique_idx', unique: true },
-      { key: { orgId: 1 }, name: 'unit_org_idx' }
+      { key: { orgId: 1 }, name: 'unit_org_idx' },
     ]);
 
     // Delivery logs collection removed - now using unified execution_logs
@@ -102,33 +102,33 @@ async function createIndexes() {
       {
         key: { attemptedAt: 1 },
         expireAfterSeconds: 7776000,
-        name: 'ttl_idx'
-      }
+        name: 'ttl_idx',
+      },
     ]);
 
     // Worker checkpoint
-    await db.collection('worker_checkpoint').createIndex(
-      { workerId: 1 },
-      { unique: true, name: 'worker_id_unique_idx' }
-    );
+    await db
+      .collection('worker_checkpoint')
+      .createIndex({ workerId: 1 }, { unique: true, name: 'worker_id_unique_idx' });
 
     // Processed events - deduplication
     // Migration: Drop old TTL index if it exists with different TTL value
     try {
       const existingIndexes = await db.collection('processed_events').indexes();
-      const oldTtlIndex = existingIndexes.find(idx => idx.name === 'ttl_idx');
+      const oldTtlIndex = existingIndexes.find((idx) => idx.name === 'ttl_idx');
 
       if (oldTtlIndex && oldTtlIndex.expireAfterSeconds !== 21600) {
         log('info', 'Migrating processed_events TTL index from 1h to 6h', {
           oldTTL: oldTtlIndex.expireAfterSeconds,
-          newTTL: 21600
+          newTTL: 21600,
         });
         await db.collection('processed_events').dropIndex('ttl_idx');
         log('info', 'Old TTL index dropped, will recreate with new TTL');
       }
     } catch (err) {
       // Index might not exist yet, that's fine
-      if (err.code !== 27) { // 27 = IndexNotFound
+      if (err.code !== 27) {
+        // 27 = IndexNotFound
         log('warn', 'TTL index migration check failed', { error: err.message });
       }
     }
@@ -141,8 +141,8 @@ async function createIndexes() {
       {
         key: { processedAt: 1 },
         expireAfterSeconds: 21600,
-        name: 'ttl_idx'
-      }
+        name: 'ttl_idx',
+      },
     ]);
 
     // Integration templates indexes
@@ -150,7 +150,7 @@ async function createIndexes() {
       { key: { orgId: 1, category: 1 }, name: 'org_category_idx' },
       { key: { orgId: 1, updatedAt: -1 }, name: 'org_updated_idx' },
       { key: { category: 1 }, name: 'category_idx' },
-      { key: { isActive: 1 }, name: 'active_idx' }
+      { key: { isActive: 1 }, name: 'active_idx' },
     ]);
 
     // Alert center logs indexes
@@ -162,8 +162,8 @@ async function createIndexes() {
       {
         key: { createdAt: 1 },
         expireAfterSeconds: 7776000,
-        name: 'alert_ttl_idx'
-      }
+        name: 'alert_ttl_idx',
+      },
     ]);
 
     // AI interactions indexes - for debugging and auditing
@@ -175,8 +175,8 @@ async function createIndexes() {
       {
         key: { createdAt: 1 },
         expireAfterSeconds: 7776000,
-        name: 'ttl_idx'
-      }
+        name: 'ttl_idx',
+      },
     ]);
 
     // Event audit indexes - comprehensive event tracking
@@ -186,13 +186,13 @@ async function createIndexes() {
         key: { source: 1, sourceId: 1 },
         name: 'source_id_unique_idx',
         unique: true,
-        partialFilterExpression: { sourceId: { $exists: true, $ne: null } }
+        partialFilterExpression: { sourceId: { $exists: true, $ne: null } },
       },
       // Fallback uniqueness: orgId + eventKey + receivedAtBucket
       {
         key: { orgId: 1, eventKey: 1, receivedAtBucket: 1 },
         name: 'fallback_unique_idx',
-        unique: true
+        unique: true,
       },
       // Query performance indexes (all include orgId for tenant scoping)
       { key: { orgId: 1, receivedAt: -1 }, name: 'parent_received_idx' },
@@ -210,8 +210,8 @@ async function createIndexes() {
       {
         key: { expiresAt: 1 },
         expireAfterSeconds: 0,
-        name: 'ttl_idx'
-      }
+        name: 'ttl_idx',
+      },
     ]);
 
     // Source checkpoints indexes - for gap detection and negative proof
@@ -220,11 +220,11 @@ async function createIndexes() {
       {
         key: { source: 1, sourceIdentifier: 1, orgId: 1 },
         name: 'source_entity_unique_idx',
-        unique: true
+        unique: true,
       },
       // Health check queries
       { key: { updatedAt: -1 }, name: 'updated_idx' },
-      { key: { orgId: 1, source: 1 }, name: 'entity_source_idx' }
+      { key: { orgId: 1, source: 1 }, name: 'entity_source_idx' },
     ]);
 
     // Lookups indexes - for code mapping system
@@ -236,11 +236,11 @@ async function createIndexes() {
           orgUnitRid: 1,
           type: 1,
           'source.id': 1,
-          isActive: 1
+          isActive: 1,
         },
         name: 'idx_unique_mapping',
         unique: true,
-        partialFilterExpression: { isActive: true }
+        partialFilterExpression: { isActive: true },
       },
       // Primary lookup index (optimized for hierarchy resolution)
       {
@@ -249,9 +249,9 @@ async function createIndexes() {
           orgUnitRid: 1,
           type: 1,
           'source.id': 1,
-          isActive: 1
+          isActive: 1,
         },
-        name: 'idx_lookup'
+        name: 'idx_lookup',
       },
       // Reverse lookup index (with orgUnitRid for hierarchy support)
       {
@@ -260,14 +260,14 @@ async function createIndexes() {
           orgUnitRid: 1,
           type: 1,
           'target.id': 1,
-          isActive: 1
+          isActive: 1,
         },
-        name: 'idx_reverse_lookup'
+        name: 'idx_reverse_lookup',
       },
       // List/filter index
       {
         key: { orgId: 1, type: 1, category: 1, isActive: 1 },
-        name: 'idx_list'
+        name: 'idx_list',
       },
       // Text search index
       {
@@ -275,10 +275,10 @@ async function createIndexes() {
           'source.id': 'text',
           'source.name': 'text',
           'target.id': 'text',
-          'target.name': 'text'
+          'target.name': 'text',
         },
-        name: 'idx_text_search'
-      }
+        name: 'idx_text_search',
+      },
     ]);
 
     // Scheduled job logs indexes - for execution history and monitoring
@@ -291,8 +291,8 @@ async function createIndexes() {
       {
         key: { startedAt: 1 },
         expireAfterSeconds: 7776000,
-        name: 'ttl_idx'
-      }
+        name: 'ttl_idx',
+      },
     ]);
 
     // Unified execution logs indexes - direction-agnostic logging for all integrations
@@ -305,7 +305,10 @@ async function createIndexes() {
 
       // Integration/Integration-specific queries (__KEEP___KEEP_integrationConfig__Id__ for backward compatibility)
       { key: { __KEEP___KEEP_integrationConfig__Id__: 1, createdAt: -1 }, name: 'integration_created_idx' },
-      { key: { __KEEP___KEEP_integrationConfig__Id__: 1, status: 1, createdAt: -1 }, name: 'integration_status_created_idx' },
+      {
+        key: { __KEEP___KEEP_integrationConfig__Id__: 1, status: 1, createdAt: -1 },
+        name: 'integration_status_created_idx',
+      },
       { key: { integrationConfigId: 1, createdAt: -1 }, name: 'integration_created_idx' },
       { key: { integrationConfigId: 1, status: 1, createdAt: -1 }, name: 'integration_status_created_idx' },
 
@@ -334,8 +337,8 @@ async function createIndexes() {
       {
         key: { createdAt: 1 },
         expireAfterSeconds: 7776000, // 90 days
-        name: 'ttl_idx'
-      }
+        name: 'ttl_idx',
+      },
     ]);
 
     // Text index for fast full-text search across execution logs
@@ -344,22 +347,22 @@ async function createIndexes() {
       {
         __KEEP_integrationName__: 'text',
         eventType: 'text',
-        searchableText: 'text',  // Patient MRN, name, phone (denormalized)
+        searchableText: 'text', // Patient MRN, name, phone (denormalized)
         errorMessage: 'text',
         targetUrl: 'text',
-        'response.body': 'text'
+        'response.body': 'text',
       },
       {
         name: 'search_text_idx',
         weights: {
-          __KEEP_integrationName__: 10,      // Highest priority
-          eventType: 10,        // Highest priority
-          searchableText: 8,    // High priority (patient data)
-          errorMessage: 5,      // Medium priority
-          targetUrl: 3,         // Lower priority
-          'response.body': 1    // Lowest priority (can be verbose)
+          __KEEP_integrationName__: 10, // Highest priority
+          eventType: 10, // Highest priority
+          searchableText: 8, // High priority (patient data)
+          errorMessage: 5, // Medium priority
+          targetUrl: 3, // Lower priority
+          'response.body': 1, // Lowest priority (can be verbose)
         },
-        default_language: 'english'
+        default_language: 'english',
       }
     );
 
@@ -388,8 +391,8 @@ async function createIndexes() {
         key: { resolvedAt: 1 },
         expireAfterSeconds: 7776000,
         name: 'resolved_ttl_idx',
-        partialFilterExpression: { resolvedAt: { $exists: true } }
-      }
+        partialFilterExpression: { resolvedAt: { $exists: true } },
+      },
     ]);
 
     // Rate limiting state indexes
@@ -402,14 +405,14 @@ async function createIndexes() {
       {
         key: { windowStart: 1 },
         expireAfterSeconds: 3600, // Clean up after 1 hour
-        name: 'window_ttl_idx'
-      }
+        name: 'window_ttl_idx',
+      },
     ]);
 
     // event_source_configs — per-org adapter configuration
     await db.collection('event_source_configs').createIndexes([
       { key: { orgId: 1 }, name: 'org_unique_idx', unique: true },
-      { key: { type: 1, isActive: 1 }, name: 'type_active_idx' }
+      { key: { type: 1, isActive: 1 }, name: 'type_active_idx' },
     ]);
 
     // pending_events — HTTP push queue (TTL: 7 days for unprocessed events)
@@ -420,8 +423,8 @@ async function createIndexes() {
         key: { createdAt: 1 },
         expireAfterSeconds: 7 * 24 * 60 * 60, // 7 days
         name: 'ttl_idx',
-        partialFilterExpression: { status: { $in: ['done', 'failed'] } }
-      }
+        partialFilterExpression: { status: { $in: ['done', 'failed'] } },
+      },
     ]);
 
     log('info', 'MongoDB indexes created/verified');
@@ -515,7 +518,7 @@ async function ensureConnection() {
         if (client) {
           try {
             await client.close();
-          } catch (err) {
+          } catch (_err) {
             // Ignore close errors
           }
           client = null;
@@ -524,10 +527,9 @@ async function ensureConnection() {
         // Reconnect
         await connect();
         return true;
-      })()
-        .finally(() => {
-          reconnectPromise = null;
-        });
+      })().finally(() => {
+        reconnectPromise = null;
+      });
 
       return reconnectPromise;
     }
@@ -546,7 +548,7 @@ function toObjectId(id) {
   if (id instanceof ObjectId) return id;
   try {
     return new ObjectId(id);
-  } catch (error) {
+  } catch (_error) {
     return null;
   }
 }
@@ -560,5 +562,5 @@ module.exports = {
   isConnected,
   ensureConnection,
   toObjectId,
-  ObjectId
+  ObjectId,
 };

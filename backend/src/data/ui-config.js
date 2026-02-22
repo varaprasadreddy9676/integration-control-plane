@@ -7,7 +7,7 @@ const {
   addOrgScope,
   fallbackDisabledError,
   mergeConfigs,
-  stripUiConfig
+  stripUiConfig,
 } = require('./helpers');
 
 async function getUiConfigForEntity(orgId) {
@@ -59,12 +59,12 @@ async function upsertUiConfigOverride(orgId, override) {
         {
           $set: {
             ...override,
-            updatedAt: new Date()
+            updatedAt: new Date(),
           },
           $setOnInsert: {
             orgId,
-            createdAt: new Date()
-          }
+            createdAt: new Date(),
+          },
         },
         { upsert: true }
       );
@@ -95,7 +95,8 @@ async function getSchedulerIntervalMinutes() {
   if (useMongo()) {
     try {
       const db = await mongodb.getDbSafe();
-      const configs = await db.collection('ui_config')
+      const configs = await db
+        .collection('ui_config')
         .find({ 'notifications.failureEmailReports.enabled': true })
         .project({ 'notifications.failureEmailReports.intervalMinutes': 1 })
         .toArray();
@@ -127,11 +128,12 @@ async function getFailureReportSchedulerStatus(orgId) {
       const db = await mongodb.getDbSafe();
       const state = await db.collection('scheduler_state').findOne({ _id: 'failure_email_reports' });
       const lastLog = normalizedOrgId
-        ? await db.collection('alert_center_logs')
-          .find(addOrgScope({ type: 'DELIVERY_FAILURE_REPORT' }, normalizedOrgId))
-          .sort({ createdAt: -1 })
-          .limit(1)
-          .toArray()
+        ? await db
+            .collection('alert_center_logs')
+            .find(addOrgScope({ type: 'DELIVERY_FAILURE_REPORT' }, normalizedOrgId))
+            .sort({ createdAt: -1 })
+            .limit(1)
+            .toArray()
         : [];
       const lastRunLog = lastLog?.[0] || null;
       const lastRunAt = state?.lastRunAt || null;
@@ -147,13 +149,15 @@ async function getFailureReportSchedulerStatus(orgId) {
         maxItems: Number(reportConfig.maxItems ?? 25),
         lastRunAt,
         nextRunAt,
-        lastRunLog: lastRunLog ? {
-          status: lastRunLog.status,
-          createdAt: lastRunLog.createdAt,
-          totalFailures: lastRunLog.totalFailures ?? null,
-          recipients: lastRunLog.recipients || [],
-          errorMessage: lastRunLog.errorMessage || null
-        } : null
+        lastRunLog: lastRunLog
+          ? {
+              status: lastRunLog.status,
+              createdAt: lastRunLog.createdAt,
+              totalFailures: lastRunLog.totalFailures ?? null,
+              recipients: lastRunLog.recipients || [],
+              errorMessage: lastRunLog.errorMessage || null,
+            }
+          : null,
       };
     } catch (err) {
       logError(err, { scope: 'getFailureReportSchedulerStatus' });
@@ -183,11 +187,11 @@ async function updateUiConfigDefault(update) {
     {
       $set: {
         ...update,
-        updatedAt: new Date()
+        updatedAt: new Date(),
       },
       $setOnInsert: {
-        createdAt: new Date()
-      }
+        createdAt: new Date(),
+      },
     },
     { upsert: true }
   );
@@ -203,5 +207,5 @@ module.exports = {
   getSchedulerIntervalMinutes,
   getFailureReportSchedulerStatus,
   getUiConfigDefault,
-  updateUiConfigDefault
+  updateUiConfigDefault,
 };

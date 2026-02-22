@@ -27,7 +27,7 @@ const ALLOWED_CONFIG_PATCH_KEYS = new Set([
   'timeout',
   'contentType',
   'streamResponse',
-  'rateLimits'
+  'rateLimits',
 ]);
 
 function toObjectIdOrNull(value) {
@@ -45,7 +45,7 @@ function getValueByPath(obj, path) {
   return path.split('.').reduce((acc, key) => (acc === undefined || acc === null ? undefined : acc[key]), obj);
 }
 
-function setValueByPath(target, path, value) {
+function _setValueByPath(target, path, value) {
   const parts = path.split('.');
   let ref = target;
   for (let i = 0; i < parts.length - 1; i++) {
@@ -99,8 +99,8 @@ function getScriptPatchTarget(integrationConfig) {
     return {
       path: 'requestTransformation.script',
       preconditions: {
-        'requestTransformation.mode': 'SCRIPT'
-      }
+        'requestTransformation.mode': 'SCRIPT',
+      },
     };
   }
 
@@ -108,8 +108,8 @@ function getScriptPatchTarget(integrationConfig) {
     return {
       path: 'transformation.script',
       preconditions: {
-        transformationMode: 'SCRIPT'
-      }
+        transformationMode: 'SCRIPT',
+      },
     };
   }
 
@@ -117,8 +117,8 @@ function getScriptPatchTarget(integrationConfig) {
     return {
       path: 'responseTransformation.script',
       preconditions: {
-        'responseTransformation.mode': 'SCRIPT'
-      }
+        'responseTransformation.mode': 'SCRIPT',
+      },
     };
   }
 
@@ -137,7 +137,7 @@ async function loadLogAndIntegration(orgId, logId, integrationId) {
   if (logObjectId) {
     logEntry = await db.collection('execution_logs').findOne({
       _id: logObjectId,
-      ...buildOrgScopeQuery(orgId)
+      ...buildOrgScopeQuery(orgId),
     });
   }
 
@@ -147,7 +147,7 @@ async function loadLogAndIntegration(orgId, logId, integrationId) {
   if (integrationObjectId) {
     integrationConfig = await db.collection('integration_configs').findOne({
       _id: integrationObjectId,
-      ...buildOrgScopeQuery(orgId)
+      ...buildOrgScopeQuery(orgId),
     });
   }
 
@@ -159,7 +159,7 @@ const requireAIEnabled = asyncHandler(async (req, res, next) => {
   if (!orgId) {
     return res.status(400).json({
       success: false,
-      error: 'orgId is required'
+      error: 'orgId is required',
     });
   }
 
@@ -168,7 +168,7 @@ const requireAIEnabled = asyncHandler(async (req, res, next) => {
     return res.status(403).json({
       success: false,
       code: 'AI_DISABLED',
-      error: 'AI features are disabled for this organization. Enable AI in Settings -> AI Configuration.'
+      error: 'AI features are disabled for this organization. Enable AI in Settings -> AI Configuration.',
     });
   }
 
@@ -189,7 +189,7 @@ router.get(
     if (!orgId) {
       return res.status(400).json({
         success: false,
-        error: 'orgId is required'
+        error: 'orgId is required',
       });
     }
 
@@ -201,8 +201,8 @@ router.get(
       data: {
         available,
         provider,
-        enabled: available
-      }
+        enabled: available,
+      },
     });
   })
 );
@@ -217,12 +217,12 @@ router.get(
   requireFeature(FEATURES.AI, 'read'),
   asyncHandler(async (req, res) => {
     const orgId = getOrgIdFromRequest(req);
-    const days = parseInt(req.query.days) || 30;
+    const days = parseInt(req.query.days, 10) || 30;
 
     if (!orgId) {
       return res.status(400).json({
         success: false,
-        error: 'orgId is required'
+        error: 'orgId is required',
       });
     }
 
@@ -233,8 +233,8 @@ router.get(
       success: true,
       data: {
         ...stats,
-        rateLimit
-      }
+        rateLimit,
+      },
     });
   })
 );
@@ -255,37 +255,32 @@ router.post(
     if (!orgId) {
       return res.status(400).json({
         success: false,
-        error: 'orgId is required'
+        error: 'orgId is required',
       });
     }
 
     if (!inputExample || !outputExample) {
       return res.status(400).json({
         success: false,
-        error: 'Both inputExample and outputExample are required'
+        error: 'Both inputExample and outputExample are required',
       });
     }
 
     // Validate JSON
-    let inputObj, outputObj;
+    let inputObj;
+    let outputObj;
     try {
       inputObj = typeof inputExample === 'string' ? JSON.parse(inputExample) : inputExample;
-      outputObj =
-        typeof outputExample === 'string' ? JSON.parse(outputExample) : outputExample;
-    } catch (error) {
+      outputObj = typeof outputExample === 'string' ? JSON.parse(outputExample) : outputExample;
+    } catch (_error) {
       return res.status(400).json({
         success: false,
-        error: 'Invalid JSON in examples'
+        error: 'Invalid JSON in examples',
       });
     }
 
     try {
-      const script = await aiService.generateTransformation(
-        orgId,
-        inputObj,
-        outputObj,
-        eventType || '*'
-      );
+      const script = await aiService.generateTransformation(orgId, inputObj, outputObj, eventType || '*');
 
       // Get updated rate limit
       const rateLimit = await aiService.checkRateLimit(orgId);
@@ -294,8 +289,8 @@ router.post(
         success: true,
         data: {
           script,
-          rateLimit
-        }
+          rateLimit,
+        },
       });
     } catch (error) {
       // Check if it's a rate limit error
@@ -306,7 +301,7 @@ router.post(
           error: error.message,
           code: 'RATE_LIMIT_EXCEEDED',
           usage: rateLimit.usage,
-          limit: rateLimit.limit
+          limit: rateLimit.limit,
         });
       }
 
@@ -331,14 +326,14 @@ router.post(
     if (!orgId) {
       return res.status(400).json({
         success: false,
-        error: 'orgId is required'
+        error: 'orgId is required',
       });
     }
 
     if (!documentation) {
       return res.status(400).json({
         success: false,
-        error: 'API documentation is required'
+        error: 'API documentation is required',
       });
     }
 
@@ -351,7 +346,7 @@ router.post(
         if (!urlCheck.valid) {
           return res.status(400).json({
             success: false,
-            error: `Invalid documentation URL: ${urlCheck.reason}`
+            error: `Invalid documentation URL: ${urlCheck.reason}`,
           });
         }
 
@@ -361,16 +356,12 @@ router.post(
         } catch (fetchError) {
           return res.status(400).json({
             success: false,
-            error: `Failed to fetch documentation from URL: ${fetchError.message}`
+            error: `Failed to fetch documentation from URL: ${fetchError.message}`,
           });
         }
       }
 
-      const suggestedConfig = await aiService.analyzeDocumentation(
-        orgId,
-        finalDocumentation,
-        eventType || '*'
-      );
+      const suggestedConfig = await aiService.analyzeDocumentation(orgId, finalDocumentation, eventType || '*');
 
       // Get updated rate limit
       const rateLimit = await aiService.checkRateLimit(orgId);
@@ -379,8 +370,8 @@ router.post(
         success: true,
         data: {
           config: suggestedConfig,
-          rateLimit
-        }
+          rateLimit,
+        },
       });
     } catch (error) {
       if (error.message.includes('Daily AI limit exceeded')) {
@@ -390,7 +381,7 @@ router.post(
           error: error.message,
           code: 'RATE_LIMIT_EXCEEDED',
           usage: rateLimit.usage,
-          limit: rateLimit.limit
+          limit: rateLimit.limit,
         });
       }
 
@@ -414,24 +405,19 @@ router.post(
     if (!orgId) {
       return res.status(400).json({
         success: false,
-        error: 'orgId is required'
+        error: 'orgId is required',
       });
     }
 
     if (!sourceFields || !targetFields) {
       return res.status(400).json({
         success: false,
-        error: 'Both sourceFields and targetFields are required'
+        error: 'Both sourceFields and targetFields are required',
       });
     }
 
     try {
-      const mappings = await aiService.suggestFieldMappings(
-        orgId,
-        sourceFields,
-        targetFields,
-        apiContext || ''
-      );
+      const mappings = await aiService.suggestFieldMappings(orgId, sourceFields, targetFields, apiContext || '');
 
       // Get updated rate limit
       const rateLimit = await aiService.checkRateLimit(orgId);
@@ -440,8 +426,8 @@ router.post(
         success: true,
         data: {
           mappings,
-          rateLimit
-        }
+          rateLimit,
+        },
       });
     } catch (error) {
       if (error.message.includes('Daily AI limit exceeded')) {
@@ -451,7 +437,7 @@ router.post(
           error: error.message,
           code: 'RATE_LIMIT_EXCEEDED',
           usage: rateLimit.usage,
-          limit: rateLimit.limit
+          limit: rateLimit.limit,
         });
       }
 
@@ -475,14 +461,14 @@ router.post(
     if (!orgId) {
       return res.status(400).json({
         success: false,
-        error: 'orgId is required'
+        error: 'orgId is required',
       });
     }
 
     if (!eventType) {
       return res.status(400).json({
         success: false,
-        error: 'eventType is required'
+        error: 'eventType is required',
       });
     }
 
@@ -496,8 +482,8 @@ router.post(
         success: true,
         data: {
           payload,
-          rateLimit
-        }
+          rateLimit,
+        },
       });
     } catch (error) {
       if (error.message.includes('Daily AI limit exceeded')) {
@@ -507,7 +493,7 @@ router.post(
           error: error.message,
           code: 'RATE_LIMIT_EXCEEDED',
           usage: rateLimit.usage,
-          limit: rateLimit.limit
+          limit: rateLimit.limit,
         });
       }
 
@@ -531,24 +517,19 @@ router.post(
     if (!orgId) {
       return res.status(400).json({
         success: false,
-        error: 'orgId is required'
+        error: 'orgId is required',
       });
     }
 
     if (!description || !mode) {
       return res.status(400).json({
         success: false,
-        error: 'description and mode are required'
+        error: 'description and mode are required',
       });
     }
 
     try {
-      const script = await aiService.generateSchedulingScript(
-        orgId,
-        description,
-        mode,
-        eventType || '*'
-      );
+      const script = await aiService.generateSchedulingScript(orgId, description, mode, eventType || '*');
 
       const rateLimit = await aiService.checkRateLimit(orgId);
 
@@ -556,8 +537,8 @@ router.post(
         success: true,
         data: {
           script,
-          rateLimit
-        }
+          rateLimit,
+        },
       });
     } catch (error) {
       if (error.message.includes('Daily AI limit exceeded')) {
@@ -567,7 +548,7 @@ router.post(
           error: error.message,
           code: 'RATE_LIMIT_EXCEEDED',
           usage: rateLimit.usage,
-          limit: rateLimit.limit
+          limit: rateLimit.limit,
         });
       }
 
@@ -591,13 +572,13 @@ router.get(
     if (!orgId) {
       return res.status(400).json({
         success: false,
-        error: 'orgId is required'
+        error: 'orgId is required',
       });
     }
 
     const options = {
-      limit: limit ? parseInt(limit) : 50,
-      operation: operation || undefined
+      limit: limit ? parseInt(limit, 10) : 50,
+      operation: operation || undefined,
     };
 
     const interactions = await interactionLogger.getInteractions(orgId, options);
@@ -606,8 +587,8 @@ router.get(
       success: true,
       data: {
         interactions,
-        count: interactions.length
-      }
+        count: interactions.length,
+      },
     });
   })
 );
@@ -622,12 +603,12 @@ router.get(
   requireFeature(FEATURES.AI, 'read'),
   asyncHandler(async (req, res) => {
     const orgId = getOrgIdFromRequest(req);
-    const days = parseInt(req.query.days) || 7;
+    const days = parseInt(req.query.days, 10) || 7;
 
     if (!orgId) {
       return res.status(400).json({
         success: false,
-        error: 'orgId is required'
+        error: 'orgId is required',
       });
     }
 
@@ -635,7 +616,7 @@ router.get(
 
     res.json({
       success: true,
-      data: stats
+      data: stats,
     });
   })
 );
@@ -674,9 +655,11 @@ router.post(
           try {
             logEntry = await db.collection('execution_logs').findOne({
               _id: new ObjectId(logId),
-              ...buildOrgScopeQuery(orgId)
+              ...buildOrgScopeQuery(orgId),
             });
-          } catch (_) { /* invalid ObjectId - skip */ }
+          } catch (_) {
+            /* invalid ObjectId - skip */
+          }
         }
 
         if (integrationId) {
@@ -684,12 +667,16 @@ router.post(
           try {
             integrationConfig = await db.collection('integration_configs').findOne({
               _id: new ObjectId(integrationId),
-              ...buildOrgScopeQuery(orgId)
+              ...buildOrgScopeQuery(orgId),
             });
-          } catch (_) { /* invalid ObjectId - skip */ }
+          } catch (_) {
+            /* invalid ObjectId - skip */
+          }
         }
       }
-    } catch (_) { /* DB unavailable - proceed without context */ }
+    } catch (_) {
+      /* DB unavailable - proceed without context */
+    }
 
     try {
       const result = await aiService.analyzeError(orgId, {
@@ -697,7 +684,7 @@ router.post(
         logEntry,
         integrationConfig,
         transformationCode: transformationCode || integrationConfig?.transformationScript,
-        payload
+        payload,
       });
 
       const rateLimit = await aiService.checkRateLimit(orgId);
@@ -710,7 +697,7 @@ router.post(
           error: error.message,
           code: 'RATE_LIMIT_EXCEEDED',
           usage: rateLimit.usage,
-          limit: rateLimit.limit
+          limit: rateLimit.limit,
         });
       }
       throw error;
@@ -756,7 +743,7 @@ router.post(
         logEntry,
         integrationConfig,
         transformationCode: existingScript || null,
-        payload: logEntry.requestPayload || logEntry.originalPayload || null
+        payload: logEntry.requestPayload || logEntry.originalPayload || null,
       });
 
       const normalizedPatch = sanitizeConfigPatch(analysis.configPatch || {});
@@ -777,7 +764,7 @@ router.post(
             path: scriptTarget.path,
             before: beforeScript,
             after: afterScript,
-            diff: buildSimpleUnifiedDiff(beforeScript, afterScript)
+            diff: buildSimpleUnifiedDiff(beforeScript, afterScript),
           };
         }
       }
@@ -794,12 +781,10 @@ router.post(
           patchable,
           patch: {
             script: scriptPatch,
-            config: configChanges.length > 0
-              ? { patch: normalizedPatch, changes: configChanges }
-              : null
+            config: configChanges.length > 0 ? { patch: normalizedPatch, changes: configChanges } : null,
           },
-          rateLimit
-        }
+          rateLimit,
+        },
       });
     } catch (error) {
       if (error.message.includes('Daily AI limit exceeded')) {
@@ -809,7 +794,7 @@ router.post(
           error: error.message,
           code: 'RATE_LIMIT_EXCEEDED',
           usage: rateLimit.usage,
-          limit: rateLimit.limit
+          limit: rateLimit.limit,
         });
       }
       throw error;
@@ -861,7 +846,9 @@ router.post(
 
     if (hasCodeChange) {
       if (!validateScript(codeChange)) {
-        return res.status(400).json({ success: false, error: 'Proposed codeChange is not valid JavaScript transformation code' });
+        return res
+          .status(400)
+          .json({ success: false, error: 'Proposed codeChange is not valid JavaScript transformation code' });
       }
 
       const defaultTarget = getScriptPatchTarget(integrationConfig);
@@ -869,7 +856,7 @@ router.post(
       const allowedScriptPaths = new Set([
         'transformation.script',
         'requestTransformation.script',
-        'responseTransformation.script'
+        'responseTransformation.script',
       ]);
 
       if (!resolvedPath || !allowedScriptPaths.has(resolvedPath)) {
@@ -893,7 +880,7 @@ router.post(
         if (!urlCheck.valid) {
           return res.status(400).json({
             success: false,
-            error: `Invalid targetUrl in configPatch: ${urlCheck.reason}`
+            error: `Invalid targetUrl in configPatch: ${urlCheck.reason}`,
           });
         }
       }
@@ -904,10 +891,9 @@ router.post(
     }
 
     const integrationObjectId = toObjectIdOrNull(integrationConfig._id);
-    const result = await db.collection('integration_configs').updateOne(
-      { _id: integrationObjectId, ...buildOrgScopeQuery(orgId) },
-      { $set: updates }
-    );
+    const result = await db
+      .collection('integration_configs')
+      .updateOne({ _id: integrationObjectId, ...buildOrgScopeQuery(orgId) }, { $set: updates });
 
     if (!result.matchedCount) {
       return res.status(404).json({ success: false, error: 'Integration not found while applying fix' });
@@ -919,9 +905,9 @@ router.post(
         integrationId: integrationConfig._id?.toString?.() || null,
         applied: {
           scriptPath: appliedScriptPath,
-          configKeys: Object.keys(safeConfigPatch)
-        }
-      }
+          configKeys: Object.keys(safeConfigPatch),
+        },
+      },
     });
   })
 );
@@ -952,7 +938,7 @@ router.post(
       if (!validRoles.includes(msg.role) || typeof msg.content !== 'string') {
         return res.status(400).json({
           success: false,
-          error: 'Each message must have role (user|assistant) and string content'
+          error: 'Each message must have role (user|assistant) and string content',
         });
       }
     }
@@ -984,7 +970,7 @@ router.post(
           error: error.message,
           code: 'RATE_LIMIT_EXCEEDED',
           usage: rateLimit.usage,
-          limit: rateLimit.limit
+          limit: rateLimit.limit,
         });
       }
       throw error;
@@ -1016,7 +1002,7 @@ router.post(
       const result = await aiService.explainTransformation(orgId, {
         code,
         errorMessage,
-        eventType
+        eventType,
       });
 
       const rateLimit = await aiService.checkRateLimit(orgId);
@@ -1029,7 +1015,7 @@ router.post(
           error: error.message,
           code: 'RATE_LIMIT_EXCEEDED',
           usage: rateLimit.usage,
-          limit: rateLimit.limit
+          limit: rateLimit.limit,
         });
       }
       throw error;
@@ -1051,7 +1037,7 @@ router.get(
     if (!orgId) {
       return res.status(400).json({
         success: false,
-        error: 'orgId is required'
+        error: 'orgId is required',
       });
     }
 
@@ -1061,26 +1047,26 @@ router.get(
     if (!mongodb.isConnected()) {
       return res.status(503).json({
         success: false,
-        error: 'Database not available'
+        error: 'Database not available',
       });
     }
 
     const db = await mongodb.getDbSafe();
     const interaction = await db.collection('ai_interactions').findOne({
       _id: new ObjectId(id),
-      $or: [{ orgId }, { entityParentRid: orgId }]
+      $or: [{ orgId }, { entityParentRid: orgId }],
     });
 
     if (!interaction) {
       return res.status(404).json({
         success: false,
-        error: 'Interaction not found'
+        error: 'Interaction not found',
       });
     }
 
     res.json({
       success: true,
-      data: interaction
+      data: interaction,
     });
   })
 );

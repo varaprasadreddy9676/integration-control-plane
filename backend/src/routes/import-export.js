@@ -8,443 +8,467 @@ const { auditData } = require('../middleware/audit');
 const router = express.Router();
 
 // Export outbound integrations to JSON format
-router.get('/outbound-integrations.json', asyncHandler(async (req, res) => {
-  try {
-    const {
-      includeInactive = false,
-      includeSensitive = false,
-      integrationIds,
-      format = 'standard'
-    } = req.query;
+router.get(
+  '/outbound-integrations.json',
+  asyncHandler(async (req, res) => {
+    try {
+      const { includeInactive = false, includeSensitive = false, integrationIds, format = 'standard' } = req.query;
 
-    const integrations = integrationIds
-      ? await Promise.all(integrationIds.split(',').map(id => data.getIntegrationById(req.orgId, id.trim())))
-      : await data.listIntegrations(req.orgId);
+      const integrations = integrationIds
+        ? await Promise.all(integrationIds.split(',').map((id) => data.getIntegrationById(req.orgId, id.trim())))
+        : await data.listIntegrations(req.orgId);
 
-    // Filter integrations based on parameters
-    const filteredIntegrations = integrations
-      .filter(integration => integration && (includeInactive === 'true' || integration.isActive))
-      .map(integration => sanitizeIntegrationForExport(integration, includeSensitive === 'true', format));
+      // Filter integrations based on parameters
+      const filteredIntegrations = integrations
+        .filter((integration) => integration && (includeInactive === 'true' || integration.isActive))
+        .map((integration) => sanitizeIntegrationForExport(integration, includeSensitive === 'true', format));
 
-    const exportData = {
-      metadata: {
-        exportedAt: new Date().toISOString(),
-        exportedBy: req.user?.id || 'system',
+      const exportData = {
+        metadata: {
+          exportedAt: new Date().toISOString(),
+          exportedBy: req.user?.id || 'system',
+          orgId: req.orgId,
+          format: format,
+          version: '1.0',
+          totalIntegrations: filteredIntegrations.length,
+        },
+        integrations: filteredIntegrations,
+      };
+
+      // Set appropriate headers
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="outbound-integrations-${new Date().toISOString().split('T')[0]}.json"`
+      );
+
+      res.json(exportData);
+    } catch (error) {
+      log('error', 'Integration export failed', {
         orgId: req.orgId,
-        format: format,
-        version: '1.0',
-        totalIntegrations: filteredIntegrations.length
-      },
-      integrations: filteredIntegrations
-    };
+        error: error.message,
+      });
 
-    // Set appropriate headers
-    res.setHeader('Content-Type', 'application/json');
-    res.setHeader('Content-Disposition', `attachment; filename="outbound-integrations-${new Date().toISOString().split('T')[0]}.json"`);
-
-    res.json(exportData);
-
-  } catch (error) {
-    log('error', 'Integration export failed', {
-      orgId: req.orgId,
-      error: error.message
-    });
-
-    res.status(500).json({
-      error: 'Export failed',
-      code: 'EXPORT_ERROR'
-    });
-  }
-}));
+      res.status(500).json({
+        error: 'Export failed',
+        code: 'EXPORT_ERROR',
+      });
+    }
+  })
+);
 
 // Export outbound integrations to CSV format
-router.get('/outbound-integrations.csv', asyncHandler(async (req, res) => {
-  try {
-    const {
-      includeInactive = false,
-      integrationIds
-    } = req.query;
+router.get(
+  '/outbound-integrations.csv',
+  asyncHandler(async (req, res) => {
+    try {
+      const { includeInactive = false, integrationIds } = req.query;
 
-    const integrations = integrationIds
-      ? await Promise.all(integrationIds.split(',').map(id => data.getIntegrationById(req.orgId, id.trim())))
-      : await data.listIntegrations(req.orgId);
+      const integrations = integrationIds
+        ? await Promise.all(integrationIds.split(',').map((id) => data.getIntegrationById(req.orgId, id.trim())))
+        : await data.listIntegrations(req.orgId);
 
-    // Filter integrations
-    const filteredIntegrations = integrations
-      .filter(integration => integration && (includeInactive === 'true' || integration.isActive));
+      // Filter integrations
+      const filteredIntegrations = integrations.filter(
+        (integration) => integration && (includeInactive === 'true' || integration.isActive)
+      );
 
-    // CSV headers
-    const headers = [
-      'id', 'name', 'description', 'targetUrl', 'httpMethod', 'authType',
-      'eventType', 'isActive', 'timeoutMs', 'retryCount', 'transformationMode',
-      'createdAt', 'updatedAt', 'orgId', 'scope', 'templateId'
-    ];
+      // CSV headers
+      const headers = [
+        'id',
+        'name',
+        'description',
+        'targetUrl',
+        'httpMethod',
+        'authType',
+        'eventType',
+        'isActive',
+        'timeoutMs',
+        'retryCount',
+        'transformationMode',
+        'createdAt',
+        'updatedAt',
+        'orgId',
+        'scope',
+        'templateId',
+      ];
 
-    // Convert integrations to CSV rows
-    const csvRows = filteredIntegrations.map(integration => [
-      integration.id || '',
-      integration.name || '',
-      integration.description || '',
-      integration.targetUrl || '',
-      integration.httpMethod || '',
-      integration.outgoingAuthType || integration.authType || '',
-      Array.isArray(integration.type) ? integration.type.join(';') : integration.type || '',
-      integration.isActive ? 'true' : 'false',
-      integration.timeoutMs || '',
-      integration.retryCount || '',
-      integration.transformationMode || '',
-      integration.createdAt || '',
-      integration.updatedAt || '',
-      integration.orgId || '',
-      integration.scope || '',
-      integration.metadata?.templateId || ''
-    ]);
+      // Convert integrations to CSV rows
+      const csvRows = filteredIntegrations.map((integration) => [
+        integration.id || '',
+        integration.name || '',
+        integration.description || '',
+        integration.targetUrl || '',
+        integration.httpMethod || '',
+        integration.outgoingAuthType || integration.authType || '',
+        Array.isArray(integration.type) ? integration.type.join(';') : integration.type || '',
+        integration.isActive ? 'true' : 'false',
+        integration.timeoutMs || '',
+        integration.retryCount || '',
+        integration.transformationMode || '',
+        integration.createdAt || '',
+        integration.updatedAt || '',
+        integration.orgId || '',
+        integration.scope || '',
+        integration.metadata?.templateId || '',
+      ]);
 
-    // Build CSV content
-    const csvContent = [
-      headers.join(','),
-      ...csvRows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
-    ].join('\n');
+      // Build CSV content
+      const csvContent = [
+        headers.join(','),
+        ...csvRows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')),
+      ].join('\n');
 
-    // Set appropriate headers
-    res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', `attachment; filename="outbound-integrations-${new Date().toISOString().split('T')[0]}.csv"`);
+      // Set appropriate headers
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="outbound-integrations-${new Date().toISOString().split('T')[0]}.csv"`
+      );
 
-    res.send(csvContent);
+      res.send(csvContent);
+    } catch (error) {
+      log('error', 'Integration CSV export failed', {
+        orgId: req.orgId,
+        error: error.message,
+      });
 
-  } catch (error) {
-    log('error', 'Integration CSV export failed', {
-      orgId: req.orgId,
-      error: error.message
-    });
-
-    res.status(500).json({
-      error: 'CSV export failed',
-      code: 'CSV_EXPORT_ERROR'
-    });
-  }
-}));
+      res.status(500).json({
+        error: 'CSV export failed',
+        code: 'CSV_EXPORT_ERROR',
+      });
+    }
+  })
+);
 
 // Export templates as configuration
-router.get('/templates', asyncHandler(async (req, res) => {
-  try {
-    const { templateIds, includeCustom = false } = req.query;
+router.get(
+  '/templates',
+  asyncHandler(async (req, res) => {
+    try {
+      const { templateIds, includeCustom = false } = req.query;
 
-    const allTemplates = await templates.getAllTemplates(req.orgId);
-    let selectedTemplates = allTemplates;
+      const allTemplates = await templates.getAllTemplates(req.orgId);
+      let selectedTemplates = allTemplates;
 
-    if (templateIds) {
-      const requestedIds = templateIds.split(',').map(id => id.trim());
-      selectedTemplates = allTemplates.filter(template => requestedIds.includes(template.id));
+      if (templateIds) {
+        const requestedIds = templateIds.split(',').map((id) => id.trim());
+        selectedTemplates = allTemplates.filter((template) => requestedIds.includes(template.id));
+      }
+
+      // Filter out custom/inactive templates unless explicitly requested
+      if (includeCustom !== 'true') {
+        selectedTemplates = selectedTemplates.filter((template) => template.isActive);
+      }
+
+      const exportData = {
+        metadata: {
+          exportedAt: new Date().toISOString(),
+          exportedBy: req.user?.id || 'system',
+          format: 'templates',
+          version: '1.0',
+          totalTemplates: selectedTemplates.length,
+        },
+        templates: selectedTemplates.map((template) => ({
+          id: template.id,
+          name: template.name,
+          description: template.description,
+          category: template.category,
+          eventType: template.eventType,
+          targetUrl: template.targetUrl,
+          httpMethod: template.httpMethod,
+          authType: template.authType,
+          headers: template.headers,
+          timeoutMs: template.timeoutMs,
+          retryCount: template.retryCount,
+          transformationMode: template.transformationMode,
+          transformation: template.transformation,
+          metadata: template.metadata,
+        })),
+      };
+
+      // Set appropriate headers
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="templates-${new Date().toISOString().split('T')[0]}.json"`
+      );
+
+      res.json(exportData);
+    } catch (error) {
+      log('error', 'Template export failed', {
+        orgId: req.orgId,
+        error: error.message,
+      });
+
+      res.status(500).json({
+        error: 'Template export failed',
+        code: 'TEMPLATE_EXPORT_ERROR',
+      });
     }
-
-    // Filter out custom/inactive templates unless explicitly requested
-    if (includeCustom !== 'true') {
-      selectedTemplates = selectedTemplates.filter(template => template.isActive);
-    }
-
-    const exportData = {
-      metadata: {
-        exportedAt: new Date().toISOString(),
-        exportedBy: req.user?.id || 'system',
-        format: 'templates',
-        version: '1.0',
-        totalTemplates: selectedTemplates.length
-      },
-      templates: selectedTemplates.map(template => ({
-        id: template.id,
-        name: template.name,
-        description: template.description,
-        category: template.category,
-        eventType: template.eventType,
-        targetUrl: template.targetUrl,
-        httpMethod: template.httpMethod,
-        authType: template.authType,
-        headers: template.headers,
-        timeoutMs: template.timeoutMs,
-        retryCount: template.retryCount,
-        transformationMode: template.transformationMode,
-        transformation: template.transformation,
-        metadata: template.metadata
-      }))
-    };
-
-    // Set appropriate headers
-    res.setHeader('Content-Type', 'application/json');
-    res.setHeader('Content-Disposition', `attachment; filename="templates-${new Date().toISOString().split('T')[0]}.json"`);
-
-    res.json(exportData);
-
-  } catch (error) {
-    log('error', 'Template export failed', {
-      orgId: req.orgId,
-      error: error.message
-    });
-
-    res.status(500).json({
-      error: 'Template export failed',
-      code: 'TEMPLATE_EXPORT_ERROR'
-    });
-  }
-}));
+  })
+);
 
 // Import outbound integrations from JSON
-router.post('/outbound-integrations.json', asyncHandler(async (req, res) => {
-  try {
-    const {
-      importData,
-      options = {
-        validateFirst: true,
-        continueOnError: false,
-        updateExisting: false,
-        preserveIds: false,
-        activateImported: true
+router.post(
+  '/outbound-integrations.json',
+  asyncHandler(async (req, res) => {
+    try {
+      const {
+        importData,
+        options = {
+          validateFirst: true,
+          continueOnError: false,
+          updateExisting: false,
+          preserveIds: false,
+          activateImported: true,
+        },
+      } = req.body;
+
+      // Validate import data structure
+      if (!importData || !importData.integrations || !Array.isArray(importData.integrations)) {
+        return res.status(400).json({
+          error: 'Invalid import data format',
+          code: 'INVALID_IMPORT_FORMAT',
+        });
       }
-    } = req.body;
 
-    // Validate import data structure
-    if (!importData || !importData.integrations || !Array.isArray(importData.integrations)) {
-      return res.status(400).json({
-        error: 'Invalid import data format',
-        code: 'INVALID_IMPORT_FORMAT'
-      });
-    }
-
-    if (importData.integrations.length === 0) {
-      return res.status(400).json({
-        error: 'No integrations to import',
-        code: 'EMPTY_IMPORT'
-      });
-    }
-
-    if (importData.integrations.length > 100) {
-      return res.status(400).json({
-        error: 'Cannot import more than 100 integrations at once',
-        code: 'TOO_MANY_WEBHOOKS'
-      });
-    }
-
-    const results = {
-      successful: [],
-      failed: [],
-      updated: [],
-      skipped: [],
-      summary: {
-        total: importData.integrations.length,
-        successful: 0,
-        failed: 0,
-        updated: 0,
-        skipped: 0
+      if (importData.integrations.length === 0) {
+        return res.status(400).json({
+          error: 'No integrations to import',
+          code: 'EMPTY_IMPORT',
+        });
       }
-    };
 
-    // Process each integration
-    for (let i = 0; i < importData.integrations.length; i++) {
-      const importedIntegration = importData.integrations[i];
+      if (importData.integrations.length > 100) {
+        return res.status(400).json({
+          error: 'Cannot import more than 100 integrations at once',
+          code: 'TOO_MANY_WEBHOOKS',
+        });
+      }
 
-      try {
-        // Prepare integration for import
-        const integrationForImport = prepareIntegrationForImport(importedIntegration, options, req.orgId);
+      const results = {
+        successful: [],
+        failed: [],
+        updated: [],
+        skipped: [],
+        summary: {
+          total: importData.integrations.length,
+          successful: 0,
+          failed: 0,
+          updated: 0,
+          skipped: 0,
+        },
+      };
 
-        // Check if integration already exists
-        const existingIntegration = options.updateExisting && importedIntegration.id
-          ? await data.getIntegrationById(req.orgId, importedIntegration.id)
-          : null;
+      // Process each integration
+      for (let i = 0; i < importData.integrations.length; i++) {
+        const importedIntegration = importData.integrations[i];
 
-        if (existingIntegration) {
-          // Update existing integration
-          const updatedIntegration = await data.updateIntegration(
+        try {
+          // Prepare integration for import
+          const integrationForImport = prepareIntegrationForImport(importedIntegration, options, req.orgId);
+
+          // Check if integration already exists
+          const existingIntegration =
+            options.updateExisting && importedIntegration.id
+              ? await data.getIntegrationById(req.orgId, importedIntegration.id)
+              : null;
+
+          if (existingIntegration) {
+            // Update existing integration
+            const updatedIntegration = await data.updateIntegration(
+              req.orgId,
+              importedIntegration.id,
+              integrationForImport
+            );
+
+            if (updatedIntegration) {
+              results.updated.push({
+                index: i,
+                integrationId: importedIntegration.id,
+                integration: updatedIntegration,
+                action: 'updated',
+              });
+              results.summary.updated++;
+            } else {
+              results.failed.push({
+                index: i,
+                integrationId: importedIntegration.id,
+                error: 'Failed to update existing integration',
+              });
+              results.summary.failed++;
+            }
+          } else {
+            // Create new integration
+            const createdIntegration = await data.createIntegration(req.orgId, integrationForImport);
+
+            results.successful.push({
+              index: i,
+              integration: createdIntegration,
+              action: 'created',
+            });
+            results.summary.successful++;
+          }
+        } catch (error) {
+          results.failed.push({
+            index: i,
+            integration: importedIntegration,
+            error: error.message,
+          });
+          results.summary.failed++;
+
+          if (!options.continueOnError) {
+            break;
+          }
+        }
+      }
+
+      log('info', 'Integration import completed', {
+        orgId: req.orgId,
+        importFormat: 'json',
+        summary: results.summary,
+        importMetadata: importData.metadata,
+      });
+
+      await auditData.imported(req, 'integrations', results.summary);
+
+      res.status(200).json({
+        message: 'Import completed',
+        results,
+        importMetadata: importData.metadata,
+      });
+    } catch (error) {
+      log('error', 'Integration import failed', {
+        orgId: req.orgId,
+        error: error.message,
+      });
+
+      res.status(500).json({
+        error: 'Import failed',
+        code: 'IMPORT_ERROR',
+      });
+    }
+  })
+);
+
+// Import outbound integrations from templates
+router.post(
+  '/outbound-integrations.from-templates',
+  asyncHandler(async (req, res) => {
+    try {
+      const {
+        templateIntegrations,
+        options = {
+          validateFirst: true,
+          continueOnError: false,
+          activateAll: true,
+        },
+      } = req.body;
+
+      if (!Array.isArray(templateIntegrations)) {
+        return res.status(400).json({
+          error: 'templateIntegrations must be an array',
+          code: 'INVALID_INPUT',
+        });
+      }
+
+      if (templateIntegrations.length > 50) {
+        return res.status(400).json({
+          error: 'Cannot import more than 50 template integrations at once',
+          code: 'TOO_MANY_TEMPLATE_WEBHOOKS',
+        });
+      }
+
+      const results = {
+        successful: [],
+        failed: [],
+        summary: {
+          total: templateIntegrations.length,
+          successful: 0,
+          failed: 0,
+        },
+      };
+
+      // Process each template integration
+      for (let i = 0; i < templateIntegrations.length; i++) {
+        const { templateId, overrides = {} } = templateIntegrations[i];
+
+        if (!templateId) {
+          results.failed.push({
+            index: i,
+            error: 'templateId is required',
+          });
+          results.summary.failed++;
+          continue;
+        }
+
+        try {
+          // Validate template
+          const template = await templates.getTemplateById(req.orgId, templateId);
+          if (!template) {
+            throw new Error(`Template not found: ${templateId}`);
+          }
+
+          // Set active status from options
+          if (typeof options.activateAll === 'boolean') {
+            overrides.isActive = options.activateAll;
+          }
+
+          // Create integration from template
+          const __KEEP_integrationConfig__ = await templates.createIntegrationFromTemplate(
             req.orgId,
-            importedIntegration.id,
-            integrationForImport
+            templateId,
+            overrides
           );
 
-          if (updatedIntegration) {
-            results.updated.push({
-              index: i,
-              integrationId: importedIntegration.id,
-              integration: updatedIntegration,
-              action: 'updated'
-            });
-            results.summary.updated++;
-          } else {
-            results.failed.push({
-              index: i,
-              integrationId: importedIntegration.id,
-              error: 'Failed to update existing integration'
-            });
-            results.summary.failed++;
-          }
-        } else {
-          // Create new integration
-          const createdIntegration = await data.createIntegration(req.orgId, integrationForImport);
+          const createdIntegration = await data.createIntegration(req.orgId, __KEEP_integrationConfig__);
 
           results.successful.push({
             index: i,
+            templateId,
             integration: createdIntegration,
-            action: 'created'
+            action: 'created',
           });
           results.summary.successful++;
-        }
+        } catch (error) {
+          results.failed.push({
+            index: i,
+            templateId,
+            error: error.message,
+          });
+          results.summary.failed++;
 
-      } catch (error) {
-        results.failed.push({
-          index: i,
-          integration: importedIntegration,
-          error: error.message
-        });
-        results.summary.failed++;
-
-        if (!options.continueOnError) {
-          break;
+          if (!options.continueOnError) {
+            break;
+          }
         }
       }
-    }
 
-    log('info', 'Integration import completed', {
-      orgId: req.orgId,
-      importFormat: 'json',
-      summary: results.summary,
-      importMetadata: importData.metadata
-    });
+      log('info', 'Template integration import completed', {
+        orgId: req.orgId,
+        summary: results.summary,
+      });
 
-    await auditData.imported(req, 'integrations', results.summary);
+      await auditData.imported(req, 'template-integrations', results.summary);
 
-    res.status(200).json({
-      message: 'Import completed',
-      results,
-      importMetadata: importData.metadata
-    });
+      res.status(200).json({
+        message: 'Template import completed',
+        results,
+      });
+    } catch (error) {
+      log('error', 'Template integration import failed', {
+        orgId: req.orgId,
+        error: error.message,
+      });
 
-  } catch (error) {
-    log('error', 'Integration import failed', {
-      orgId: req.orgId,
-      error: error.message
-    });
-
-    res.status(500).json({
-      error: 'Import failed',
-      code: 'IMPORT_ERROR'
-    });
-  }
-}));
-
-// Import outbound integrations from templates
-router.post('/outbound-integrations.from-templates', asyncHandler(async (req, res) => {
-  try {
-    const {
-      templateIntegrations,
-      options = {
-        validateFirst: true,
-        continueOnError: false,
-        activateAll: true
-      }
-    } = req.body;
-
-    if (!Array.isArray(templateIntegrations)) {
-      return res.status(400).json({
-        error: 'templateIntegrations must be an array',
-        code: 'INVALID_INPUT'
+      res.status(500).json({
+        error: 'Template import failed',
+        code: 'TEMPLATE_IMPORT_ERROR',
       });
     }
-
-    if (templateIntegrations.length > 50) {
-      return res.status(400).json({
-        error: 'Cannot import more than 50 template integrations at once',
-        code: 'TOO_MANY_TEMPLATE_WEBHOOKS'
-      });
-    }
-
-    const results = {
-      successful: [],
-      failed: [],
-      summary: {
-        total: templateIntegrations.length,
-        successful: 0,
-        failed: 0
-      }
-    };
-
-    // Process each template integration
-    for (let i = 0; i < templateIntegrations.length; i++) {
-      const { templateId, overrides = {} } = templateIntegrations[i];
-
-      if (!templateId) {
-        results.failed.push({
-          index: i,
-          error: 'templateId is required'
-        });
-        results.summary.failed++;
-        continue;
-      }
-
-      try {
-        // Validate template
-        const template = await templates.getTemplateById(req.orgId, templateId);
-        if (!template) {
-          throw new Error(`Template not found: ${templateId}`);
-        }
-
-        // Set active status from options
-        if (typeof options.activateAll === 'boolean') {
-          overrides.isActive = options.activateAll;
-        }
-
-        // Create integration from template
-        const __KEEP_integrationConfig__ = await templates.createIntegrationFromTemplate(
-          req.orgId,
-          templateId,
-          overrides
-        );
-
-        const createdIntegration = await data.createIntegration(req.orgId, __KEEP_integrationConfig__);
-
-        results.successful.push({
-          index: i,
-          templateId,
-          integration: createdIntegration,
-          action: 'created'
-        });
-        results.summary.successful++;
-
-      } catch (error) {
-        results.failed.push({
-          index: i,
-          templateId,
-          error: error.message
-        });
-        results.summary.failed++;
-
-        if (!options.continueOnError) {
-          break;
-        }
-      }
-    }
-
-    log('info', 'Template integration import completed', {
-      orgId: req.orgId,
-      summary: results.summary
-    });
-
-    await auditData.imported(req, 'template-integrations', results.summary);
-
-    res.status(200).json({
-      message: 'Template import completed',
-      results
-    });
-
-  } catch (error) {
-    log('error', 'Template integration import failed', {
-      orgId: req.orgId,
-      error: error.message
-    });
-
-    res.status(500).json({
-      error: 'Template import failed',
-      code: 'TEMPLATE_IMPORT_ERROR'
-    });
-  }
-}));
+  })
+);
 
 // Validate import data without importing
 router.post('/validate', (req, res) => {
@@ -454,7 +478,7 @@ router.post('/validate', (req, res) => {
     if (!importData) {
       return res.status(400).json({
         error: 'No import data provided',
-        code: 'NO_DATA'
+        code: 'NO_DATA',
       });
     }
 
@@ -464,18 +488,17 @@ router.post('/validate', (req, res) => {
       valid: validation.valid,
       errors: validation.errors,
       warnings: validation.warnings,
-      summary: validation.summary
+      summary: validation.summary,
     });
-
   } catch (error) {
     log('error', 'Import validation failed', {
       orgId: req.orgId,
-      error: error.message
+      error: error.message,
     });
 
     res.status(500).json({
       error: 'Validation failed',
-      code: 'VALIDATION_ERROR'
+      code: 'VALIDATION_ERROR',
     });
   }
 });
@@ -496,7 +519,7 @@ function sanitizeIntegrationForExport(integration, includeSensitive = false, for
     headers: integration.headers,
     metadata: integration.metadata || {},
     createdAt: integration.createdAt,
-    updatedAt: integration.updatedAt
+    updatedAt: integration.updatedAt,
   };
 
   // Include ID for standard format
@@ -517,7 +540,7 @@ function sanitizeIntegrationForExport(integration, includeSensitive = false, for
       sanitized.transformation = {
         mode: integration.transformationMode,
         hasScript: !!integration.transformation.script,
-        scriptLength: integration.transformation.script?.length || 0
+        scriptLength: integration.transformation.script?.length || 0,
       };
     }
   }
@@ -589,7 +612,7 @@ function prepareIntegrationForImport(importedIntegration, options, orgId) {
     prepared.metadata = {
       ...prepared.metadata,
       importedAt: new Date().toISOString(),
-      importedFrom: 'bulk_import'
+      importedFrom: 'bulk_import',
     };
   }
 
@@ -636,8 +659,8 @@ function validateImportData(importData, format) {
     summary: {
       totalIntegrations: importData.integrations?.length || 0,
       format: format,
-      version: importData.metadata?.version || 'unknown'
-    }
+      version: importData.metadata?.version || 'unknown',
+    },
   };
 }
 

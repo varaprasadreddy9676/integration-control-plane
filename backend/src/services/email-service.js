@@ -10,8 +10,8 @@ const config = require('../config');
 const { log, logError } = require('../logger');
 
 // Communication service URL from config
-const COMMUNICATION_SERVICE_URL = config.communicationServiceUrl ||
-  'https://notification.example.com/notification-service/api/sendNotification';
+const COMMUNICATION_SERVICE_URL =
+  config.communicationServiceUrl || 'https://notification.example.com/notification-service/api/sendNotification';
 
 class EmailService {
   constructor() {
@@ -48,13 +48,15 @@ class EmailService {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Content-Length': Buffer.byteLength(body)
+            'Content-Length': Buffer.byteLength(body),
           },
-          timeout: timeoutMs
+          timeout: timeoutMs,
         },
         (res) => {
           let data = '';
-          res.on('data', (chunk) => { data += chunk; });
+          res.on('data', (chunk) => {
+            data += chunk;
+          });
           res.on('end', () => {
             resolve({ status: res.statusCode || 0, body: data });
           });
@@ -102,7 +104,7 @@ class EmailService {
           hospitalCode: hospitalCode || 'integration-gateway',
           corporateEntityCode: corporateEntityCode || 'integration-gateway',
           source: 'integrationGateway',
-        }
+        },
       };
 
       // Add attachment if provided (Gmail format: single base64 attachment)
@@ -118,7 +120,7 @@ class EmailService {
 
       log('info', '[EmailService] Communication service response', {
         status: response.status,
-        recipients: recipients.length
+        recipients: recipients.length,
       });
 
       if (response.status < 200 || response.status >= 300) {
@@ -128,7 +130,7 @@ class EmailService {
       let parsed = null;
       try {
         parsed = JSON.parse(response.body);
-      } catch (e) {
+      } catch (_e) {
         /* non-JSON response is acceptable */
       }
 
@@ -141,13 +143,13 @@ class EmailService {
       return {
         success: true,
         messageId: parsed?.messageId || `comm-service-${Date.now()}`,
-        recipients
+        recipients,
       };
     } catch (error) {
       await logError(error, { scope: 'EmailService', action: 'sendEmail' });
       return {
         success: false,
-        error: error.message
+        error: error.message,
       };
     }
   }
@@ -173,13 +175,13 @@ class EmailService {
     summary = {},
     hospitalCode,
     corporateEntityCode,
-    pdfBuffer
+    pdfBuffer,
   }) {
     const date = new Date().toLocaleDateString('en-US', {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
-      day: 'numeric'
+      day: 'numeric',
     });
 
     const subject = `Daily Dashboard Report - ${entityName} - ${date}`;
@@ -188,7 +190,7 @@ class EmailService {
       entityName,
       date,
       dashboardUrl,
-      summary
+      summary,
     });
 
     return this.sendEmail({
@@ -198,7 +200,7 @@ class EmailService {
       hospitalCode,
       corporateEntityCode,
       attachment: pdfBuffer,
-      attachmentName: pdfBuffer ? `Dashboard-${entityName}-${date}.pdf` : undefined
+      attachmentName: pdfBuffer ? `Dashboard-${entityName}-${date}.pdf` : undefined,
     });
   }
 
@@ -211,7 +213,7 @@ class EmailService {
       successfulDeliveries = 0,
       failedDeliveries = 0,
       successRate = 0,
-      avgLatency = 0
+      avgLatency = 0,
     } = summary;
 
     return `

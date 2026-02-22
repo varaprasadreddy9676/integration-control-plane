@@ -51,5 +51,5 @@ function initializeCommunicationAdapters() {
 }
 
 module.exports = {
-  initializeCommunicationAdapters
+  initializeCommunicationAdapters,
 };

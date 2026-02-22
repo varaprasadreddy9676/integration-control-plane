@@ -43,8 +43,7 @@ function quoteIdentifier(name, context = 'identifier') {
   }
   if (!/^[a-zA-Z_][a-zA-Z0-9_$]*$/.test(name)) {
     throw new Error(
-      `${context} "${name}" contains invalid characters. ` +
-      'Only letters, digits, underscores, and $ are allowed.'
+      `${context} "${name}" contains invalid characters. ` + 'Only letters, digits, underscores, and $ are allowed.'
     );
   }
   return `\`${name}\``;
@@ -65,15 +64,18 @@ function quoteIdentifier(name, context = 'identifier') {
 async function testConnection(type, sourceConfig) {
   log('info', 'Testing event source connection', { type });
   switch (type) {
-    case 'mysql':     return _testMysql(sourceConfig);
-    case 'kafka':     return _testKafka(sourceConfig);
-    case 'http_push': return _testHttpPush(sourceConfig);
+    case 'mysql':
+      return _testMysql(sourceConfig);
+    case 'kafka':
+      return _testKafka(sourceConfig);
+    case 'http_push':
+      return _testHttpPush(sourceConfig);
     default:
       return {
         success: false,
-        code:    'UNKNOWN_TYPE',
-        error:   `Unknown source type: "${type}"`,
-        hint:    'Use mysql, kafka, or http_push'
+        code: 'UNKNOWN_TYPE',
+        error: `Unknown source type: "${type}"`,
+        hint: 'Use mysql, kafka, or http_push',
       };
   }
 }
@@ -125,7 +127,12 @@ async function _testMysql(cfg) {
   try {
     quoteIdentifier(table || '', 'table');
   } catch (e) {
-    return { success: false, code: 'INVALID_TABLE', error: e.message, hint: 'Provide a valid table name using only letters, digits, and underscores' };
+    return {
+      success: false,
+      code: 'INVALID_TABLE',
+      error: e.message,
+      hint: 'Provide a valid table name using only letters, digits, and underscores',
+    };
   }
 
   if (columnMapping) {
@@ -133,7 +140,12 @@ async function _testMysql(cfg) {
       try {
         quoteIdentifier(colName, `columnMapping.${field}`);
       } catch (e) {
-        return { success: false, code: 'INVALID_COLUMN', error: e.message, hint: 'Column names must use only letters, digits, underscores, and $' };
+        return {
+          success: false,
+          code: 'INVALID_COLUMN',
+          error: e.message,
+          hint: 'Column names must use only letters, digits, underscores, and $',
+        };
       }
     }
   }
@@ -149,23 +161,23 @@ async function _testMysql(cfg) {
       if (!safeConfig.host || !safeConfig.user || !safeConfig.database) {
         return {
           success: false,
-          code:    'MISSING_CREDENTIALS',
-          error:   'host, user, and database are required when useSharedPool is false',
-          hint:    'Provide MySQL connection credentials or set useSharedPool: true'
+          code: 'MISSING_CREDENTIALS',
+          error: 'host, user, and database are required when useSharedPool is false',
+          hint: 'Provide MySQL connection credentials or set useSharedPool: true',
         };
       }
       const mysql = require('mysql2/promise');
       pool = mysql.createPool({
-        host:              safeConfig.host,
-        port:              safeConfig.port || 3306,
-        user:              safeConfig.user,
-        password:          safeConfig.password || '',
-        database:          safeConfig.database,
-        connectionLimit:   2,
-        queueLimit:        10,
+        host: safeConfig.host,
+        port: safeConfig.port || 3306,
+        user: safeConfig.user,
+        password: safeConfig.password || '',
+        database: safeConfig.database,
+        connectionLimit: 2,
+        queueLimit: 10,
         waitForConnections: true,
         namedPlaceholders: true,
-        connectTimeout:    TEST_TIMEOUT_MS
+        connectTimeout: TEST_TIMEOUT_MS,
       });
       ownPool = true;
     }
@@ -181,19 +193,19 @@ async function _testMysql(cfg) {
       'DESCRIBE table'
     );
 
-    const tableColumns = describeRows.map(r => r.Field);
-    const columnMeta   = describeRows.map(r => ({
-      name:     r.Field,
-      type:     r.Type,
+    const tableColumns = describeRows.map((r) => r.Field);
+    const columnMeta = describeRows.map((r) => ({
+      name: r.Field,
+      type: r.Type,
       nullable: r.Null === 'YES',
-      key:      r.Key || null,
-      default:  r.Default ?? null
+      key: r.Key || null,
+      default: r.Default ?? null,
     }));
-    const columnTypes = Object.fromEntries(describeRows.map(r => [r.Field, r.Type]));
+    const columnTypes = Object.fromEntries(describeRows.map((r) => [r.Field, r.Type]));
 
     // --- 5. Validate columnMapping fields against table schema ---
     const validatedMapping = {};
-    const missingColumns   = [];
+    const missingColumns = [];
 
     if (columnMapping) {
       for (const [field, colName] of Object.entries(columnMapping)) {
@@ -205,14 +217,14 @@ async function _testMysql(cfg) {
 
     if (missingColumns.length > 0) {
       return {
-        success:         false,
-        code:            'COLUMN_NOT_FOUND',
-        error:           `Column mapping mismatch: ${missingColumns.join(', ')}`,
-        hint:            'The listed columns were not found in the table. Check your columnMapping.',
+        success: false,
+        code: 'COLUMN_NOT_FOUND',
+        error: `Column mapping mismatch: ${missingColumns.join(', ')}`,
+        hint: 'The listed columns were not found in the table. Check your columnMapping.',
         tableColumns,
         columnMeta,
         columnTypes,
-        validatedMapping
+        validatedMapping,
       };
     }
 
@@ -236,15 +248,14 @@ async function _testMysql(cfg) {
     }
 
     return {
-      success:         true,
-      message:         `Connected to MySQL and verified table "${table}" (${tableColumns.length} columns)`,
+      success: true,
+      message: `Connected to MySQL and verified table "${table}" (${tableColumns.length} columns)`,
       tableColumns,
       columnMeta,
       columnTypes,
       validatedMapping,
-      sampleEvent
+      sampleEvent,
     };
-
   } catch (err) {
     return _classifyMysqlError(err);
   } finally {
@@ -256,28 +267,48 @@ async function _testMysql(cfg) {
 
 /** Classify a MySQL driver error into an actionable API response. */
 function _classifyMysqlError(err) {
-  const code    = err.code    || '';
+  const code = err.code || '';
   const message = err.message || String(err);
 
   if (code === 'ER_ACCESS_DENIED_ERROR') {
-    return { success: false, code: 'AUTH_FAILED',       error: message, hint: 'Check your MySQL username and password' };
+    return { success: false, code: 'AUTH_FAILED', error: message, hint: 'Check your MySQL username and password' };
   }
   if (code === 'ER_BAD_DB_ERROR') {
-    return { success: false, code: 'DB_NOT_FOUND',      error: message, hint: 'The specified database does not exist' };
+    return { success: false, code: 'DB_NOT_FOUND', error: message, hint: 'The specified database does not exist' };
   }
   if (code === 'ER_NO_SUCH_TABLE') {
-    return { success: false, code: 'TABLE_NOT_FOUND',   error: message, hint: 'The specified table does not exist. Check the table name.' };
+    return {
+      success: false,
+      code: 'TABLE_NOT_FOUND',
+      error: message,
+      hint: 'The specified table does not exist. Check the table name.',
+    };
   }
   if (code === 'ER_BAD_FIELD_ERROR') {
-    return { success: false, code: 'COLUMN_NOT_FOUND',  error: message, hint: 'A column in your mapping does not exist in the table' };
+    return {
+      success: false,
+      code: 'COLUMN_NOT_FOUND',
+      error: message,
+      hint: 'A column in your mapping does not exist in the table',
+    };
   }
   if (code === 'ECONNREFUSED' || code === 'ENOTFOUND') {
-    return { success: false, code: 'HOST_UNREACHABLE',  error: message, hint: 'Could not connect to MySQL host. Check host and port.' };
+    return {
+      success: false,
+      code: 'HOST_UNREACHABLE',
+      error: message,
+      hint: 'Could not connect to MySQL host. Check host and port.',
+    };
   }
   if (code === 'ETIMEDOUT' || message.includes('timed out')) {
-    return { success: false, code: 'TIMEOUT',           error: message, hint: 'Connection timed out. Verify the MySQL server is reachable.' };
+    return {
+      success: false,
+      code: 'TIMEOUT',
+      error: message,
+      hint: 'Connection timed out. Verify the MySQL server is reachable.',
+    };
   }
-  return   { success: false, code: 'UNKNOWN_ERROR',     error: message, hint: 'Check server logs for more details' };
+  return { success: false, code: 'UNKNOWN_ERROR', error: message, hint: 'Check server logs for more details' };
 }
 
 // ---------------------------------------------------------------------------
@@ -288,23 +319,28 @@ async function _testKafka(cfg) {
   const { brokers, topic, clientId } = cfg;
 
   if (!brokers || (Array.isArray(brokers) && brokers.length === 0)) {
-    return { success: false, code: 'MISSING_BROKERS', error: 'brokers array is required', hint: 'Provide at least one broker as host:port' };
+    return {
+      success: false,
+      code: 'MISSING_BROKERS',
+      error: 'brokers array is required',
+      hint: 'Provide at least one broker as host:port',
+    };
   }
 
   let admin = null;
   try {
     const { Kafka } = require('kafkajs');
     const kafka = new Kafka({
-      clientId:          clientId || 'event-gateway-tester',
-      brokers:           Array.isArray(brokers) ? brokers : [brokers],
+      clientId: clientId || 'event-gateway-tester',
+      brokers: Array.isArray(brokers) ? brokers : [brokers],
       connectionTimeout: TEST_TIMEOUT_MS,
-      requestTimeout:    TEST_TIMEOUT_MS
+      requestTimeout: TEST_TIMEOUT_MS,
     });
 
     admin = kafka.admin();
     await withTimeout(admin.connect(), TEST_TIMEOUT_MS, 'Kafka connect');
 
-    const topicList  = await withTimeout(admin.listTopics(), TEST_TIMEOUT_MS, 'Kafka listTopics');
+    const topicList = await withTimeout(admin.listTopics(), TEST_TIMEOUT_MS, 'Kafka listTopics');
     const topicExists = topic ? topicList.includes(topic) : null;
 
     let topicMeta = null;
@@ -318,14 +354,14 @@ async function _testKafka(cfg) {
       topicMeta = { name: t.name, partitions: t.partitions.length };
     }
 
-    const message = topicExists === false
-      ? `Connected to Kafka broker(s), but topic "${topic}" was not found`
-      : topicMeta
-        ? `Connected to Kafka — topic "${topic}" has ${topicMeta.partitions} partition(s)`
-        : 'Connected to Kafka broker(s) successfully';
+    const message =
+      topicExists === false
+        ? `Connected to Kafka broker(s), but topic "${topic}" was not found`
+        : topicMeta
+          ? `Connected to Kafka — topic "${topic}" has ${topicMeta.partitions} partition(s)`
+          : 'Connected to Kafka broker(s) successfully';
 
     return { success: true, message, topicExists, topicMeta, availableTopics: topicList };
-
   } catch (err) {
     return _classifyKafkaError(err);
   } finally {
@@ -336,10 +372,20 @@ async function _testKafka(cfg) {
 function _classifyKafkaError(err) {
   const message = err.message || String(err);
   if (message.includes('ECONNREFUSED') || message.includes('ENOTFOUND')) {
-    return { success: false, code: 'BROKER_UNREACHABLE', error: message, hint: 'Could not connect to Kafka broker. Check the address and port.' };
+    return {
+      success: false,
+      code: 'BROKER_UNREACHABLE',
+      error: message,
+      hint: 'Could not connect to Kafka broker. Check the address and port.',
+    };
   }
   if (message.includes('timed out') || message.includes('ETIMEDOUT')) {
-    return { success: false, code: 'TIMEOUT', error: message, hint: 'Connection to Kafka timed out. Verify the broker is reachable.' };
+    return {
+      success: false,
+      code: 'TIMEOUT',
+      error: message,
+      hint: 'Connection to Kafka timed out. Verify the broker is reachable.',
+    };
   }
   return { success: false, code: 'KAFKA_ERROR', error: message, hint: 'Check Kafka broker logs for details' };
 }
@@ -356,11 +402,17 @@ function _testHttpPush(cfg) {
     issues.push('webhookSecret must be a string');
   }
   if (issues.length > 0) {
-    return Promise.resolve({ success: false, code: 'INVALID_CONFIG', error: issues.join('; '), hint: 'Fix the configuration issues listed' });
+    return Promise.resolve({
+      success: false,
+      code: 'INVALID_CONFIG',
+      error: issues.join('; '),
+      hint: 'Fix the configuration issues listed',
+    });
   }
   return Promise.resolve({
     success: true,
-    message: 'HTTP Push configuration is valid. Events are received at POST /api/v1/events/push — no outbound connection to verify.'
+    message:
+      'HTTP Push configuration is valid. Events are received at POST /api/v1/events/push — no outbound connection to verify.',
   });
 }
 
@@ -388,46 +440,41 @@ async function _describeTable(sourceConfig) {
       if (!safeConfig.host || !safeConfig.user || !safeConfig.database) {
         return {
           success: false,
-          code:    'MISSING_CREDENTIALS',
-          error:   'No connection credentials found for this org',
-          hint:    'Configure dedicated MySQL credentials or set useSharedPool: true'
+          code: 'MISSING_CREDENTIALS',
+          error: 'No connection credentials found for this org',
+          hint: 'Configure dedicated MySQL credentials or set useSharedPool: true',
         };
       }
       const mysql = require('mysql2/promise');
       pool = mysql.createPool({
-        host:              safeConfig.host,
-        port:              safeConfig.port || 3306,
-        user:              safeConfig.user,
-        password:          safeConfig.password || '',
-        database:          safeConfig.database,
-        connectionLimit:   2,
-        queueLimit:        10,
+        host: safeConfig.host,
+        port: safeConfig.port || 3306,
+        user: safeConfig.user,
+        password: safeConfig.password || '',
+        database: safeConfig.database,
+        connectionLimit: 2,
+        queueLimit: 10,
         waitForConnections: true,
         namedPlaceholders: true,
-        connectTimeout:    TEST_TIMEOUT_MS
+        connectTimeout: TEST_TIMEOUT_MS,
       });
       ownPool = true;
     }
 
     const quotedTable = quoteIdentifier(table, 'table');
-    const [rows] = await withTimeout(
-      pool.execute(`DESCRIBE ${quotedTable}`),
-      TEST_TIMEOUT_MS,
-      'DESCRIBE'
-    );
+    const [rows] = await withTimeout(pool.execute(`DESCRIBE ${quotedTable}`), TEST_TIMEOUT_MS, 'DESCRIBE');
 
     return {
       success: true,
       table,
-      columns: rows.map(r => ({
-        name:     r.Field,
-        type:     r.Type,
+      columns: rows.map((r) => ({
+        name: r.Field,
+        type: r.Type,
         nullable: r.Null === 'YES',
-        key:      r.Key || null,
-        default:  r.Default ?? null
-      }))
+        key: r.Key || null,
+        default: r.Default ?? null,
+      })),
     };
-
   } catch (err) {
     return _classifyMysqlError(err);
   } finally {

@@ -7,8 +7,8 @@ const tenants = [
     timezone: 'America/New_York',
     childEntities: [
       { rid: 201, name: 'Nova Downtown', code: 'CLINIC-201' },
-      { rid: 202, name: 'Nova Midtown', code: 'CLINIC-202' }
-    ]
+      { rid: 202, name: 'Nova Midtown', code: 'CLINIC-202' },
+    ],
   },
   {
     orgId: 200,
@@ -16,8 +16,8 @@ const tenants = [
     tenantCode: 'ENT-200',
     region: 'US-West',
     timezone: 'America/Los_Angeles',
-    childEntities: [{ rid: 205, name: 'Orion SoMa', code: 'CLINIC-205' }]
-  }
+    childEntities: [{ rid: 205, name: 'Orion SoMa', code: 'CLINIC-205' }],
+  },
 ];
 
 const integrations = [
@@ -36,7 +36,7 @@ const integrations = [
     retryCount: 3,
     transformationMode: 'SIMPLE',
     isInherited: false,
-    updatedAt: '2024-02-20T10:12:00Z'
+    updatedAt: '2024-02-20T10:12:00Z',
   },
   {
     id: 'wh_2',
@@ -53,7 +53,7 @@ const integrations = [
     retryCount: 5,
     transformationMode: 'SCRIPT',
     isInherited: false,
-    updatedAt: '2024-02-18T09:00:00Z'
+    updatedAt: '2024-02-18T09:00:00Z',
   },
   {
     id: 'wh_3',
@@ -70,7 +70,7 @@ const integrations = [
     retryCount: 0,
     transformationMode: 'SIMPLE',
     isInherited: false,
-    updatedAt: '2024-02-10T13:45:00Z'
+    updatedAt: '2024-02-10T13:45:00Z',
   },
   {
     id: 'wh_4',
@@ -87,8 +87,8 @@ const integrations = [
     retryCount: 3,
     transformationMode: 'SIMPLE',
     isInherited: false,
-    updatedAt: '2024-02-15T08:30:00Z'
-  }
+    updatedAt: '2024-02-15T08:30:00Z',
+  },
 ];
 
 const deliveryLogs = Array.from({ length: 12 }).map((_, index) => {
@@ -108,9 +108,9 @@ const deliveryLogs = Array.from({ length: 12 }).map((_, index) => {
     errorMessage: status === 'SUCCESS' ? undefined : 'Endpoint timeout after 3s',
     requestPayload: {
       patientRID: 7890 + index,
-      billAmount: 120 + index * 5
+      billAmount: 120 + index * 5,
     },
-    responseBody: status === 'SUCCESS' ? 'OK' : undefined
+    responseBody: status === 'SUCCESS' ? 'OK' : undefined,
   };
 });
 
@@ -122,7 +122,7 @@ const apiKeys = [
     key: 'mdcs_dev_key_1f4a',
     isActive: true,
     createdAt: '2023-12-12T10:00:00Z',
-    lastUsedAt: '2024-02-21T11:22:00Z'
+    lastUsedAt: '2024-02-21T11:22:00Z',
   },
   {
     id: 'ak_2',
@@ -130,8 +130,8 @@ const apiKeys = [
     description: 'Ops Dashboard',
     key: 'mdcs_dev_key_0bb2',
     isActive: false,
-    createdAt: '2023-11-01T09:15:00Z'
-  }
+    createdAt: '2023-11-01T09:15:00Z',
+  },
 ];
 
 const eventTypes = [
@@ -141,7 +141,7 @@ const eventTypes = [
   'BILL_CREATED',
   'BILL_UPDATED',
   'PAYMENT_RECEIVED',
-  'INVENTORY_THRESHOLD'
+  'INVENTORY_THRESHOLD',
 ];
 
 module.exports = { tenants, integrations, deliveryLogs, apiKeys, eventTypes };

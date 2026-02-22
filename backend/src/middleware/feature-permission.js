@@ -18,12 +18,12 @@ function requireFeature(feature, operations, options = {}) {
   const ops = Array.isArray(operations) ? operations : [operations];
   const { requireAll = false } = options;
 
-  return async (req, res, next) => {
+  return async (req, _res, next) => {
     if (!req.user) {
       log('warn', 'Feature access denied: No user context', {
         path: req.path,
         feature,
-        operations: ops
+        operations: ops,
       });
       return next(new UnauthorizedError('Authentication required'));
     }
@@ -33,16 +33,12 @@ function requireFeature(feature, operations, options = {}) {
     try {
       if (requireAll) {
         // User must have ALL operations
-        const accessChecks = await Promise.all(
-          ops.map(op => hasFeatureAccess(req.user, feature, op))
-        );
-        hasAccess = accessChecks.every(check => check);
+        const accessChecks = await Promise.all(ops.map((op) => hasFeatureAccess(req.user, feature, op)));
+        hasAccess = accessChecks.every((check) => check);
       } else {
         // User must have AT LEAST ONE operation
-        const accessChecks = await Promise.all(
-          ops.map(op => hasFeatureAccess(req.user, feature, op))
-        );
-        hasAccess = accessChecks.some(check => check);
+        const accessChecks = await Promise.all(ops.map((op) => hasFeatureAccess(req.user, feature, op)));
+        hasAccess = accessChecks.some((check) => check);
       }
 
       if (!hasAccess) {
@@ -52,12 +48,10 @@ function requireFeature(feature, operations, options = {}) {
           feature,
           requiredOperations: ops,
           requireAll,
-          path: req.path
+          path: req.path,
         });
 
-        return next(new ForbiddenError(
-          `You do not have permission to ${ops.join('/')} ${feature}`
-        ));
+        return next(new ForbiddenError(`You do not have permission to ${ops.join('/')} ${feature}`));
       }
 
       // Access granted
@@ -67,7 +61,7 @@ function requireFeature(feature, operations, options = {}) {
         error: error.message,
         userId: req.user.id,
         feature,
-        operations: ops
+        operations: ops,
       });
       return next(new ForbiddenError('Permission check failed'));
     }
@@ -77,7 +71,7 @@ function requireFeature(feature, operations, options = {}) {
 /**
  * Require SUPER_ADMIN role
  */
-function requireSuperAdmin(req, res, next) {
+function requireSuperAdmin(req, _res, next) {
   if (!req.user) {
     return next(new UnauthorizedError('Authentication required'));
   }
@@ -86,7 +80,7 @@ function requireSuperAdmin(req, res, next) {
     log('warn', 'Super Admin required', {
       userId: req.user.id,
       userRole: req.user.role,
-      path: req.path
+      path: req.path,
     });
     return next(new ForbiddenError('Super Admin access required'));
   }
@@ -97,7 +91,7 @@ function requireSuperAdmin(req, res, next) {
 /**
  * Require ADMIN or SUPER_ADMIN role
  */
-function requireAdmin(req, res, next) {
+function requireAdmin(req, _res, next) {
   if (!req.user) {
     return next(new UnauthorizedError('Authentication required'));
   }
@@ -106,7 +100,7 @@ function requireAdmin(req, res, next) {
     log('warn', 'Admin required', {
       userId: req.user.id,
       userRole: req.user.role,
-      path: req.path
+      path: req.path,
     });
     return next(new ForbiddenError('Admin access required'));
   }
@@ -117,7 +111,7 @@ function requireAdmin(req, res, next) {
 /**
  * Require global scope (SUPER_ADMIN or ADMIN)
  */
-function requireGlobalScope(req, res, next) {
+function requireGlobalScope(req, _res, next) {
   if (!req.user) {
     return next(new UnauthorizedError('Authentication required'));
   }
@@ -126,7 +120,7 @@ function requireGlobalScope(req, res, next) {
     log('warn', 'Global scope required', {
       userId: req.user.id,
       userRole: req.user.role,
-      path: req.path
+      path: req.path,
     });
     return next(new ForbiddenError('Global access required'));
   }
@@ -139,14 +133,14 @@ function requireGlobalScope(req, res, next) {
  */
 const { getUserFeatures } = require('../rbac/features');
 
-async function attachFeatures(req, res, next) {
+async function attachFeatures(req, _res, next) {
   if (req.user) {
     try {
       req.userFeatures = await getUserFeatures(req.user);
     } catch (error) {
       log('error', 'Failed to attach user features', {
         error: error.message,
-        userId: req.user.id
+        userId: req.user.id,
       });
       // Continue anyway with empty features
       req.userFeatures = {};
@@ -160,5 +154,5 @@ module.exports = {
   requireSuperAdmin,
   requireAdmin,
   requireGlobalScope,
-  attachFeatures
+  attachFeatures,
 };

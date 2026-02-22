@@ -13,7 +13,7 @@ router.post('/', async (req, res) => {
 
     // Determine error category and source
     const errorCategory = category || 'unknown';
-    const errorSource = source || 'browser';  // 'browser' or 'server'
+    const errorSource = source || 'browser'; // 'browser' or 'server'
 
     // Log to app.log for immediate viewing (24 hours)
     log('error', `[${errorSource.toUpperCase()} ERROR - ${errorCategory}] ${message}`, {
@@ -26,7 +26,7 @@ router.post('/', async (req, res) => {
       category: errorCategory,
       source: errorSource,
       orgId,
-      entityParentRid: orgId
+      entityParentRid: orgId,
     });
 
     // Save to MongoDB for retention (30 days)
@@ -45,7 +45,7 @@ router.post('/', async (req, res) => {
         orgId,
         entityParentRid: orgId,
         timestamp: new Date(timestamp),
-        createdAt: new Date()
+        createdAt: new Date(),
       });
     } catch (dbErr) {
       console.error('Failed to save error to MongoDB:', dbErr);

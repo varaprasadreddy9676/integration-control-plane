@@ -55,9 +55,7 @@ function extractSecretBytes(secret) {
   }
 
   // Remove prefix if present
-  const base64Secret = secret.startsWith(SECRET_PREFIX)
-    ? secret.slice(SECRET_PREFIX.length)
-    : secret;
+  const base64Secret = secret.startsWith(SECRET_PREFIX) ? secret.slice(SECRET_PREFIX.length) : secret;
 
   // Decode base64 to bytes
   return Buffer.from(base64Secret, 'base64');
@@ -98,10 +96,7 @@ function signPayload(secret, messageId, timestamp, payload) {
     const signedContent = `${messageId}.${timestamp}.${payload}`;
 
     // Generate HMAC-SHA256 signature
-    const signature = crypto
-      .createHmac('sha256', secretBytes)
-      .update(signedContent, 'utf8')
-      .digest('base64');
+    const signature = crypto.createHmac('sha256', secretBytes).update(signedContent, 'utf8').digest('base64');
 
     // Format: v1,signature (Standard Integrations format)
     return `${SIGNATURE_VERSION},${signature}`;
@@ -109,7 +104,7 @@ function signPayload(secret, messageId, timestamp, payload) {
     log('error', 'Failed to sign integration payload', {
       error: error.message,
       messageId,
-      timestamp
+      timestamp,
     });
     throw error;
   }
@@ -131,7 +126,7 @@ function generateSignatureHeaders(secrets, messageId, timestamp, payload) {
     const secretsArray = Array.isArray(secrets) ? secrets : [secrets];
 
     // Filter out null/undefined secrets
-    const validSecrets = secretsArray.filter(s => s && s.trim());
+    const validSecrets = secretsArray.filter((s) => s?.trim());
 
     if (validSecrets.length === 0) {
       throw new Error('At least one valid secret is required');
@@ -139,21 +134,19 @@ function generateSignatureHeaders(secrets, messageId, timestamp, payload) {
 
     // Sign with all active secrets (for zero-downtime rotation)
     // Format: "v1,sig1 v1,sig2" (space-separated)
-    const signatures = validSecrets
-      .map(secret => signPayload(secret, messageId, timestamp, payload))
-      .join(' ');
+    const signatures = validSecrets.map((secret) => signPayload(secret, messageId, timestamp, payload)).join(' ');
 
     // Return Standard Integrations headers
     return {
       [HEADER_SIGNATURE]: signatures,
       [HEADER_TIMESTAMP]: timestamp.toString(),
-      [HEADER_ID]: messageId
+      [HEADER_ID]: messageId,
     };
   } catch (error) {
     log('error', 'Failed to generate signature headers', {
       error: error.message,
       messageId,
-      secretCount: Array.isArray(secrets) ? secrets.length : 1
+      secretCount: Array.isArray(secrets) ? secrets.length : 1,
     });
     throw error;
   }
@@ -185,7 +178,7 @@ function verifySignature(secret, messageId, timestamp, payload, signature, toler
         messageId,
         timestamp,
         age,
-        toleranceSeconds
+        toleranceSeconds,
       });
       return false;
     }
@@ -213,7 +206,7 @@ function verifySignature(secret, messageId, timestamp, payload, signature, toler
   } catch (error) {
     log('error', 'Signature verification error', {
       error: error.message,
-      messageId
+      messageId,
     });
     return false;
   }
@@ -409,7 +402,7 @@ func VerifyIntegration(secret string, headers map[string]string, rawBody string)
 
 // Example usage:
 secret := "${exampleSecret}"
-err := VerifyIntegration(secret, headers, requestBody)`
+err := VerifyIntegration(secret, headers, requestBody)`,
   };
 }
 
@@ -424,5 +417,5 @@ module.exports = {
   SECRET_PREFIX,
   HEADER_SIGNATURE,
   HEADER_TIMESTAMP,
-  HEADER_ID
+  HEADER_ID,
 };

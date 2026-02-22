@@ -21,13 +21,13 @@ const { log } = require('../../logger');
 // Comment out any channel you don't want to use
 const AVAILABLE_CHANNELS = [
   {
-    enabled: true,  // Set to false to disable without removing code
-    module: './channels/email'
+    enabled: true, // Set to false to disable without removing code
+    module: './channels/email',
   },
   {
-    enabled: false,  // Slack is disabled by default (not configured yet)
-    module: './channels/slack'
-  }
+    enabled: false, // Slack is disabled by default (not configured yet)
+    module: './channels/slack',
+  },
   // Add more channels here as needed:
   // {
   //   enabled: true,
@@ -67,12 +67,12 @@ function initializeChannels() {
 
       log('info', `Notification channel enabled: ${channel.displayName || channel.channelName}`, {
         channelName: channel.channelName,
-        description: channel.description
+        description: channel.description,
       });
     } catch (error) {
       log('error', `Failed to load notification channel: ${channelConfig.module}`, {
         error: error.message,
-        stack: error.stack
+        stack: error.stack,
       });
     }
   }
@@ -82,7 +82,7 @@ function initializeChannels() {
   return {
     registered: registeredCount,
     skipped: skippedCount,
-    channels: notificationManager.getRegisteredChannels()
+    channels: notificationManager.getRegisteredChannels(),
   };
 }
 
@@ -101,11 +101,11 @@ function getAvailableChannels() {
         displayName: channel.displayName || channel.channelName,
         description: channel.description || '',
         enabled: channelConfig.enabled,
-        registered: notificationManager.getRegisteredChannels().includes(channel.channelName)
+        registered: notificationManager.getRegisteredChannels().includes(channel.channelName),
       });
     } catch (error) {
       log('warn', `Failed to load channel metadata: ${channelConfig.module}`, {
-        error: error.message
+        error: error.message,
       });
     }
   }
@@ -116,5 +116,5 @@ function getAvailableChannels() {
 module.exports = {
   initializeChannels,
   getAvailableChannels,
-  AVAILABLE_CHANNELS
+  AVAILABLE_CHANNELS,
 };

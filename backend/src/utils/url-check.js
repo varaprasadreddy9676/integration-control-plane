@@ -10,7 +10,7 @@ const privateBlocks = [
   { cidr: '169.254.0.0/16' },
   { cidr: '::1/128' },
   { cidr: 'fc00::/7' },
-  { cidr: 'fe80::/10' }
+  { cidr: 'fe80::/10' },
 ];
 
 function ipToBuffer(ip) {
@@ -53,7 +53,7 @@ function validateTargetUrl(targetUrl, { enforceHttps = true, blockPrivateNetwork
   let parsed;
   try {
     parsed = new URL(targetUrl);
-  } catch (err) {
+  } catch (_err) {
     return { valid: false, reason: 'Invalid URL format' };
   }
 

@@ -19,8 +19,8 @@
  */
 function fixTrailingCommas(text) {
   return text
-    .replace(/,(\s*[}\]])/g, '$1')  // trailing comma before closing bracket
-    .replace(/,\s*$/g, '');          // trailing comma at end of string
+    .replace(/,(\s*[}\]])/g, '$1') // trailing comma before closing bracket
+    .replace(/,\s*$/g, ''); // trailing comma at end of string
 }
 
 /**
@@ -33,26 +33,38 @@ function fixTrailingCommas(text) {
  * @returns {object|Array|null}
  */
 function extractByBracket(text, arrayExpected) {
-  const openChar  = arrayExpected ? '[' : '{';
+  const openChar = arrayExpected ? '[' : '{';
   const closeChar = arrayExpected ? ']' : '}';
 
   const startIdx = text.indexOf(openChar);
   if (startIdx === -1) return null;
 
-  let depth    = 0;
+  let depth = 0;
   let inString = false;
-  let escape   = false;
+  let escape = false;
 
   for (let i = startIdx; i < text.length; i++) {
     const ch = text[i];
 
-    if (escape)             { escape = false; continue; }
-    if (ch === '\\' && inString) { escape = true;  continue; }
-    if (ch === '"')         { inString = !inString; continue; }
-    if (inString)           { continue; }
+    if (escape) {
+      escape = false;
+      continue;
+    }
+    if (ch === '\\' && inString) {
+      escape = true;
+      continue;
+    }
+    if (ch === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) {
+      continue;
+    }
 
-    if      (ch === openChar)  { depth++; }
-    else if (ch === closeChar) {
+    if (ch === openChar) {
+      depth++;
+    } else if (ch === closeChar) {
       depth--;
       if (depth === 0) {
         const candidate = text.slice(startIdx, i + 1);
@@ -91,9 +103,11 @@ function extractJson(text, arrayExpected = false) {
   // ── 1. Try direct parse (cleanest case – provider returned pure JSON) ────────
   try {
     const parsed = JSON.parse(trimmed);
-    const ok = arrayExpected ? Array.isArray(parsed) : (typeof parsed === 'object' && parsed !== null);
+    const ok = arrayExpected ? Array.isArray(parsed) : typeof parsed === 'object' && parsed !== null;
     if (ok) return parsed;
-  } catch (_) { /* fall through */ }
+  } catch (_) {
+    /* fall through */
+  }
 
   // ── 2. Try every markdown code block ─────────────────────────────────────────
   // Matches ```json, ```javascript, ```, etc.
@@ -103,15 +117,17 @@ function extractJson(text, arrayExpected = false) {
     const candidate = match[1].trim();
     try {
       const parsed = JSON.parse(candidate);
-      const ok = arrayExpected ? Array.isArray(parsed) : (typeof parsed === 'object' && parsed !== null);
+      const ok = arrayExpected ? Array.isArray(parsed) : typeof parsed === 'object' && parsed !== null;
       if (ok) return parsed;
     } catch (_) {
       // Try with trailing-comma repair
       try {
         const parsed = JSON.parse(fixTrailingCommas(candidate));
-        const ok = arrayExpected ? Array.isArray(parsed) : (typeof parsed === 'object' && parsed !== null);
+        const ok = arrayExpected ? Array.isArray(parsed) : typeof parsed === 'object' && parsed !== null;
         if (ok) return parsed;
-      } catch (_2) { /* try next code block */ }
+      } catch (_2) {
+        /* try next code block */
+      }
     }
   }
 

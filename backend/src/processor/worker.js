@@ -7,7 +7,7 @@
  */
 
 const config = require('../config');
-const data = require('../data');
+const _data = require('../data');
 const mongodb = require('../mongodb');
 const { log, logError } = require('../logger');
 const { updateHeartbeat } = require('../worker-heartbeat');
@@ -28,7 +28,7 @@ function startDeliveryWorker() {
 
   // Start per-org adapter manager (MySQL / Kafka / HTTP Push)
   const manager = getDeliveryWorkerManager();
-  manager.start().catch(err => {
+  manager.start().catch((err) => {
     logError(err, { scope: 'DeliveryWorkerManager.start' });
   });
 
@@ -52,14 +52,15 @@ function startDeliveryWorker() {
   let watchdogTimer = null;
   if (config.eventAudit?.enabled && config.eventAudit?.watchdogEnabled) {
     const watchdogIntervalMs = config.eventAudit?.watchdogIntervalMs || 300_000;
-    const stuckThresholdMs   = config.eventAudit?.stuckThresholdMs   || 300_000;
+    const stuckThresholdMs = config.eventAudit?.stuckThresholdMs || 300_000;
 
     watchdogTimer = setInterval(async () => {
       try {
         const stuckThreshold = new Date(Date.now() - stuckThresholdMs);
         const dbClient = await mongodb.getDbSafe();
 
-        const stuckEvents = await dbClient.collection('event_audit')
+        const stuckEvents = await dbClient
+          .collection('event_audit')
           .find({ status: 'PROCESSING', processingStartedAt: { $lt: stuckThreshold } })
           .toArray();
 
@@ -77,14 +78,15 @@ function startDeliveryWorker() {
                 skipReason: `Stuck in PROCESSING for more than ${stuckThresholdMs / 1000}s`,
                 errorMessage: `Stuck in PROCESSING for more than ${stuckThresholdMs / 1000} seconds`,
                 processingCompletedAt: new Date(),
-                processingTimeMs: Date.now() - new Date(event.processingStartedAt).getTime()
+                processingTimeMs: Date.now() - new Date(event.processingStartedAt).getTime(),
               },
               $push: {
                 timeline: {
-                  ts: new Date(), stage: 'STUCK',
-                  details: `Stuck in PROCESSING for more than ${stuckThresholdMs / 1000} seconds`
-                }
-              }
+                  ts: new Date(),
+                  stage: 'STUCK',
+                  details: `Stuck in PROCESSING for more than ${stuckThresholdMs / 1000} seconds`,
+                },
+              },
             }
           );
         }
@@ -112,7 +114,7 @@ function startDeliveryWorker() {
 module.exports = {
   startDeliveryWorker,
   replayEvent,
-  startPendingDeliveriesWorker
+  startPendingDeliveriesWorker,
 };
 
 // Exported for tests only
@@ -124,5 +126,5 @@ module.exports.__test = {
   isEventProcessed: eventDedup.isEventProcessed,
   markEventProcessed: eventDedup.markEventProcessed,
   cleanupDedupCache: eventDedup.cleanupDedupCache,
-  _processedEvents: eventDedup.getProcessedEventsMap()
+  _processedEvents: eventDedup.getProcessedEventsMap(),
 };

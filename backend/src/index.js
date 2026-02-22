@@ -1,5 +1,5 @@
 if (!Object.hasOwn) {
-  Object.hasOwn = (obj, prop) => Object.prototype.hasOwnProperty.call(obj, prop);
+  Object.hasOwn = (obj, prop) => Object.hasOwn(obj, prop);
 }
 
 const express = require('express');
@@ -85,7 +85,7 @@ async function bootstrap() {
 
   // Pre-warm the system prompt cache from DB (non-blocking)
   const { initSystemPromptCache } = require('./services/ai/prompts/system-context');
-  initSystemPromptCache().catch(() => {});  // silent — falls back to hardcoded default
+  initSystemPromptCache().catch(() => {}); // silent — falls back to hardcoded default
 
   const app = express();
   app.disable('x-powered-by');
@@ -95,7 +95,7 @@ async function bootstrap() {
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'X-API-Key', 'Authorization'],
-      exposedHeaders: ['X-Request-Id', 'X-Total-Count']
+      exposedHeaders: ['X-Request-Id', 'X-Total-Count'],
     })
   );
   app.use(express.json({ limit: '1mb' }));
@@ -112,56 +112,56 @@ async function bootstrap() {
   app.use(`${config.api.basePrefix}/admin`, auth, adminRouter);
 
   app.get('/health', async (req, res) => {
-  try {
-    const { checkWorkers } = require('./worker-heartbeat');
+    try {
+      const { checkWorkers } = require('./worker-heartbeat');
 
-    // Get orgId from auth middleware if present, otherwise use default
-    const orgId = req.orgId || req.entityParentRid || 1;
+      // Get orgId from auth middleware if present, otherwise use default
+      const orgId = req.orgId || req.entityParentRid || 1;
 
-    const healthStatus = await healthMonitor.getSystemHealth(orgId);
-    const workerStatus = checkWorkers();
-    const mysqlAvailable = data.isMysqlAvailable();
+      const healthStatus = await healthMonitor.getSystemHealth(orgId);
+      const workerStatus = checkWorkers();
+      const mysqlAvailable = data.isMysqlAvailable();
 
-    // Check if workers are frozen
-    const workersAlive = workerStatus.deliveryWorker.alive && workerStatus.schedulerWorker.alive;
+      // Check if workers are frozen
+      const workersAlive = workerStatus.deliveryWorker.alive && workerStatus.schedulerWorker.alive;
 
-    // Set appropriate HTTP status based on health AND worker status
-    let statusCode = 200;
-    let overallStatus = healthStatus.status;
+      // Set appropriate HTTP status based on health AND worker status
+      let statusCode = 200;
+      let overallStatus = healthStatus.status;
 
-    // MySQL unavailability is a warning, not a critical failure (API/UI still work)
-    if (!mysqlAvailable && overallStatus === 'ok') {
-      overallStatus = 'degraded';
-    }
-
-    if (!workersAlive) {
-      statusCode = 503; // Service Unavailable - workers frozen
-      overallStatus = 'critical';
-    } else if (healthStatus.status === 'critical') {
-      statusCode = 503;
-    } else if (healthStatus.status === 'error') {
-      statusCode = 500;
-    }
-
-    res.status(statusCode).json({
-      ...healthStatus,
-      status: overallStatus,
-      workers: workerStatus,
-      mysql: {
-        available: mysqlAvailable,
-        status: mysqlAvailable ? 'connected' : 'disconnected',
-        note: mysqlAvailable ? null : 'Delivery worker disabled until MySQL reconnects'
+      // MySQL unavailability is a warning, not a critical failure (API/UI still work)
+      if (!mysqlAvailable && overallStatus === 'ok') {
+        overallStatus = 'degraded';
       }
-    });
-  } catch (err) {
-    logError(err, { scope: 'health endpoint' });
-    res.status(500).json({
-      status: 'error',
-      timestamp: new Date().toISOString(),
-      error: 'Health check failed'
-    });
-  }
-});
+
+      if (!workersAlive) {
+        statusCode = 503; // Service Unavailable - workers frozen
+        overallStatus = 'critical';
+      } else if (healthStatus.status === 'critical') {
+        statusCode = 503;
+      } else if (healthStatus.status === 'error') {
+        statusCode = 500;
+      }
+
+      res.status(statusCode).json({
+        ...healthStatus,
+        status: overallStatus,
+        workers: workerStatus,
+        mysql: {
+          available: mysqlAvailable,
+          status: mysqlAvailable ? 'connected' : 'disconnected',
+          note: mysqlAvailable ? null : 'Delivery worker disabled until MySQL reconnects',
+        },
+      });
+    } catch (err) {
+      logError(err, { scope: 'health endpoint' });
+      res.status(500).json({
+        status: 'error',
+        timestamp: new Date().toISOString(),
+        error: 'Health check failed',
+      });
+    }
+  });
 
   app.use(`${config.api.basePrefix}/outbound-integrations`, auth, outboundIntegrationsRouter);
   app.use(`${config.api.basePrefix}/inbound-integrations`, auth, inboundIntegrationsRouter);
@@ -204,7 +204,7 @@ async function bootstrap() {
     const memoryMonitor = new MemoryMonitor({
       heapThresholdMB: config.memory?.heapThresholdMB || undefined, // Auto-detect if not configured
       checkIntervalMs: config.memory?.checkIntervalMs || 60000, // Check every minute
-      gracefulShutdown: config.memory?.gracefulShutdown !== false // Default true
+      gracefulShutdown: config.memory?.gracefulShutdown !== false, // Default true
     });
     memoryMonitor.start();
 

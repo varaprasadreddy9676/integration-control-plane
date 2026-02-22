@@ -7,7 +7,7 @@ const POOL_LIMITS = Object.freeze({
     defaultConnectionLimit: 10,
     minQueueLimit: 0,
     maxQueueLimit: 200,
-    defaultQueueLimit: 50
+    defaultQueueLimit: 50,
   }),
   dedicated: Object.freeze({
     minConnectionLimit: 1,
@@ -15,8 +15,8 @@ const POOL_LIMITS = Object.freeze({
     defaultConnectionLimit: 3,
     minQueueLimit: 0,
     maxQueueLimit: 50,
-    defaultQueueLimit: 20
-  })
+    defaultQueueLimit: 20,
+  }),
 });
 
 const SOURCE_LIMITS = Object.freeze({
@@ -28,7 +28,7 @@ const SOURCE_LIMITS = Object.freeze({
   defaultBatchSize: 10,
   minDbTimeoutMs: 1000,
   maxDbTimeoutMs: 120000,
-  defaultDbTimeoutMs: 30000
+  defaultDbTimeoutMs: 30000,
 });
 
 function toInt(value) {
@@ -59,12 +59,7 @@ function sanitizePoolConfig(input = {}, mode = 'shared') {
       limits.maxConnectionLimit,
       limits.defaultConnectionLimit
     ),
-    queueLimit: clampInt(
-      input.queueLimit,
-      limits.minQueueLimit,
-      limits.maxQueueLimit,
-      limits.defaultQueueLimit
-    )
+    queueLimit: clampInt(input.queueLimit, limits.minQueueLimit, limits.maxQueueLimit, limits.defaultQueueLimit),
   };
 }
 
@@ -98,7 +93,7 @@ function sanitizeMysqlSourceConfig(sourceConfig = {}) {
     queueLimit: dedicatedPool.queueLimit,
     ...(pollIntervalMs !== undefined ? { pollIntervalMs } : {}),
     ...(batchSize !== undefined ? { batchSize } : {}),
-    ...(dbTimeoutMs !== undefined ? { dbTimeoutMs } : {})
+    ...(dbTimeoutMs !== undefined ? { dbTimeoutMs } : {}),
   };
 }
 
@@ -106,5 +101,5 @@ module.exports = {
   POOL_LIMITS,
   SOURCE_LIMITS,
   sanitizePoolConfig,
-  sanitizeMysqlSourceConfig
+  sanitizeMysqlSourceConfig,
 };

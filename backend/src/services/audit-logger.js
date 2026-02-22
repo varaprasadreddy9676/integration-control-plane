@@ -82,8 +82,8 @@ const ACTION_TYPES = {
 
   // Event source configuration
   EVENT_SOURCE_CONFIGURED: 'event_source_configured',
-  EVENT_SOURCE_DELETED:    'event_source_deleted',
-  EVENT_SOURCE_TESTED:     'event_source_tested',
+  EVENT_SOURCE_DELETED: 'event_source_deleted',
+  EVENT_SOURCE_TESTED: 'event_source_tested',
 
   // Configuration
   CONFIG_UPDATED: 'config_updated',
@@ -110,7 +110,7 @@ const ACTION_TYPES = {
   READ: 'read',
   CREATE: 'create',
   UPDATE: 'update',
-  DELETE: 'delete'
+  DELETE: 'delete',
 };
 
 // Resource types
@@ -132,7 +132,7 @@ const RESOURCE_TYPES = {
   SCHEDULED_JOB: 'scheduled_job',
   SCHEDULED_INTEGRATION: 'scheduled_integration',
   ALERT: 'alert',
-  EVENT_SOURCE: 'event_source'
+  EVENT_SOURCE: 'event_source',
 };
 
 /**
@@ -163,7 +163,7 @@ function buildSearchableText(auditLog) {
       if (auditLog.changes.after) {
         searchParts.push(JSON.stringify(auditLog.changes.after));
       }
-    } catch (err) {
+    } catch (_err) {
       // Ignore JSON stringify errors
     }
   }
@@ -172,7 +172,7 @@ function buildSearchableText(auditLog) {
   if (auditLog.metadata && Object.keys(auditLog.metadata).length > 0) {
     try {
       searchParts.push(JSON.stringify(auditLog.metadata));
-    } catch (err) {
+    } catch (_err) {
       // Ignore JSON stringify errors
     }
   }
@@ -206,7 +206,7 @@ async function logAudit({
   ipAddress = null,
   userAgent = null,
   success = true,
-  errorMessage = null
+  errorMessage = null,
 }) {
   try {
     const db = await mongodb.getDbSafe();
@@ -226,10 +226,12 @@ async function logAudit({
       orgId: orgId || user?.orgId || null,
 
       // Changes tracking
-      changes: changes ? {
-        before: changes.before || null,
-        after: changes.after || null
-      } : null,
+      changes: changes
+        ? {
+            before: changes.before || null,
+            after: changes.after || null,
+          }
+        : null,
 
       // Additional context
       metadata: metadata || {},
@@ -240,7 +242,7 @@ async function logAudit({
 
       // Status
       success,
-      errorMessage
+      errorMessage,
     };
 
     // Build searchable text field for fast full-text search
@@ -254,7 +256,7 @@ async function logAudit({
         resourceType,
         resourceId,
         userId: auditLog.userId,
-        success
+        success,
       });
     }
   } catch (error) {
@@ -262,7 +264,7 @@ async function logAudit({
     log('error', 'Failed to write audit log', {
       error: error.message,
       action,
-      resourceType
+      resourceType,
     });
   }
 }
@@ -327,29 +329,20 @@ async function queryAuditLogs(filters = {}) {
     query.$text = { $search: searchTerm };
   }
 
-  const page = parseInt(filters.page) || 1;
-  const limit = parseInt(filters.limit) || 50;
+  const page = parseInt(filters.page, 10) || 1;
+  const limit = parseInt(filters.limit, 10) || 50;
   const skip = (page - 1) * limit;
 
   // Build sort order - if using text search, include text score
-  const sortOrder = filters.search
-    ? { score: { $meta: 'textScore' }, timestamp: -1 }
-    : { timestamp: -1 };
+  const sortOrder = filters.search ? { score: { $meta: 'textScore' }, timestamp: -1 } : { timestamp: -1 };
 
   // If using text search, project the text score for better ranking
-  const projection = filters.search
-    ? { score: { $meta: 'textScore' } }
-    : {};
+  const projection = filters.search ? { score: { $meta: 'textScore' } } : {};
 
   try {
     const [logs, total] = await Promise.all([
-      db.collection('audit_logs')
-        .find(query, { projection })
-        .sort(sortOrder)
-        .skip(skip)
-        .limit(limit)
-        .toArray(),
-      db.collection('audit_logs').countDocuments(query)
+      db.collection('audit_logs').find(query, { projection }).sort(sortOrder).skip(skip).limit(limit).toArray(),
+      db.collection('audit_logs').countDocuments(query),
     ]);
 
     return {
@@ -358,14 +351,14 @@ async function queryAuditLogs(filters = {}) {
         page,
         limit,
         total,
-        totalPages: Math.ceil(total / limit)
-      }
+        totalPages: Math.ceil(total / limit),
+      },
     };
   } catch (error) {
     // If text search fails (no index), fall back to regex search
     if (error.code === 27 || error.message?.includes('text index')) {
       log('warn', 'Text index not available, falling back to regex search', {
-        search: filters.search
+        search: filters.search,
       });
 
       // Remove $text and use comprehensive regex search instead
@@ -381,18 +374,13 @@ async function queryAuditLogs(filters = {}) {
           { ipAddress: { $regex: searchTerm, $options: 'i' } },
           { userRole: { $regex: searchTerm, $options: 'i' } },
           { userId: { $regex: searchTerm, $options: 'i' } },
-          { searchableText: { $regex: searchTerm, $options: 'i' } }
+          { searchableText: { $regex: searchTerm, $options: 'i' } },
         ];
       }
 
       const [logs, total] = await Promise.all([
-        db.collection('audit_logs')
-          .find(query)
-          .sort({ timestamp: -1 })
-          .skip(skip)
-          .limit(limit)
-          .toArray(),
-        db.collection('audit_logs').countDocuments(query)
+        db.collection('audit_logs').find(query).sort({ timestamp: -1 }).skip(skip).limit(limit).toArray(),
+        db.collection('audit_logs').countDocuments(query),
       ]);
 
       return {
@@ -401,8 +389,8 @@ async function queryAuditLogs(filters = {}) {
           page,
           limit,
           total,
-          totalPages: Math.ceil(total / limit)
-        }
+          totalPages: Math.ceil(total / limit),
+        },
       };
     }
     throw error;
@@ -426,38 +414,39 @@ async function getAuditStats(filters = {}) {
     query.orgId = filters.orgId;
   }
 
-  const [
-    totalLogs,
-    failedActions,
-    actionsByType,
-    topUsers
-  ] = await Promise.all([
+  const [totalLogs, failedActions, actionsByType, topUsers] = await Promise.all([
     db.collection('audit_logs').countDocuments(query),
     db.collection('audit_logs').countDocuments({ ...query, success: false }),
-    db.collection('audit_logs').aggregate([
-      { $match: query },
-      { $group: { _id: '$action', count: { $sum: 1 } } },
-      { $sort: { count: -1 } },
-      { $limit: 10 }
-    ]).toArray(),
-    db.collection('audit_logs').aggregate([
-      { $match: query },
-      { $group: { _id: { userId: '$userId', userEmail: '$userEmail' }, count: { $sum: 1 } } },
-      { $sort: { count: -1 } },
-      { $limit: 10 }
-    ]).toArray()
+    db
+      .collection('audit_logs')
+      .aggregate([
+        { $match: query },
+        { $group: { _id: '$action', count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+        { $limit: 10 },
+      ])
+      .toArray(),
+    db
+      .collection('audit_logs')
+      .aggregate([
+        { $match: query },
+        { $group: { _id: { userId: '$userId', userEmail: '$userEmail' }, count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+        { $limit: 10 },
+      ])
+      .toArray(),
   ]);
 
   return {
     totalLogs,
     failedActions,
-    successRate: totalLogs > 0 ? ((totalLogs - failedActions) / totalLogs * 100).toFixed(2) : 100,
-    actionsByType: actionsByType.map(a => ({ action: a._id, count: a.count })),
-    topUsers: topUsers.map(u => ({
+    successRate: totalLogs > 0 ? (((totalLogs - failedActions) / totalLogs) * 100).toFixed(2) : 100,
+    actionsByType: actionsByType.map((a) => ({ action: a._id, count: a.count })),
+    topUsers: topUsers.map((u) => ({
       userId: u._id.userId,
       userEmail: u._id.userEmail,
-      count: u.count
-    }))
+      count: u.count,
+    })),
   };
 }
 
@@ -469,14 +458,16 @@ async function ensureAuditIndexes() {
     const db = await mongodb.getDbSafe();
 
     // Create regular indexes for filtering
-    await db.collection('audit_logs').createIndexes([
-      { key: { timestamp: -1 } },
-      { key: { userId: 1 } },
-      { key: { action: 1 } },
-      { key: { resourceType: 1 } },
-      { key: { orgId: 1 } },
-      { key: { success: 1 } }
-    ]);
+    await db
+      .collection('audit_logs')
+      .createIndexes([
+        { key: { timestamp: -1 } },
+        { key: { userId: 1 } },
+        { key: { action: 1 } },
+        { key: { resourceType: 1 } },
+        { key: { orgId: 1 } },
+        { key: { success: 1 } },
+      ]);
 
     // Create text index for full-text search across all searchable content
     // This enables fast searching through all fields including changes and metadata
@@ -486,7 +477,7 @@ async function ensureAuditIndexes() {
         {
           name: 'audit_fulltext_search',
           background: true,
-          default_language: 'english'
+          default_language: 'english',
         }
       );
       log('info', 'Audit log indexes created including full-text search index');
@@ -496,7 +487,7 @@ async function ensureAuditIndexes() {
         log('info', 'Audit log text index already exists');
       } else {
         log('warn', 'Failed to create text index, regex search will be used as fallback', {
-          error: textIndexError.message
+          error: textIndexError.message,
         });
       }
     }
@@ -511,5 +502,5 @@ module.exports = {
   getAuditStats,
   ensureAuditIndexes,
   ACTION_TYPES,
-  RESOURCE_TYPES
+  RESOURCE_TYPES,
 };

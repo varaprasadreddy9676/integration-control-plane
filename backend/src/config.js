@@ -13,7 +13,7 @@ const defaultConfig = {
     password: '',
     database: '',
     connectionLimit: 10,
-    queueLimit: 50 // Max queued connection requests (prevents memory bloat)
+    queueLimit: 50, // Max queued connection requests (prevents memory bloat)
     // Note: mysql2 doesn't support acquireTimeout, idleTimeout, maxIdle
     // Pool limits controlled via connectionLimit + queueLimit only
   },
@@ -22,12 +22,12 @@ const defaultConfig = {
     blockPrivateNetworks: true,
     apiKey: 'mdcs_dev_key_1f4a',
     jwtSecret: 'change_me_dev_jwt_secret',
-    jwtExpiresIn: '12h'
+    jwtExpiresIn: '12h',
   },
   eventSource: {
     // Optional global default. Leave unset to rely only on per-org
     // configuration from event_source_configs.
-    type: undefined
+    type: undefined,
   },
   kafka: {
     brokers: ['localhost:9092'],
@@ -38,7 +38,7 @@ const defaultConfig = {
     sessionTimeout: 30000,
     heartbeatInterval: 3000,
     maxBytesPerPartition: 26214400, // 25MB
-    autoCommit: false
+    autoCommit: false,
   },
   worker: {
     enabled: true,
@@ -52,13 +52,13 @@ const defaultConfig = {
     dbOperationTimeoutMs: 30000,
     retryIntervalMs: 60000, // Interval for retry processor (default: 60000ms = 1 minute)
     retryBatchSize: 3,
-    maxRetryProcessingTimeMs: 120000
+    maxRetryProcessingTimeMs: 120000,
   },
   scheduler: {
     enabled: true,
     intervalMs: 60000,
     batchSize: 10,
-    dbOperationTimeoutMs: 30000
+    dbOperationTimeoutMs: 30000,
   },
   eventAudit: {
     enabled: true,
@@ -71,8 +71,8 @@ const defaultConfig = {
     enableGapDetection: true,
     watchdogEnabled: true,
     watchdogIntervalMs: 300000, // 5 minutes
-    stuckThresholdMs: 300000   // 5 minutes
-  }
+    stuckThresholdMs: 300000, // 5 minutes
+  },
   // NOTE: Event types are now managed in MongoDB 'event_types' collection (56 events)
   // Do not specify eventTypes here - use the populate-event-types.js script instead
 };
@@ -104,7 +104,7 @@ const merged = {
   eventAudit: { ...defaultConfig.eventAudit, ...(fileConfig.eventAudit || {}) },
   // communicationServiceUrl and frontendUrl: file overrides default if present
   communicationServiceUrl: fileConfig.communicationServiceUrl || defaultConfig.communicationServiceUrl,
-  frontendUrl: fileConfig.frontendUrl || defaultConfig.frontendUrl
+  frontendUrl: fileConfig.frontendUrl || defaultConfig.frontendUrl,
 };
 
 module.exports = merged;

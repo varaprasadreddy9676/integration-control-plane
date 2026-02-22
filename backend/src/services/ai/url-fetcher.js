@@ -24,59 +24,60 @@ async function fetchFromURL(url, maxRedirects = 5) {
     const options = {
       headers: {
         'User-Agent': 'Integration-Gateway/2.0 (API Documentation Fetcher)',
-        'Accept': 'text/html,application/json,application/x-yaml,text/plain,*/*'
+        Accept: 'text/html,application/json,application/x-yaml,text/plain,*/*',
       },
-      timeout: 30000 // 30 second timeout
+      timeout: 30000, // 30 second timeout
     };
 
-    protocol.get(url, options, (res) => {
-      // Handle redirects
-      if (res.statusCode === 301 || res.statusCode === 302 || res.statusCode === 307 || res.statusCode === 308) {
-        const redirectUrl = res.headers.location;
-        if (!redirectUrl) {
-          return reject(new Error('Redirect without location header'));
+    protocol
+      .get(url, options, (res) => {
+        // Handle redirects
+        if (res.statusCode === 301 || res.statusCode === 302 || res.statusCode === 307 || res.statusCode === 308) {
+          const redirectUrl = res.headers.location;
+          if (!redirectUrl) {
+            return reject(new Error('Redirect without location header'));
+          }
+
+          // Make redirect URL absolute
+          const absoluteUrl = redirectUrl.startsWith('http') ? redirectUrl : new URL(redirectUrl, url).toString();
+
+          log('info', 'Following redirect', { from: url, to: absoluteUrl });
+          return fetchFromURL(absoluteUrl, maxRedirects - 1)
+            .then(resolve)
+            .catch(reject);
         }
 
-        // Make redirect URL absolute
-        const absoluteUrl = redirectUrl.startsWith('http')
-          ? redirectUrl
-          : new URL(redirectUrl, url).toString();
-
-        log('info', 'Following redirect', { from: url, to: absoluteUrl });
-        return fetchFromURL(absoluteUrl, maxRedirects - 1)
-          .then(resolve)
-          .catch(reject);
-      }
-
-      // Handle errors
-      if (res.statusCode !== 200) {
-        return reject(new Error(`HTTP ${res.statusCode}: ${res.statusMessage}`));
-      }
-
-      // Collect response data
-      let data = '';
-      res.on('data', (chunk) => {
-        data += chunk;
-        // Limit to 5MB
-        if (data.length > 5 * 1024 * 1024) {
-          res.destroy();
-          reject(new Error('Response too large (max 5MB)'));
+        // Handle errors
+        if (res.statusCode !== 200) {
+          return reject(new Error(`HTTP ${res.statusCode}: ${res.statusMessage}`));
         }
-      });
 
-      res.on('end', () => {
-        const contentType = res.headers['content-type'] || 'text/plain';
-        resolve({ content: data, contentType });
-      });
+        // Collect response data
+        let data = '';
+        res.on('data', (chunk) => {
+          data += chunk;
+          // Limit to 5MB
+          if (data.length > 5 * 1024 * 1024) {
+            res.destroy();
+            reject(new Error('Response too large (max 5MB)'));
+          }
+        });
 
-      res.on('error', (err) => {
+        res.on('end', () => {
+          const contentType = res.headers['content-type'] || 'text/plain';
+          resolve({ content: data, contentType });
+        });
+
+        res.on('error', (err) => {
+          reject(err);
+        });
+      })
+      .on('error', (err) => {
         reject(err);
+      })
+      .on('timeout', () => {
+        reject(new Error('Request timeout'));
       });
-    }).on('error', (err) => {
-      reject(err);
-    }).on('timeout', () => {
-      reject(new Error('Request timeout'));
-    });
   });
 }
 
@@ -185,7 +186,7 @@ function extractOpenAPIDoc(spec) {
       // Parameters
       if (operation.parameters && operation.parameters.length > 0) {
         doc += 'Parameters:\n';
-        operation.parameters.forEach(param => {
+        operation.parameters.forEach((param) => {
           doc += `- ${param.name} (${param.in}): ${param.description || 'No description'}\n`;
         });
       }
@@ -212,7 +213,7 @@ function extractPostmanDoc(collection) {
   // Variables
   if (collection.variable && collection.variable.length > 0) {
     doc += '\nVariables:\n';
-    collection.variable.forEach(v => {
+    collection.variable.forEach((v) => {
       doc += `- {{${v.key}}}: ${v.value || 'Not set'}\n`;
     });
   }
@@ -224,16 +225,16 @@ function extractPostmanDoc(collection) {
 
   // Requests
   function extractRequests(items, indent = '') {
-    items.forEach(item => {
+    items.forEach((item) => {
       if (item.item) {
         // Folder
         doc += `\n${indent}Folder: ${item.name}\n`;
-        extractRequests(item.item, indent + '  ');
+        extractRequests(item.item, `${indent}  `);
       } else if (item.request) {
         // Request
         const req = item.request;
-        const method = typeof req === 'string' ? 'GET' : (req.method || 'GET');
-        const url = typeof req === 'string' ? req : (req.url?.raw || req.url || '');
+        const method = typeof req === 'string' ? 'GET' : req.method || 'GET';
+        const url = typeof req === 'string' ? req : req.url?.raw || req.url || '';
 
         doc += `\n${indent}${method} ${item.name}\n`;
         doc += `${indent}URL: ${url}\n`;
@@ -245,7 +246,7 @@ function extractPostmanDoc(collection) {
         // Headers
         if (req.header && req.header.length > 0) {
           doc += `${indent}Headers:\n`;
-          req.header.forEach(h => {
+          req.header.forEach((h) => {
             if (!h.disabled) {
               doc += `${indent}  ${h.key}: ${h.value}\n`;
             }
@@ -258,7 +259,7 @@ function extractPostmanDoc(collection) {
           if (req.body.mode === 'raw') {
             doc += `${indent}${req.body.raw}\n`;
           } else if (req.body.mode === 'formdata' || req.body.mode === 'urlencoded') {
-            req.body[req.body.mode]?.forEach(param => {
+            req.body[req.body.mode]?.forEach((param) => {
               doc += `${indent}  ${param.key}: ${param.value}\n`;
             });
           }
@@ -301,7 +302,7 @@ function extractTextFromHTML(html) {
 
   // Limit length
   if (text.length > 50000) {
-    text = text.substring(0, 50000) + '... (truncated)';
+    text = `${text.substring(0, 50000)}... (truncated)`;
   }
 
   return text;
@@ -343,7 +344,7 @@ async function fetchAPIDocumentation(urlOrContent) {
 
     // Generic JSON
     return JSON.stringify(json, null, 2);
-  } catch (error) {
+  } catch (_error) {
     // Not JSON - return as plain text
     return urlOrContent;
   }
@@ -354,5 +355,5 @@ module.exports = {
   fetchFromURL,
   parseDocumentation,
   extractOpenAPIDoc,
-  extractPostmanDoc
+  extractPostmanDoc,
 };

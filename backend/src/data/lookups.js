@@ -2,12 +2,7 @@
 const { log, logError } = require('../logger');
 const mongodb = require('../mongodb');
 const { parsePositiveInt } = require('../utils/org-context');
-const {
-  useMongo,
-  normalizeOrgId,
-  addOrgScope,
-  fallbackDisabledError
-} = require('./helpers');
+const { useMongo, normalizeOrgId, addOrgScope, fallbackDisabledError } = require('./helpers');
 
 /**
  * Map MongoDB lookup document to API format
@@ -29,7 +24,7 @@ function mapLookupFromMongo(doc) {
     importedAt: doc.importedAt?.toISOString() || null,
     isActive: doc.isActive !== false,
     createdAt: doc.createdAt?.toISOString() || new Date().toISOString(),
-    updatedAt: doc.updatedAt?.toISOString() || new Date().toISOString()
+    updatedAt: doc.updatedAt?.toISOString() || new Date().toISOString(),
   };
 }
 
@@ -51,14 +46,14 @@ async function listLookups(orgId, filters = {}) {
     if (filters.type) {
       query.type = filters.type;
     }
-    const filteredOrgUnitRid = filters.orgUnitRid !== undefined
-      ? filters.orgUnitRid
-      : (filters.entityRid !== undefined ? filters.entityRid : undefined);
+    const filteredOrgUnitRid =
+      filters.orgUnitRid !== undefined
+        ? filters.orgUnitRid
+        : filters.entityRid !== undefined
+          ? filters.entityRid
+          : undefined;
     if (filteredOrgUnitRid !== undefined) {
-      query.$or = [
-        { orgUnitRid: filteredOrgUnitRid },
-        { entityRid: filteredOrgUnitRid }
-      ];
+      query.$or = [{ orgUnitRid: filteredOrgUnitRid }, { entityRid: filteredOrgUnitRid }];
     }
     if (filters.category) {
       query.category = filters.category;
@@ -72,7 +67,8 @@ async function listLookups(orgId, filters = {}) {
 
     addOrgScope(query, normalizedOrgId);
 
-    const lookups = await db.collection('lookups')
+    const lookups = await db
+      .collection('lookups')
       .find(query)
       .sort({ updatedAt: -1 })
       // Increased limit to avoid capping lookups list
@@ -97,8 +93,7 @@ async function getLookup(id) {
 
   try {
     const db = await mongodb.getDbSafe();
-    const lookup = await db.collection('lookups')
-      .findOne({ _id: mongodb.toObjectId(id) });
+    const lookup = await db.collection('lookups').findOne({ _id: mongodb.toObjectId(id) });
 
     return lookup ? mapLookupFromMongo(lookup) : null;
   } catch (err) {
@@ -124,11 +119,12 @@ async function addLookup(orgId, payload) {
     const db = await mongodb.getDbSafe();
     const now = new Date();
 
-    const normalizedOrgUnitRid = payload.orgUnitRid !== undefined
-      ? parsePositiveInt(payload.orgUnitRid)
-      : (payload.entityRid !== undefined
-        ? parsePositiveInt(payload.entityRid)
-        : null);
+    const normalizedOrgUnitRid =
+      payload.orgUnitRid !== undefined
+        ? parsePositiveInt(payload.orgUnitRid)
+        : payload.entityRid !== undefined
+          ? parsePositiveInt(payload.entityRid)
+          : null;
 
     const lookup = {
       orgId: normalizeOrgId(payload.orgId || normalizedOrgId),
@@ -144,7 +140,7 @@ async function addLookup(orgId, payload) {
       importedAt: payload.importedAt ? new Date(payload.importedAt) : null,
       isActive: payload.isActive !== false,
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
     };
 
     const result = await db.collection('lookups').insertOne(lookup);
@@ -153,7 +149,7 @@ async function addLookup(orgId, payload) {
     log('info', 'Lookup created', {
       id: result.insertedId.toString(),
       type: payload.type,
-      sourceId: payload.source.id
+      sourceId: payload.source.id,
     });
 
     return mapLookupFromMongo(lookup);
@@ -184,23 +180,25 @@ async function updateLookup(orgId, id, patch) {
 
     const updateDoc = {
       ...patch,
-      updatedAt: now
+      updatedAt: now,
     };
-    if (Object.prototype.hasOwnProperty.call(updateDoc, 'orgUnitRid') ||
-      Object.prototype.hasOwnProperty.call(updateDoc, 'entityRid')) {
-      const normalizedOrgUnitRid = updateDoc.orgUnitRid !== undefined
-        ? parsePositiveInt(updateDoc.orgUnitRid)
-        : (updateDoc.entityRid !== undefined
-          ? parsePositiveInt(updateDoc.entityRid)
-          : null);
+    if (
+      Object.prototype.hasOwnProperty.call(updateDoc, 'orgUnitRid') ||
+      Object.prototype.hasOwnProperty.call(updateDoc, 'entityRid')
+    ) {
+      const normalizedOrgUnitRid =
+        updateDoc.orgUnitRid !== undefined
+          ? parsePositiveInt(updateDoc.orgUnitRid)
+          : updateDoc.entityRid !== undefined
+            ? parsePositiveInt(updateDoc.entityRid)
+            : null;
       updateDoc.orgUnitRid = normalizedOrgUnitRid;
       delete updateDoc.entityRid;
     }
 
-    await db.collection('lookups').updateOne(
-      addOrgScope({ _id: mongodb.toObjectId(id) }, normalizedOrgId),
-      { $set: updateDoc }
-    );
+    await db
+      .collection('lookups')
+      .updateOne(addOrgScope({ _id: mongodb.toObjectId(id) }, normalizedOrgId), { $set: updateDoc });
 
     const updated = await getLookup(id);
     return updated && updated.orgId === normalizedOrgId ? updated : null;
@@ -228,7 +226,7 @@ async function deleteLookup(orgId, id) {
   try {
     const db = await mongodb.getDbSafe();
     const result = await db.collection('lookups').deleteOne({
-      ...addOrgScope({ _id: mongodb.toObjectId(id) }, normalizedOrgId)
+      ...addOrgScope({ _id: mongodb.toObjectId(id) }, normalizedOrgId),
     });
 
     return result.deletedCount > 0;
@@ -256,9 +254,12 @@ async function bulkCreateLookups(orgId, lookups, options = {}) {
     const db = await mongodb.getDbSafe();
     const now = new Date();
     const { mode, type } = options;
-    const orgUnitRid = options.orgUnitRid !== undefined
-      ? options.orgUnitRid
-      : (options.entityRid !== undefined ? options.entityRid : undefined);
+    const orgUnitRid =
+      options.orgUnitRid !== undefined
+        ? options.orgUnitRid
+        : options.entityRid !== undefined
+          ? options.entityRid
+          : undefined;
 
     // If mode=replace, deactivate ALL existing active mappings for this type+scope
     if (mode === 'replace' && type) {
@@ -266,10 +267,7 @@ async function bulkCreateLookups(orgId, lookups, options = {}) {
       if (orgUnitRid !== undefined) {
         query.$or = [{ orgUnitRid }, { entityRid: orgUnitRid }];
       }
-      await db.collection('lookups').updateMany(
-        query,
-        { $set: { isActive: false, updatedAt: now } }
-      );
+      await db.collection('lookups').updateMany(query, { $set: { isActive: false, updatedAt: now } });
       log('info', 'Deactivated existing lookups for replace mode', { orgId: normalizedOrgId, type, orgUnitRid });
     }
 
@@ -279,20 +277,18 @@ async function bulkCreateLookups(orgId, lookups, options = {}) {
 
     for (const lookupData of lookups) {
       try {
-        const normalizedOrgUnitRid = lookupData.orgUnitRid !== undefined
-          ? parsePositiveInt(lookupData.orgUnitRid)
-          : (lookupData.entityRid !== undefined
-            ? parsePositiveInt(lookupData.entityRid)
-            : null);
+        const normalizedOrgUnitRid =
+          lookupData.orgUnitRid !== undefined
+            ? parsePositiveInt(lookupData.orgUnitRid)
+            : lookupData.entityRid !== undefined
+              ? parsePositiveInt(lookupData.entityRid)
+              : null;
         // Check for existing active mapping
         const existingQuery = {
-          $or: [
-            { orgUnitRid: normalizedOrgUnitRid },
-            { entityRid: normalizedOrgUnitRid }
-          ],
+          $or: [{ orgUnitRid: normalizedOrgUnitRid }, { entityRid: normalizedOrgUnitRid }],
           type: lookupData.type,
           'source.id': lookupData.source.id,
-          isActive: true
+          isActive: true,
         };
         addOrgScope(existingQuery, normalizeOrgId(lookupData.orgId || normalizedOrgId));
 
@@ -300,10 +296,9 @@ async function bulkCreateLookups(orgId, lookups, options = {}) {
 
         if (existing) {
           // Deactivate old version
-          await db.collection('lookups').updateOne(
-            { _id: existing._id },
-            { $set: { isActive: false, updatedAt: now } }
-          );
+          await db
+            .collection('lookups')
+            .updateOne({ _id: existing._id }, { $set: { isActive: false, updatedAt: now } });
           updatedCount++;
         }
 
@@ -322,7 +317,7 @@ async function bulkCreateLookups(orgId, lookups, options = {}) {
           importedAt: lookupData.importedAt ? new Date(lookupData.importedAt) : now,
           isActive: true,
           createdAt: now,
-          updatedAt: now
+          updatedAt: now,
         };
 
         await db.collection('lookups').insertOne(lookup);
@@ -330,11 +325,11 @@ async function bulkCreateLookups(orgId, lookups, options = {}) {
       } catch (err) {
         errors.push({
           sourceId: lookupData.source?.id,
-          error: err.message
+          error: err.message,
         });
         log('warn', 'Failed to insert lookup', {
           sourceId: lookupData.source?.id,
-          error: err.message
+          error: err.message,
         });
       }
     }
@@ -345,13 +340,13 @@ async function bulkCreateLookups(orgId, lookups, options = {}) {
       requested: lookups.length,
       inserted: insertedCount,
       updated: updatedCount,
-      errors: errors.length
+      errors: errors.length,
     });
 
     return {
       insertedCount,
       updatedCount,
-      errors
+      errors,
     };
   } catch (err) {
     logError(err, { scope: 'bulkCreateLookups' });
@@ -390,19 +385,19 @@ async function bulkDeleteLookups(orgId, ids) {
 
     const result = await db.collection('lookups').deleteMany({
       _id: { $in: objectIds },
-      ...addOrgScope({}, normalizedOrgId)
+      ...addOrgScope({}, normalizedOrgId),
     });
 
     log('info', 'Bulk lookup delete completed', {
       scope: 'bulkDeleteLookups',
       requested: ids.length,
       deleted: result.deletedCount,
-      failed: failedIds.length
+      failed: failedIds.length,
     });
 
     return {
       deletedCount: result.deletedCount,
-      failedIds
+      failedIds,
     };
   } catch (err) {
     logError(err, { scope: 'bulkDeleteLookups' });
@@ -429,50 +424,64 @@ async function resolveLookup(sourceId, type, orgId, orgUnitRid) {
 
     // Step 1: Try entity-specific mapping (highest priority)
     if (normalizedOrgUnitRid) {
-      const entitySpecific = await db.collection('lookups').findOne(addOrgScope({
-        $or: [{ orgUnitRid: normalizedOrgUnitRid }, { entityRid: normalizedOrgUnitRid }],
-        type,
-        'source.id': sourceId,
-        isActive: true
-      }, normalizedOrgId));
+      const entitySpecific = await db.collection('lookups').findOne(
+        addOrgScope(
+          {
+            $or: [{ orgUnitRid: normalizedOrgUnitRid }, { entityRid: normalizedOrgUnitRid }],
+            type,
+            'source.id': sourceId,
+            isActive: true,
+          },
+          normalizedOrgId
+        )
+      );
 
       if (entitySpecific) {
         // Update usage tracking (non-blocking)
-        db.collection('lookups').updateOne(
-          { _id: entitySpecific._id },
-          {
-            $inc: { usageCount: 1 },
-            $set: { lastUsedAt: new Date() }
-          }
-        ).catch(err => log('warn', 'Failed to update lookup usage', { error: err.message }));
+        db.collection('lookups')
+          .updateOne(
+            { _id: entitySpecific._id },
+            {
+              $inc: { usageCount: 1 },
+              $set: { lastUsedAt: new Date() },
+            }
+          )
+          .catch((err) => log('warn', 'Failed to update lookup usage', { error: err.message }));
 
         return entitySpecific.target.id;
       }
     }
 
     // Step 2: Fallback to parent-level mapping
-    const parentLevel = await db.collection('lookups').findOne(addOrgScope({
-      $or: [
-        { orgUnitRid: null },
-        { orgUnitRid: { $exists: false }, entityRid: null },
-        { orgUnitRid: { $exists: false }, entityRid: { $exists: false } },
-        { entityRid: null },
-        { entityRid: { $exists: false } }
-      ],
-      type,
-      'source.id': sourceId,
-      isActive: true
-    }, normalizedOrgId));
+    const parentLevel = await db.collection('lookups').findOne(
+      addOrgScope(
+        {
+          $or: [
+            { orgUnitRid: null },
+            { orgUnitRid: { $exists: false }, entityRid: null },
+            { orgUnitRid: { $exists: false }, entityRid: { $exists: false } },
+            { entityRid: null },
+            { entityRid: { $exists: false } },
+          ],
+          type,
+          'source.id': sourceId,
+          isActive: true,
+        },
+        normalizedOrgId
+      )
+    );
 
     if (parentLevel) {
       // Update usage tracking (non-blocking)
-      db.collection('lookups').updateOne(
-        { _id: parentLevel._id },
-        {
-          $inc: { usageCount: 1 },
-          $set: { lastUsedAt: new Date() }
-        }
-      ).catch(err => log('warn', 'Failed to update lookup usage', { error: err.message }));
+      db.collection('lookups')
+        .updateOne(
+          { _id: parentLevel._id },
+          {
+            $inc: { usageCount: 1 },
+            $set: { lastUsedAt: new Date() },
+          }
+        )
+        .catch((err) => log('warn', 'Failed to update lookup usage', { error: err.message }));
 
       return parentLevel.target.id;
     }
@@ -502,39 +511,49 @@ async function reverseLookup(targetId, type, orgId, orgUnitRid) {
 
     // Step 1: Try entity-specific mapping
     if (normalizedOrgUnitRid) {
-      const entitySpecific = await db.collection('lookups').findOne(addOrgScope({
-        $or: [{ orgUnitRid: normalizedOrgUnitRid }, { entityRid: normalizedOrgUnitRid }],
-        type,
-        'target.id': targetId,
-        isActive: true
-      }, normalizedOrgId));
+      const entitySpecific = await db.collection('lookups').findOne(
+        addOrgScope(
+          {
+            $or: [{ orgUnitRid: normalizedOrgUnitRid }, { entityRid: normalizedOrgUnitRid }],
+            type,
+            'target.id': targetId,
+            isActive: true,
+          },
+          normalizedOrgId
+        )
+      );
 
       if (entitySpecific) {
         return {
           sourceId: entitySpecific.source.id,
-          scope: 'entity'
+          scope: 'entity',
         };
       }
     }
 
     // Step 2: Fallback to parent-level mapping
-    const parentLevel = await db.collection('lookups').findOne(addOrgScope({
-      $or: [
-        { orgUnitRid: null },
-        { orgUnitRid: { $exists: false }, entityRid: null },
-        { orgUnitRid: { $exists: false }, entityRid: { $exists: false } },
-        { entityRid: null },
-        { entityRid: { $exists: false } }
-      ],
-      type,
-      'target.id': targetId,
-      isActive: true
-    }, normalizedOrgId));
+    const parentLevel = await db.collection('lookups').findOne(
+      addOrgScope(
+        {
+          $or: [
+            { orgUnitRid: null },
+            { orgUnitRid: { $exists: false }, entityRid: null },
+            { orgUnitRid: { $exists: false }, entityRid: { $exists: false } },
+            { entityRid: null },
+            { entityRid: { $exists: false } },
+          ],
+          type,
+          'target.id': targetId,
+          isActive: true,
+        },
+        normalizedOrgId
+      )
+    );
 
     if (parentLevel) {
       return {
         sourceId: parentLevel.source.id,
-        scope: 'parent'
+        scope: 'parent',
       };
     }
 
@@ -562,30 +581,33 @@ async function getLookupStats(orgId, filters = {}) {
     }
     addOrgScope(matchQuery, normalizeOrgId(orgId));
 
-    const stats = await db.collection('lookups').aggregate([
-      { $match: matchQuery },
-      {
-        $group: {
-          _id: '$type',
-          total: { $sum: 1 },
-          active: {
-            $sum: { $cond: [{ $eq: ['$isActive', true] }, 1, 0] }
+    const stats = await db
+      .collection('lookups')
+      .aggregate([
+        { $match: matchQuery },
+        {
+          $group: {
+            _id: '$type',
+            total: { $sum: 1 },
+            active: {
+              $sum: { $cond: [{ $eq: ['$isActive', true] }, 1, 0] },
+            },
+            inactive: {
+              $sum: { $cond: [{ $eq: ['$isActive', false] }, 1, 0] },
+            },
+            totalUsage: { $sum: '$usageCount' },
           },
-          inactive: {
-            $sum: { $cond: [{ $eq: ['$isActive', false] }, 1, 0] }
-          },
-          totalUsage: { $sum: '$usageCount' }
-        }
-      },
-      { $sort: { _id: 1 } }
-    ]).toArray();
+        },
+        { $sort: { _id: 1 } },
+      ])
+      .toArray();
 
-    return stats.map(stat => ({
+    return stats.map((stat) => ({
       type: stat._id,
       total: stat.total,
       active: stat.active,
       inactive: stat.inactive,
-      totalUsage: stat.totalUsage
+      totalUsage: stat.totalUsage,
     }));
   } catch (err) {
     logError(err, { scope: 'getLookupStats' });
@@ -603,8 +625,7 @@ async function getLookupTypes(orgId) {
 
   try {
     const db = await mongodb.getDbSafe();
-    const types = await db.collection('lookups')
-      .distinct('type', addOrgScope({}, normalizeOrgId(orgId)));
+    const types = await db.collection('lookups').distinct('type', addOrgScope({}, normalizeOrgId(orgId)));
 
     return types.sort();
   } catch (err) {
@@ -625,5 +646,5 @@ module.exports = {
   resolveLookup,
   reverseLookup,
   getLookupStats,
-  getLookupTypes
+  getLookupTypes,
 };

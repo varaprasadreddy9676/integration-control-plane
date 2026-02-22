@@ -44,7 +44,6 @@ function getUnmappedValue(sourceCode, unmappedBehavior, defaultValue) {
       throw new Error(`Unmapped code: ${sourceCode}`);
     case 'DEFAULT':
       return defaultValue;
-    case 'PASSTHROUGH':
     default:
       return sourceCode; // Keep original value
   }
@@ -149,7 +148,7 @@ async function applyLookups(payload, lookupConfigs, event) {
     scope: 'applyLookups',
     entityParentRid,
     orgUnitRid,
-    configCount: lookupConfigs.length
+    configCount: lookupConfigs.length,
   });
 
   // Apply each lookup config sequentially
@@ -163,7 +162,7 @@ async function applyLookups(payload, lookupConfigs, event) {
           scope: 'applyLookups',
           type: config.type,
           sourceField: config.sourceField,
-          error: err.message
+          error: err.message,
         });
         throw err;
       }
@@ -173,7 +172,7 @@ async function applyLookups(payload, lookupConfigs, event) {
         scope: 'applyLookups',
         type: config.type,
         sourceField: config.sourceField,
-        error: err.message
+        error: err.message,
       });
     }
   }
@@ -189,7 +188,7 @@ async function testLookups(payload, lookupConfigs, entityParentRid, orgUnitRid) 
   const errors = [];
   let testPayload = JSON.parse(JSON.stringify(payload)); // Deep clone
 
-  const event = { entityParentRid, orgUnitRid };
+  const _event = { entityParentRid, orgUnitRid };
 
   for (let i = 0; i < lookupConfigs.length; i++) {
     const config = lookupConfigs[i];
@@ -200,14 +199,14 @@ async function testLookups(payload, lookupConfigs, entityParentRid, orgUnitRid) 
         index: i,
         type: config.type,
         sourceField: config.sourceField,
-        error: err.message
+        error: err.message,
       });
     }
   }
 
   return {
     transformed: testPayload,
-    errors
+    errors,
   };
 }
 
@@ -216,5 +215,5 @@ module.exports = {
   testLookups,
   getNestedValue,
   setNestedValue,
-  resolveLookup
+  resolveLookup,
 };

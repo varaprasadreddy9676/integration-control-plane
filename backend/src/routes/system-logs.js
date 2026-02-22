@@ -33,20 +33,34 @@ const categorizeError = (message, level, meta) => {
   }
 
   // HTTP 4xx client errors
-  if (msg.includes('400') || msg.includes('401') || msg.includes('403') ||
-      msg.includes('404') || msg.includes('bad request')) {
+  if (
+    msg.includes('400') ||
+    msg.includes('401') ||
+    msg.includes('403') ||
+    msg.includes('404') ||
+    msg.includes('bad request')
+  ) {
     return 'http_4xx';
   }
 
   // HTTP 5xx server errors
-  if (msg.includes('500') || msg.includes('502') || msg.includes('503') ||
-      msg.includes('504') || msg.includes('server error')) {
+  if (
+    msg.includes('500') ||
+    msg.includes('502') ||
+    msg.includes('503') ||
+    msg.includes('504') ||
+    msg.includes('server error')
+  ) {
     return 'http_5xx';
   }
 
   // Network/Connection errors
-  if (msg.includes('timeout') || msg.includes('connection') ||
-      msg.includes('econnrefused') || msg.includes('network')) {
+  if (
+    msg.includes('timeout') ||
+    msg.includes('connection') ||
+    msg.includes('econnrefused') ||
+    msg.includes('network')
+  ) {
     return 'network';
   }
 
@@ -61,8 +75,13 @@ const categorizeError = (message, level, meta) => {
   }
 
   // Database errors
-  if (msg.includes('mongodb') || msg.includes('mysql') || msg.includes('database') ||
-      msg.includes('query') || msg.includes('sequelize')) {
+  if (
+    msg.includes('mongodb') ||
+    msg.includes('mysql') ||
+    msg.includes('database') ||
+    msg.includes('query') ||
+    msg.includes('sequelize')
+  ) {
     return 'database';
   }
 
@@ -78,7 +97,7 @@ const categorizeError = (message, level, meta) => {
 const groupLogsByPoll = (logs) => {
   const groups = {};
 
-  logs.forEach(log => {
+  logs.forEach((log) => {
     const pollId = extractPollId(log.message) || 'NO_POLL';
 
     if (!groups[pollId]) {
@@ -92,7 +111,7 @@ const groupLogsByPoll = (logs) => {
         levels: { error: 0, warn: 0, info: 0, debug: 0 },
         eventsProcessed: 0,
         retriesProcessed: 0,
-        totalDurationMs: 0
+        totalDurationMs: 0,
       };
     }
 
@@ -131,25 +150,23 @@ const groupLogsByPoll = (logs) => {
   });
 
   // Calculate poll durations and sort logs
-  Object.values(groups).forEach(group => {
+  Object.values(groups).forEach((group) => {
     const startTime = new Date(group.firstTimestamp).getTime();
     const endTime = new Date(group.lastTimestamp).getTime();
     group.pollDurationMs = endTime - startTime;
 
     // Sort logs chronologically
-    group.logs.sort((a, b) =>
-      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-    );
+    group.logs.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
   });
 
-  return Object.values(groups).sort((a, b) =>
-    new Date(b.lastTimestamp).getTime() - new Date(a.lastTimestamp).getTime()
+  return Object.values(groups).sort(
+    (a, b) => new Date(b.lastTimestamp).getTime() - new Date(a.lastTimestamp).getTime()
   );
 };
 
 // Get system logs (last 24 hours)
 router.get('/', async (req, res) => {
-  const limit = Math.min(parseInt(req.query.limit) || 1000, 10000); // Increased to 10000 for high-volume systems
+  const limit = Math.min(parseInt(req.query.limit, 10) || 1000, 10000); // Increased to 10000 for high-volume systems
   const level = req.query.level; // Filter by level: info, error, debug, warn
   const search = req.query.search; // Search in message
   const pollId = req.query.pollId; // Filter by specific poll ID
@@ -164,20 +181,20 @@ router.get('/', async (req, res) => {
       total: 0,
       pollGroups: [],
       stats: { total: 0, error: 0, warn: 0, info: 0, debug: 0 },
-      pollStats: { total: 0, withErrors: 0, withWarnings: 0, healthy: 0 }
+      pollStats: { total: 0, withErrors: 0, withWarnings: 0, healthy: 0 },
     });
   }
 
   const logs = [];
   const now = Date.now();
-  const oneDayAgo = now - (24 * 60 * 60 * 1000);
+  const oneDayAgo = now - 24 * 60 * 60 * 1000;
 
   try {
     // Read file line by line from the end (most recent first)
     const fileStream = fs.createReadStream(logFile);
     const rl = readline.createInterface({
       input: fileStream,
-      crlfDelay: Infinity
+      crlfDelay: Infinity,
     });
 
     const allLines = [];
@@ -203,10 +220,7 @@ router.get('/', async (req, res) => {
 
         // Add to stats array (no filters applied for accurate counts)
         allLogsForStats.push(logEntry);
-      } catch (err) {
-        // Skip invalid JSON lines
-        continue;
-      }
+      } catch (_err) {}
     }
 
     // Second pass: apply filters and limit for display
@@ -241,41 +255,38 @@ router.get('/', async (req, res) => {
         if (errorCategory && logEntry.errorCategory !== errorCategory) continue;
 
         logs.push(logEntry);
-      } catch (err) {
-        // Skip invalid JSON lines
-        continue;
-      }
+      } catch (_err) {}
     }
 
     // Calculate statistics from ALL logs (not just filtered/limited display logs)
-    const errorLogsAll = allLogsForStats.filter(l => l.level === 'error');
+    const errorLogsAll = allLogsForStats.filter((l) => l.level === 'error');
     const stats = {
       total: allLogsForStats.length,
       error: errorLogsAll.length,
-      warn: allLogsForStats.filter(l => l.level === 'warn').length,
-      info: allLogsForStats.filter(l => l.level === 'info').length,
-      debug: allLogsForStats.filter(l => l.level === 'debug').length,
+      warn: allLogsForStats.filter((l) => l.level === 'warn').length,
+      info: allLogsForStats.filter((l) => l.level === 'info').length,
+      debug: allLogsForStats.filter((l) => l.level === 'debug').length,
       errorCategories: {
         // Frontend-sent categories (explicit)
-        ui_error: errorLogsAll.filter(l => l.errorCategory === 'ui_error').length,
-        api_error: errorLogsAll.filter(l => l.errorCategory === 'api_error').length,
-        validation_error: errorLogsAll.filter(l => l.errorCategory === 'validation_error').length,
-        business_logic: errorLogsAll.filter(l => l.errorCategory === 'business_logic').length,
-        unhandled: errorLogsAll.filter(l => l.errorCategory === 'unhandled').length,
+        ui_error: errorLogsAll.filter((l) => l.errorCategory === 'ui_error').length,
+        api_error: errorLogsAll.filter((l) => l.errorCategory === 'api_error').length,
+        validation_error: errorLogsAll.filter((l) => l.errorCategory === 'validation_error').length,
+        business_logic: errorLogsAll.filter((l) => l.errorCategory === 'business_logic').length,
+        unhandled: errorLogsAll.filter((l) => l.errorCategory === 'unhandled').length,
 
         // Inferred categories (fallback)
-        browser_error: errorLogsAll.filter(l => l.errorCategory === 'browser_error').length,
-        http_4xx: errorLogsAll.filter(l => l.errorCategory === 'http_4xx').length,
-        http_5xx: errorLogsAll.filter(l => l.errorCategory === 'http_5xx').length,
-        network: errorLogsAll.filter(l => l.errorCategory === 'network').length,
-        transform: errorLogsAll.filter(l => l.errorCategory === 'transform').length,
-        ratelimit: errorLogsAll.filter(l => l.errorCategory === 'ratelimit').length,
-        database: errorLogsAll.filter(l => l.errorCategory === 'database').length,
+        browser_error: errorLogsAll.filter((l) => l.errorCategory === 'browser_error').length,
+        http_4xx: errorLogsAll.filter((l) => l.errorCategory === 'http_4xx').length,
+        http_5xx: errorLogsAll.filter((l) => l.errorCategory === 'http_5xx').length,
+        network: errorLogsAll.filter((l) => l.errorCategory === 'network').length,
+        transform: errorLogsAll.filter((l) => l.errorCategory === 'transform').length,
+        ratelimit: errorLogsAll.filter((l) => l.errorCategory === 'ratelimit').length,
+        database: errorLogsAll.filter((l) => l.errorCategory === 'database').length,
 
         // Catch-all
-        other: errorLogsAll.filter(l => l.errorCategory === 'other').length,
-        unknown: errorLogsAll.filter(l => l.errorCategory === 'unknown').length
-      }
+        other: errorLogsAll.filter((l) => l.errorCategory === 'other').length,
+        unknown: errorLogsAll.filter((l) => l.errorCategory === 'unknown').length,
+      },
     };
 
     // Group by poll cycles
@@ -283,23 +294,23 @@ router.get('/', async (req, res) => {
 
     const pollStats = {
       total: pollGroups.length,
-      withErrors: pollGroups.filter(g => g.hasError).length,
-      withWarnings: pollGroups.filter(g => g.hasWarn && !g.hasError).length,
-      healthy: pollGroups.filter(g => !g.hasError && !g.hasWarn).length
+      withErrors: pollGroups.filter((g) => g.hasError).length,
+      withWarnings: pollGroups.filter((g) => g.hasWarn && !g.hasError).length,
+      healthy: pollGroups.filter((g) => !g.hasError && !g.hasWarn).length,
     };
 
     // Performance insights
     const pollPerformance = pollGroups
-      .filter(g => g.pollId !== 'NO_POLL')
+      .filter((g) => g.pollId !== 'NO_POLL')
       .slice(0, 10)
-      .map(g => ({
+      .map((g) => ({
         pollId: g.pollId,
         durationMs: g.pollDurationMs,
         eventsProcessed: g.eventsProcessed,
         retriesProcessed: g.retriesProcessed,
         logCount: g.logs.length,
         hasError: g.hasError,
-        hasWarn: g.hasWarn
+        hasWarn: g.hasWarn,
       }));
 
     const response = {
@@ -310,7 +321,7 @@ router.get('/', async (req, res) => {
       filters: { level, search, pollId, errorCategory },
       stats, // Stats calculated from ALL logs in period, not just displayed
       pollStats,
-      pollPerformance
+      pollPerformance,
     };
 
     // Optionally include full poll groups
@@ -322,14 +333,14 @@ router.get('/', async (req, res) => {
   } catch (err) {
     res.status(500).json({
       error: 'Failed to read logs',
-      message: err.message
+      message: err.message,
     });
   }
 });
 
 // Export system logs as JSON
 router.get('/export/json', async (req, res) => {
-  const limit = Math.min(parseInt(req.query.limit) || 5000, 50000); // Increased to 50000 for high-volume systems
+  const limit = Math.min(parseInt(req.query.limit, 10) || 5000, 50000); // Increased to 50000 for high-volume systems
   const level = req.query.level;
   const search = req.query.search;
   const errorCategory = req.query.errorCategory;
@@ -342,13 +353,13 @@ router.get('/export/json', async (req, res) => {
 
   const logs = [];
   const now = Date.now();
-  const oneDayAgo = now - (24 * 60 * 60 * 1000);
+  const oneDayAgo = now - 24 * 60 * 60 * 1000;
 
   try {
     const fileStream = fs.createReadStream(logFile);
     const rl = readline.createInterface({
       input: fileStream,
-      crlfDelay: Infinity
+      crlfDelay: Infinity,
     });
 
     const allLines = [];
@@ -371,9 +382,7 @@ router.get('/export/json', async (req, res) => {
         if (errorCategory && logEntry.errorCategory !== errorCategory) continue;
 
         logs.push(logEntry);
-      } catch (err) {
-        continue;
-      }
+      } catch (_err) {}
     }
 
     const filename = `system-logs-${new Date().toISOString().split('T')[0]}.json`;
@@ -387,7 +396,7 @@ router.get('/export/json', async (req, res) => {
 
 // Export system logs as CSV
 router.get('/export/csv', async (req, res) => {
-  const limit = Math.min(parseInt(req.query.limit) || 5000, 50000); // Increased to 50000 for high-volume systems
+  const limit = Math.min(parseInt(req.query.limit, 10) || 5000, 50000); // Increased to 50000 for high-volume systems
   const level = req.query.level;
   const search = req.query.search;
   const errorCategory = req.query.errorCategory;
@@ -403,13 +412,13 @@ router.get('/export/csv', async (req, res) => {
 
   const logs = [];
   const now = Date.now();
-  const oneDayAgo = now - (24 * 60 * 60 * 1000);
+  const oneDayAgo = now - 24 * 60 * 60 * 1000;
 
   try {
     const fileStream = fs.createReadStream(logFile);
     const rl = readline.createInterface({
       input: fileStream,
-      crlfDelay: Infinity
+      crlfDelay: Infinity,
     });
 
     const allLines = [];
@@ -431,30 +440,32 @@ router.get('/export/csv', async (req, res) => {
         if (errorCategory && logEntry.errorCategory !== errorCategory) continue;
 
         logs.push(logEntry);
-      } catch (err) {
-        continue;
-      }
+      } catch (_err) {}
     }
 
     // Build CSV
     const headers = ['Timestamp', 'Level', 'Message', 'Error Category', 'Metadata'];
-    const rows = logs.map(log => [
+    const rows = logs.map((log) => [
       log.timestamp,
       log.level,
       log.message || '',
       log.errorCategory || '',
-      log.meta ? JSON.stringify(log.meta) : ''
+      log.meta ? JSON.stringify(log.meta) : '',
     ]);
 
     const csvContent = [
       headers.join(','),
-      ...rows.map(row => row.map(cell => {
-        const str = String(cell);
-        if (str.includes(',') || str.includes('\n') || str.includes('"')) {
-          return `"${str.replace(/"/g, '""')}"`;
-        }
-        return str;
-      }).join(','))
+      ...rows.map((row) =>
+        row
+          .map((cell) => {
+            const str = String(cell);
+            if (str.includes(',') || str.includes('\n') || str.includes('"')) {
+              return `"${str.replace(/"/g, '""')}"`;
+            }
+            return str;
+          })
+          .join(',')
+      ),
     ].join('\n');
 
     const filename = `system-logs-${new Date().toISOString().split('T')[0]}.csv`;
@@ -467,7 +478,7 @@ router.get('/export/csv', async (req, res) => {
 });
 
 // Clear all system logs (truncate file)
-router.delete('/clear', async (req, res) => {
+router.delete('/clear', async (_req, res) => {
   const logFile = path.join(__dirname, '..', '..', 'logs', 'app.log');
 
   try {
@@ -482,12 +493,12 @@ router.delete('/clear', async (req, res) => {
 
     res.json({
       message: 'System logs cleared successfully',
-      archived: archiveFile
+      archived: archiveFile,
     });
   } catch (err) {
     res.status(500).json({
       error: 'Failed to clear logs',
-      message: err.message
+      message: err.message,
     });
   }
 });

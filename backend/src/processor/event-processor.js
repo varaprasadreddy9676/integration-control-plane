@@ -22,7 +22,7 @@ async function processEvent(evt, pollCount = 0) {
       eventType: evt.event_type,
       orgId,
       integrationCount: integrations.length,
-      integrationIds: integrations.map(w => w.id)
+      integrationIds: integrations.map((w) => w.id),
     });
 
     if (!integrations.length) {
@@ -33,7 +33,15 @@ async function processEvent(evt, pollCount = 0) {
 
     // Check for cancellation events (e.g., APPOINTMENT_RESCHEDULED, APPOINTMENT_CANCELLATION)
     // and auto-cancel scheduled integrations
-    const cancellationEvents = ['OPU_RESCHEDULED', 'ET_RESCHEDULED', 'APPOINTMENT_RESCHEDULED', 'APPOINTMENT_CANCELLATION', 'OPU_CANCELLED', 'ET_CANCELLED', 'SURGERY_CANCELLED'];
+    const cancellationEvents = [
+      'OPU_RESCHEDULED',
+      'ET_RESCHEDULED',
+      'APPOINTMENT_RESCHEDULED',
+      'APPOINTMENT_CANCELLATION',
+      'OPU_CANCELLED',
+      'ET_CANCELLED',
+      'SURGERY_CANCELLED',
+    ];
     if (cancellationEvents.includes(evt.event_type)) {
       const cancellationInfo = extractCancellationInfo(evt.payload, evt.event_type);
       if (cancellationInfo) {
@@ -42,7 +50,7 @@ async function processEvent(evt, pollCount = 0) {
         log('info', `[POLL #${pollCount}] Auto-cancelled ${cancelledCount} scheduled integrations`, {
           correlationId,
           eventType: evt.event_type,
-          cancellationInfo
+          cancellationInfo,
         });
       }
     }
@@ -70,14 +78,14 @@ async function processEvent(evt, pollCount = 0) {
           correlationId,
           integrationId: integration.id,
           __KEEP_integrationName__: integration.name,
-          deliveryMode: integration.deliveryMode
+          deliveryMode: integration.deliveryMode,
         });
 
         // Apply transformation to get the payload ready for delivery
         // eslint-disable-next-line no-await-in-loop
         const transformed = await applyTransform(integration, evt.payload, {
           eventType: evt.event_type,
-          orgId
+          orgId,
         });
 
         if (transformed === null) {
@@ -85,7 +93,7 @@ async function processEvent(evt, pollCount = 0) {
             correlationId,
             integrationId: integration.id,
             __KEEP_integrationName__: integration.name,
-            deliveryMode: integration.deliveryMode
+            deliveryMode: integration.deliveryMode,
           });
 
           // eslint-disable-next-line no-await-in-loop
@@ -106,7 +114,7 @@ async function processEvent(evt, pollCount = 0) {
             httpMethod: integration.httpMethod || 'POST',
             correlationId,
             traceId: correlationId,
-            requestHeaders: null
+            requestHeaders: null,
           });
 
           deliveryResults.push({ integrationId: integration.id, status: 'SKIPPED', logId });
@@ -115,15 +123,11 @@ async function processEvent(evt, pollCount = 0) {
 
         // Execute scheduling script
         // eslint-disable-next-line no-await-in-loop
-        const scheduleResult = await executeSchedulingScript(
-          integration.schedulingConfig?.script,
-          evt.payload,
-          {
-            eventType: evt.event_type,
-            orgId,
-            __KEEP_integrationConfig__: integration
-          }
-        );
+        const scheduleResult = await executeSchedulingScript(integration.schedulingConfig?.script, evt.payload, {
+          eventType: evt.event_type,
+          orgId,
+          __KEEP_integrationConfig__: integration,
+        });
 
         // Extract cancellation info for matching
         const cancellationInfo = extractCancellationInfo(evt.payload, evt.event_type);
@@ -135,14 +139,14 @@ async function processEvent(evt, pollCount = 0) {
           const gracePeriodMs = 60000; // 1 minute grace period to account for processing time
 
           // Skip scheduling if the time is more than grace period in the past
-          if (scheduledForMs < (now - gracePeriodMs)) {
+          if (scheduledForMs < now - gracePeriodMs) {
             log('warn', `[POLL #${pollCount}] Skipping delayed integration: scheduled time is in the past`, {
               correlationId,
               integrationId: integration.id,
               __KEEP_integrationName__: integration.name,
               scheduledFor: new Date(scheduledForMs).toISOString(),
               currentTime: new Date(now).toISOString(),
-              pastByMs: now - scheduledForMs
+              pastByMs: now - scheduledForMs,
             });
 
             // Record a log entry showing this was skipped
@@ -164,7 +168,7 @@ async function processEvent(evt, pollCount = 0) {
               httpMethod: integration.httpMethod || 'POST',
               correlationId,
               traceId: correlationId,
-              requestHeaders: null
+              requestHeaders: null,
             });
 
             deliveryResults.push({ integrationId: integration.id, status: 'SKIPPED', logId });
@@ -183,14 +187,14 @@ async function processEvent(evt, pollCount = 0) {
             originalPayload: evt.payload,
             targetUrl: integration.targetUrl,
             httpMethod: integration.httpMethod || 'POST',
-            cancellationInfo
+            cancellationInfo,
           });
 
           log('info', `[POLL #${pollCount}] Delayed integration scheduled`, {
             correlationId,
             integrationId: integration.id,
             scheduledFor: new Date(scheduleResult).toISOString(),
-            schedulesInMs: scheduleResult - now
+            schedulesInMs: scheduleResult - now,
           });
 
           scheduledCount++;
@@ -202,14 +206,14 @@ async function processEvent(evt, pollCount = 0) {
           const gracePeriodMs = 60000; // 1 minute grace period
 
           // Skip scheduling if the first occurrence is more than grace period in the past
-          if (firstOccurrenceMs < (now - gracePeriodMs)) {
+          if (firstOccurrenceMs < now - gracePeriodMs) {
             log('warn', `[POLL #${pollCount}] Skipping recurring integration: first occurrence is in the past`, {
               correlationId,
               integrationId: integration.id,
               __KEEP_integrationName__: integration.name,
               firstOccurrence: new Date(firstOccurrenceMs).toISOString(),
               currentTime: new Date(now).toISOString(),
-              pastByMs: now - firstOccurrenceMs
+              pastByMs: now - firstOccurrenceMs,
             });
 
             // Record a log entry showing this was skipped
@@ -231,7 +235,7 @@ async function processEvent(evt, pollCount = 0) {
               httpMethod: integration.httpMethod || 'POST',
               correlationId,
               traceId: correlationId,
-              requestHeaders: null
+              requestHeaders: null,
             });
 
             deliveryResults.push({ integrationId: integration.id, status: 'SKIPPED', logId });
@@ -253,9 +257,9 @@ async function processEvent(evt, pollCount = 0) {
             recurrenceConfig: {
               interval: scheduleResult.interval,
               until: scheduleResult.until || null,
-              count: scheduleResult.count || null
+              count: scheduleResult.count || null,
             },
-            cancellationInfo
+            cancellationInfo,
           });
 
           log('info', `[POLL #${pollCount}] Recurring integration scheduled`, {
@@ -264,7 +268,7 @@ async function processEvent(evt, pollCount = 0) {
             firstOccurrence: new Date(scheduleResult.firstOccurrence).toISOString(),
             interval: scheduleResult.interval,
             until: scheduleResult.until,
-            count: scheduleResult.count
+            count: scheduleResult.count,
           });
 
           scheduledCount++;
@@ -275,7 +279,7 @@ async function processEvent(evt, pollCount = 0) {
           correlationId,
           integrationId: integration.id,
           error: err.message,
-          stack: err.stack
+          stack: err.stack,
         });
         failureCount++;
         deliveryResults.push({ integrationId: integration.id, status: 'FAILED', logId: null });
@@ -288,7 +292,7 @@ async function processEvent(evt, pollCount = 0) {
         correlationId,
         integrationId: integration.id,
         __KEEP_integrationName__: integration.name,
-        targetUrl: integration.targetUrl
+        targetUrl: integration.targetUrl,
       });
       // eslint-disable-next-line no-await-in-loop
       const result = await deliverToIntegration(integration, evt, false, pollCount, null, correlationId, true);
@@ -298,13 +302,13 @@ async function processEvent(evt, pollCount = 0) {
       log('info', `[POLL #${pollCount}] Delivery result`, {
         correlationId,
         integrationId: integration.id,
-        result: status
+        result: status,
       });
       deliveryResults.push({
         integrationId: integration.id,
         status,
         logId,
-        logIds
+        logIds,
       });
       if (status === 'SUCCESS') {
         successCount++;
@@ -313,8 +317,8 @@ async function processEvent(evt, pollCount = 0) {
       }
     }
 
-    const finalStatus = failureCount === 0 ? 'COMPLETED' :
-      (successCount > 0 || scheduledCount > 0) ? 'PARTIAL_SUCCESS' : 'FAILED';
+    const finalStatus =
+      failureCount === 0 ? 'COMPLETED' : successCount > 0 || scheduledCount > 0 ? 'PARTIAL_SUCCESS' : 'FAILED';
 
     log('info', `[POLL #${pollCount}] Marking event complete`, {
       correlationId,
@@ -322,33 +326,36 @@ async function processEvent(evt, pollCount = 0) {
       finalStatus,
       successCount,
       failureCount,
-      scheduledCount
+      scheduledCount,
     });
 
     // Note: Event persistence (in-memory + MongoDB) is handled by the adapter handler
     // No need to mark as processed here - adapter already does it after processEvent() returns
 
-    await data.markEventComplete(evt.id, finalStatus,
-      `Processed ${integrations.length} integrations: ${successCount} immediate success, ${scheduledCount} scheduled, ${failureCount} failures`);
+    await data.markEventComplete(
+      evt.id,
+      finalStatus,
+      `Processed ${integrations.length} integrations: ${successCount} immediate success, ${scheduledCount} scheduled, ${failureCount} failures`
+    );
 
     return {
       correlationId,
       deliveryResults,
       scheduledCount,
       successCount,
-      failureCount
+      failureCount,
     };
   } catch (error) {
     log('error', `[POLL #${pollCount}] Error in processEvent`, {
       correlationId,
       error: error.message,
       stack: error.stack,
-      eventId: evt.id
+      eventId: evt.id,
     });
     throw error;
   }
 }
 
 module.exports = {
-  processEvent
+  processEvent,
 };

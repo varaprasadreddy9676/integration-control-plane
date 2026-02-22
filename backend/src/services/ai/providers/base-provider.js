@@ -8,23 +8,23 @@ class BaseAIProvider {
     this.config = config;
   }
 
-  async generateTransformation(inputExample, outputExample, eventType) {
+  async generateTransformation(_inputExample, _outputExample, _eventType) {
     throw new Error('generateTransformation() must be implemented by provider');
   }
 
-  async analyzeDocumentation(documentation, eventType) {
+  async analyzeDocumentation(_documentation, _eventType) {
     throw new Error('analyzeDocumentation() must be implemented by provider');
   }
 
-  async suggestFieldMappings(sourceFields, targetFields, apiContext) {
+  async suggestFieldMappings(_sourceFields, _targetFields, _apiContext) {
     throw new Error('suggestFieldMappings() must be implemented by provider');
   }
 
-  async generateTestPayload(eventType, orgId) {
+  async generateTestPayload(_eventType, _orgId) {
     throw new Error('generateTestPayload() must be implemented by provider');
   }
 
-  async generateSchedulingScript(description, mode, eventType) {
+  async generateSchedulingScript(_description, _mode, _eventType) {
     throw new Error('generateSchedulingScript() must be implemented by provider');
   }
 
@@ -41,7 +41,7 @@ class BaseAIProvider {
    * @param {object} errorContext - { logEntry, integrationConfig, payload, errorMessage }
    * @returns {Promise<{ rootCause, explanation, suggestedFix, codeChange? }>}
    */
-  async analyzeError(errorContext) {
+  async analyzeError(_errorContext) {
     throw new Error('analyzeError() must be implemented by provider');
   }
 
@@ -51,7 +51,7 @@ class BaseAIProvider {
    * @param {string} entityContext - Injected context about the entity's integrations/errors
    * @returns {Promise<string>} AI reply
    */
-  async chat(messages, entityContext) {
+  async chat(_messages, _entityContext) {
     throw new Error('chat() must be implemented by provider');
   }
 
@@ -60,7 +60,7 @@ class BaseAIProvider {
    * @param {object} params - { code, errorMessage?, eventType? }
    * @returns {Promise<{ explanation, fixedCode?, suggestions }>}
    */
-  async explainTransformation(params) {
+  async explainTransformation(_params) {
     throw new Error('explainTransformation() must be implemented by provider');
   }
 

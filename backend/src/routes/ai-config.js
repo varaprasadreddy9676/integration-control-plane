@@ -23,7 +23,7 @@ const PROVIDER_MODELS = {
   openai: ['gpt-4o-mini', 'gpt-4o', 'gpt-4-turbo', 'gpt-4', 'gpt-3.5-turbo'],
   claude: ['claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022', 'claude-3-opus-20240229'],
   kimi: ['moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k'],
-  zai: ['glm-4.7', 'glm-4-flash', 'glm-4']
+  zai: ['glm-4.7', 'glm-4-flash', 'glm-4'],
 };
 
 /**
@@ -55,9 +55,9 @@ router.get(
         model: 'gpt-4o-mini',
         dailyLimit: 100,
         enabled: false,
-        hasApiKey: false
+        hasApiKey: false,
       },
-      providerModels: PROVIDER_MODELS
+      providerModels: PROVIDER_MODELS,
     });
   })
 );
@@ -82,7 +82,9 @@ router.put(
     }
 
     if (model && provider && PROVIDER_MODELS[provider] && !PROVIDER_MODELS[provider].includes(model)) {
-      throw new ValidationError(`Invalid model "${model}" for provider "${provider}". Valid models: ${PROVIDER_MODELS[provider].join(', ')}`);
+      throw new ValidationError(
+        `Invalid model "${model}" for provider "${provider}". Valid models: ${PROVIDER_MODELS[provider].join(', ')}`
+      );
     }
 
     if (dailyLimit !== undefined && (typeof dailyLimit !== 'number' || dailyLimit < 0 || dailyLimit > 10000)) {
@@ -97,7 +99,7 @@ router.put(
       model,
       maxTokens: typeof maxTokens === 'number' ? maxTokens : undefined,
       dailyLimit: typeof dailyLimit === 'number' ? dailyLimit : undefined,
-      enabled
+      enabled,
     });
 
     // Invalidate the provider cache in AIService
@@ -111,7 +113,7 @@ router.put(
     res.json({
       success: true,
       message: 'AI configuration saved successfully',
-      data: saved
+      data: saved,
     });
   })
 );
@@ -134,20 +136,20 @@ router.post(
     if (!providerConfig) {
       return res.status(400).json({
         success: false,
-        error: 'No AI API key configured for this organization. Save your settings first.'
+        error: 'No AI API key configured for this organization. Save your settings first.',
       });
     }
 
     const provider = AIProviderFactory.create({
       enabled: true,
       provider: providerConfig.provider,
-      [providerConfig.provider]: providerConfig
+      [providerConfig.provider]: providerConfig,
     });
 
     if (!provider) {
       return res.status(400).json({
         success: false,
-        error: 'Could not initialize AI provider'
+        error: 'Could not initialize AI provider',
       });
     }
 
@@ -162,13 +164,13 @@ router.post(
           connected: true,
           provider: providerConfig.provider,
           model: result.model || providerConfig.model,
-          latencyMs
-        }
+          latencyMs,
+        },
       });
     } catch (err) {
       res.status(400).json({
         success: false,
-        error: `Connection test failed: ${err.message}`
+        error: `Connection test failed: ${err.message}`,
       });
     }
   })
@@ -196,11 +198,14 @@ router.delete(
       aiService.invalidateProviderCache(orgId);
     }
 
-    await auditConfig.aiConfigUpdated(req, { before: { hasApiKey: true }, after: { hasApiKey: false, enabled: false } });
+    await auditConfig.aiConfigUpdated(req, {
+      before: { hasApiKey: true },
+      after: { hasApiKey: false, enabled: false },
+    });
 
     res.json({
       success: true,
-      message: 'API key removed. AI features are now disabled for this organization.'
+      message: 'API key removed. AI features are now disabled for this organization.',
     });
   })
 );
@@ -211,13 +216,13 @@ router.delete(
  */
 router.get(
   '/providers',
-  asyncHandler(async (req, res) => {
+  asyncHandler(async (_req, res) => {
     res.json({
       success: true,
       data: {
         providers: VALID_PROVIDERS,
-        models: PROVIDER_MODELS
-      }
+        models: PROVIDER_MODELS,
+      },
     });
   })
 );

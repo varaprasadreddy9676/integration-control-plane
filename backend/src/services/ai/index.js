@@ -69,10 +69,10 @@ class AIService {
         const provider = AIProviderFactory.create({
           enabled: true,
           provider: providerConfig.provider,
-          [providerConfig.provider]: providerConfig
+          [providerConfig.provider]: providerConfig,
         });
 
-        if (provider && provider.isConfigured()) {
+        if (provider?.isConfigured()) {
           providerCache.set(normalizedOrgId, { provider, expiresAt: Date.now() + PROVIDER_CACHE_TTL_MS });
           return provider;
         }
@@ -80,7 +80,7 @@ class AIService {
     } catch (err) {
       log('warn', 'Could not load entity AI config from DB', {
         orgId: normalizedOrgId,
-        error: err.message
+        error: err.message,
       });
     }
 
@@ -111,7 +111,7 @@ class AIService {
       if (entityConfig && entityConfig.enabled === false) {
         return false;
       }
-    } catch (err) {
+    } catch (_err) {
       // Non-fatal - proceed
     }
 
@@ -125,7 +125,7 @@ class AIService {
         const db = await mongodb.getDbSafe();
         // entityParentRid fallback: legacy alias for orgId used in pre-migration documents
         const uiConfig = await db.collection('ui_config').findOne({
-          $or: [{ orgId: normalizedOrgId }, { entityParentRid: normalizedOrgId }]
+          $or: [{ orgId: normalizedOrgId }, { entityParentRid: normalizedOrgId }],
         });
         const aiAssistantFlag = uiConfig?.features?.aiAssistant;
         const aiAssistantLegacyFlag = uiConfig?.features?.ai_assistant;
@@ -133,7 +133,7 @@ class AIService {
           return false;
         }
       }
-    } catch (err) {
+    } catch (_err) {
       // Non-fatal - proceed
     }
 
@@ -147,7 +147,7 @@ class AIService {
         allowed: false,
         usage: 0,
         limit: 0,
-        remaining: 0
+        remaining: 0,
       };
     }
     return this.rateLimiter.checkLimit(normalizedOrgId);
@@ -165,17 +165,23 @@ class AIService {
   async _requireAvailable(orgId) {
     const normalizedOrgId = normalizeOrgId(orgId);
     if (!normalizedOrgId) {
-      throw new Error('AI is not configured for this organization. Go to Settings → AI Configuration to add your API key.');
+      throw new Error(
+        'AI is not configured for this organization. Go to Settings → AI Configuration to add your API key.'
+      );
     }
 
     const available = await this.isAvailable(normalizedOrgId);
     if (!available) {
-      throw new Error('AI is not configured for this organization. Go to Settings → AI Configuration to add your API key.');
+      throw new Error(
+        'AI is not configured for this organization. Go to Settings → AI Configuration to add your API key.'
+      );
     }
     const rateCheck = await this.rateLimiter.checkLimit(normalizedOrgId);
     if (!rateCheck.allowed) {
       const limitDisplay = rateCheck.limit === 0 ? 'unlimited' : rateCheck.limit;
-      throw new Error(`Daily AI limit exceeded. Used ${rateCheck.usage}/${limitDisplay} requests today. Resets tomorrow.`);
+      throw new Error(
+        `Daily AI limit exceeded. Used ${rateCheck.usage}/${limitDisplay} requests today. Resets tomorrow.`
+      );
     }
     return await this.getProviderForEntity(normalizedOrgId);
   }
@@ -191,7 +197,7 @@ class AIService {
       request: { data: requestData },
       response: {},
       metadata: {},
-      success: false
+      success: false,
     };
 
     try {
@@ -203,7 +209,7 @@ class AIService {
 
       await this.rateLimiter.recordUsage(normalizedOrgId, operation, {
         provider: provider.getName(),
-        ...requestData
+        ...requestData,
       });
       await interactionLogger.logInteraction(logData);
 
@@ -228,12 +234,10 @@ class AIService {
   }
 
   async analyzeDocumentation(orgId, documentation, eventType) {
-    return this._logAndRun(
-      orgId,
-      'analyze_documentation',
-      (p) => p.analyzeDocumentation(documentation, eventType),
-      { eventType, docLength: documentation.length }
-    );
+    return this._logAndRun(orgId, 'analyze_documentation', (p) => p.analyzeDocumentation(documentation, eventType), {
+      eventType,
+      docLength: documentation.length,
+    });
   }
 
   async suggestFieldMappings(orgId, sourceFields, targetFields, apiContext) {
@@ -270,12 +274,9 @@ class AIService {
    * @param {object} errorContext - { logEntry, integrationConfig, payload, errorMessage }
    */
   async analyzeError(orgId, errorContext) {
-    const raw = await this._logAndRun(
-      orgId,
-      'analyze_error',
-      (p) => p.analyzeError(errorContext),
-      { integrationId: errorContext.integrationConfig?._id }
-    );
+    const raw = await this._logAndRun(orgId, 'analyze_error', (p) => p.analyzeError(errorContext), {
+      integrationId: errorContext.integrationConfig?._id,
+    });
     return normalizeErrorAnalysis(raw);
   }
 
@@ -291,9 +292,7 @@ class AIService {
 
     // Build entity context from MongoDB
     const entityContext = await this._buildEntityContext(normalizedOrgId, pageContext);
-    const groundedContext = [entityContext, this._buildGroundingContract()]
-      .filter(Boolean)
-      .join('\n\n');
+    const groundedContext = [entityContext, this._buildGroundingContract()].filter(Boolean).join('\n\n');
 
     const startTime = Date.now();
     const logData = {
@@ -303,7 +302,7 @@ class AIService {
       request: { data: { messageCount: messages.length, pageContext } },
       response: {},
       metadata: {},
-      success: false
+      success: false,
     };
 
     try {
@@ -332,12 +331,10 @@ class AIService {
    * @param {object} params - { code, errorMessage?, eventType? }
    */
   async explainTransformation(orgId, params) {
-    const raw = await this._logAndRun(
-      orgId,
-      'explain_transformation',
-      (p) => p.explainTransformation(params),
-      { eventType: params.eventType, hasError: !!params.errorMessage }
-    );
+    const raw = await this._logAndRun(orgId, 'explain_transformation', (p) => p.explainTransformation(params), {
+      eventType: params.eventType,
+      hasError: !!params.errorMessage,
+    });
     return normalizeExplainTransformation(raw);
   }
 
@@ -348,7 +345,7 @@ class AIService {
         totalUsage: 0,
         byOperation: {},
         byDay: {},
-        period: `${days} days`
+        period: `${days} days`,
       };
     }
     return this.rateLimiter.getUsageStats(normalizedOrgId, days);
@@ -368,7 +365,7 @@ class AIService {
       '  1) `Known Facts`',
       '  2) `Unknowns`',
       '  3) `Recommended Next Checks`',
-      '- Keep each bullet concise and operational.'
+      '- Keep each bullet concise and operational.',
     ].join('\n');
   }
 
@@ -382,9 +379,9 @@ class AIService {
     const orgScope = {
       $or: [
         { orgId: normalizedOrgId },
-        { entityRid: normalizedOrgId },       // legacy alias
-        { entityParentRid: normalizedOrgId }  // legacy alias
-      ]
+        { entityRid: normalizedOrgId }, // legacy alias
+        { entityParentRid: normalizedOrgId }, // legacy alias
+      ],
     };
     const errorScope = orgScope;
 
@@ -395,9 +392,19 @@ class AIService {
       const db = await mongodb.getDbSafe();
 
       // Fetch entity's integrations
-      const integrations = await db.collection('integration_configs')
+      const integrations = await db
+        .collection('integration_configs')
         .find({ ...orgScope, deletedAt: { $exists: false } })
-        .project({ name: 1, direction: 1, type: 1, targetUrl: 1, httpMethod: 1, isActive: 1, eventType: 1, updatedAt: 1 })
+        .project({
+          name: 1,
+          direction: 1,
+          type: 1,
+          targetUrl: 1,
+          httpMethod: 1,
+          isActive: 1,
+          eventType: 1,
+          updatedAt: 1,
+        })
         .sort({ updatedAt: -1 })
         .limit(25)
         .toArray();
@@ -414,9 +421,15 @@ class AIService {
         parts.push(`## This Organization's Integrations (sample: ${integrations.length} most recently updated)`);
         parts.push(`- Active: ${activeCount}`);
         parts.push(`- Inactive: ${inactiveCount}`);
-        parts.push(`- Direction mix: ${Object.entries(byDirection).map(([k, v]) => `${k}=${v}`).join(', ')}`);
-        integrations.slice(0, 12).forEach(i => {
-          parts.push(`- **${i.name}** (${(i.direction || i.type || 'outbound').toLowerCase()}) → ${i.targetUrl || 'N/A'} [${i.isActive !== false ? 'enabled' : 'disabled'}]`);
+        parts.push(
+          `- Direction mix: ${Object.entries(byDirection)
+            .map(([k, v]) => `${k}=${v}`)
+            .join(', ')}`
+        );
+        integrations.slice(0, 12).forEach((i) => {
+          parts.push(
+            `- **${i.name}** (${(i.direction || i.type || 'outbound').toLowerCase()}) → ${i.targetUrl || 'N/A'} [${i.isActive !== false ? 'enabled' : 'disabled'}]`
+          );
         });
         if (integrations.length > 12) {
           parts.push(`- ...and ${integrations.length - 12} more integrations in context window`);
@@ -424,7 +437,8 @@ class AIService {
       }
 
       // Fetch recent errors
-      const recentErrors = await db.collection('execution_logs')
+      const recentErrors = await db
+        .collection('execution_logs')
         .find({ ...errorScope, status: { $in: errorStatuses } })
         .sort({ createdAt: -1 })
         .limit(8)
@@ -435,33 +449,36 @@ class AIService {
           errorMessage: 1,
           status: 1,
           createdAt: 1,
-          targetUrl: 1
+          targetUrl: 1,
         })
         .toArray();
 
       if (recentErrors.length > 0) {
         parts.push(`\n## Recent Delivery Errors`);
-        recentErrors.forEach(e => {
+        recentErrors.forEach((e) => {
           const errMsg = String(e.errorMessage || 'Unknown error').substring(0, 150);
-          parts.push(`- **${e.__KEEP_integrationName__ || 'Unknown'}** [${e.eventType || '*'} | ${e.status || 'FAILED'}]: ${errMsg}`);
+          parts.push(
+            `- **${e.__KEEP_integrationName__ || 'Unknown'}** [${e.eventType || '*'} | ${e.status || 'FAILED'}]: ${errMsg}`
+          );
         });
       }
 
-      const topFailingIntegrations = await db.collection('execution_logs')
+      const topFailingIntegrations = await db
+        .collection('execution_logs')
         .aggregate([
           { $match: { ...errorScope, status: { $in: errorStatuses } } },
           {
             $group: {
               _id: {
                 integrationId: '$__KEEP___KEEP_integrationConfig__Id__',
-                integrationName: '$__KEEP_integrationName__'
+                integrationName: '$__KEEP_integrationName__',
               },
               count: { $sum: 1 },
-              latestError: { $max: '$createdAt' }
-            }
+              latestError: { $max: '$createdAt' },
+            },
           },
           { $sort: { count: -1, latestError: -1 } },
-          { $limit: 5 }
+          { $limit: 5 },
         ])
         .toArray();
 
@@ -476,18 +493,19 @@ class AIService {
       // entityParentRid fallback: legacy alias for orgId used in pre-migration documents
       const defaultUiDoc = await db.collection('ui_config').findOne({ _id: 'default' });
       const orgUiDoc = await db.collection('ui_config').findOne({
-        $or: [{ orgId: normalizedOrgId }, { entityParentRid: normalizedOrgId }]
+        $or: [{ orgId: normalizedOrgId }, { entityParentRid: normalizedOrgId }],
       });
       const effectiveUiConfig = mergeObjects(stripUiConfig(defaultUiDoc), stripUiConfig(orgUiDoc));
 
       if (Object.keys(effectiveUiConfig).length > 0) {
         const failureReports = effectiveUiConfig?.notifications?.failureEmailReports || {};
         const aiAssistantEnabled =
-          effectiveUiConfig?.features?.aiAssistant !== false &&
-          effectiveUiConfig?.features?.ai_assistant !== false;
+          effectiveUiConfig?.features?.aiAssistant !== false && effectiveUiConfig?.features?.ai_assistant !== false;
         parts.push(`\n## Effective UI Config (safe summary)`);
         parts.push(`- AI assistant feature flag: ${aiAssistantEnabled ? 'enabled' : 'disabled'}`);
-        parts.push(`- Failure reports: ${failureReports.enabled ? 'enabled' : 'disabled'} (interval: ${failureReports.intervalMinutes ?? 'n/a'} min, lookback: ${failureReports.lookbackMinutes ?? 'n/a'} min)`);
+        parts.push(
+          `- Failure reports: ${failureReports.enabled ? 'enabled' : 'disabled'} (interval: ${failureReports.intervalMinutes ?? 'n/a'} min, lookback: ${failureReports.lookbackMinutes ?? 'n/a'} min)`
+        );
         parts.push(`- Failure report recipient override: ${failureReports.email ? 'configured' : 'not configured'}`);
         parts.push(`- Multi-action delay: ${effectiveUiConfig?.worker?.multiActionDelayMs ?? 0} ms`);
         parts.push(`- Dashboard auto-refresh: ${effectiveUiConfig?.dashboard?.autoRefreshSeconds ?? 30} sec`);
@@ -497,20 +515,30 @@ class AIService {
       const runtimeConfig = require('../../config');
       parts.push(`\n## Effective System Config (safe summary)`);
       parts.push(`- Event source: ${runtimeConfig?.eventSource?.type || 'unknown'}`);
-      parts.push(`- Worker: enabled=${runtimeConfig?.worker?.enabled !== false}, intervalMs=${runtimeConfig?.worker?.intervalMs ?? 'n/a'}, batchSize=${runtimeConfig?.worker?.batchSize ?? 'n/a'}, timeoutMs=${runtimeConfig?.worker?.timeoutMs ?? 'n/a'}`);
-      parts.push(`- Scheduler: enabled=${runtimeConfig?.scheduler?.enabled !== false}, intervalMs=${runtimeConfig?.scheduler?.intervalMs ?? 'n/a'}, batchSize=${runtimeConfig?.scheduler?.batchSize ?? 'n/a'}`);
-      parts.push(`- Security flags: enforceHttps=${runtimeConfig?.security?.enforceHttps !== false}, blockPrivateNetworks=${runtimeConfig?.security?.blockPrivateNetworks !== false}`);
-      parts.push(`- Event audit: enabled=${runtimeConfig?.eventAudit?.enabled !== false}, retentionDays=${runtimeConfig?.eventAudit?.retentionDays ?? 'n/a'}`);
+      parts.push(
+        `- Worker: enabled=${runtimeConfig?.worker?.enabled !== false}, intervalMs=${runtimeConfig?.worker?.intervalMs ?? 'n/a'}, batchSize=${runtimeConfig?.worker?.batchSize ?? 'n/a'}, timeoutMs=${runtimeConfig?.worker?.timeoutMs ?? 'n/a'}`
+      );
+      parts.push(
+        `- Scheduler: enabled=${runtimeConfig?.scheduler?.enabled !== false}, intervalMs=${runtimeConfig?.scheduler?.intervalMs ?? 'n/a'}, batchSize=${runtimeConfig?.scheduler?.batchSize ?? 'n/a'}`
+      );
+      parts.push(
+        `- Security flags: enforceHttps=${runtimeConfig?.security?.enforceHttps !== false}, blockPrivateNetworks=${runtimeConfig?.security?.blockPrivateNetworks !== false}`
+      );
+      parts.push(
+        `- Event audit: enabled=${runtimeConfig?.eventAudit?.enabled !== false}, retentionDays=${runtimeConfig?.eventAudit?.retentionDays ?? 'n/a'}`
+      );
 
       // Specific page context
       if (pageContext.integrationId) {
         try {
           const { ObjectId } = require('mongodb');
           const integrationObjectId = new ObjectId(pageContext.integrationId);
-          const integration = await db.collection('integration_configs').findOne(
-            { _id: integrationObjectId, ...orgScope },
-            { projection: { name: 1, direction: 1, type: 1, targetUrl: 1, eventType: 1, transformation: 1 } }
-          );
+          const integration = await db
+            .collection('integration_configs')
+            .findOne(
+              { _id: integrationObjectId, ...orgScope },
+              { projection: { name: 1, direction: 1, type: 1, targetUrl: 1, eventType: 1, transformation: 1 } }
+            );
           if (integration) {
             parts.push(`\n## Currently Viewing Integration: "${integration.name}"`);
             parts.push(`- Type: ${(integration.direction || integration.type || 'outbound').toLowerCase()}`);
@@ -520,14 +548,15 @@ class AIService {
               parts.push(`- Has transformation script: yes`);
             }
 
-            const integrationRecentErrors = await db.collection('execution_logs')
+            const integrationRecentErrors = await db
+              .collection('execution_logs')
               .find({
                 ...errorScope,
                 status: { $in: errorStatuses },
                 $or: [
                   { __KEEP___KEEP_integrationConfig__Id__: integrationObjectId },
-                  { __KEEP___KEEP_integrationConfig__Id__: pageContext.integrationId }
-                ]
+                  { __KEEP___KEEP_integrationConfig__Id__: pageContext.integrationId },
+                ],
               })
               .sort({ createdAt: -1 })
               .limit(5)
@@ -537,11 +566,15 @@ class AIService {
             if (integrationRecentErrors.length > 0) {
               parts.push(`- Recent failures for this integration:`);
               integrationRecentErrors.forEach((err) => {
-                parts.push(`  - [${err.status || 'FAILED'} | ${err.eventType || '*'}] ${String(err.errorMessage || 'Unknown error').substring(0, 140)}`);
+                parts.push(
+                  `  - [${err.status || 'FAILED'} | ${err.eventType || '*'}] ${String(err.errorMessage || 'Unknown error').substring(0, 140)}`
+                );
               });
             }
           }
-        } catch (e) { /* ignore invalid ObjectId */ }
+        } catch (_e) {
+          /* ignore invalid ObjectId */
+        }
       }
 
       if (pageContext.logId) {
@@ -549,7 +582,7 @@ class AIService {
           const { ObjectId } = require('mongodb');
           const logEntry = await db.collection('execution_logs').findOne({
             _id: new ObjectId(pageContext.logId),
-            orgId: normalizedOrgId
+            orgId: normalizedOrgId,
           });
           if (logEntry) {
             parts.push(`\n## Currently Viewing Log Entry`);
@@ -557,15 +590,18 @@ class AIService {
             parts.push(`- Status: ${logEntry.status}`);
             parts.push(`- Error: ${String(logEntry.errorMessage || 'none').substring(0, 200)}`);
           }
-        } catch (e) { /* ignore */ }
+        } catch (_e) {
+          /* ignore */
+        }
       }
 
       if (pageContext.eventType) {
-        const eventTypeErrors = await db.collection('execution_logs')
+        const eventTypeErrors = await db
+          .collection('execution_logs')
           .find({
             ...errorScope,
             status: { $in: errorStatuses },
-            eventType: pageContext.eventType
+            eventType: pageContext.eventType,
           })
           .sort({ createdAt: -1 })
           .limit(5)
@@ -575,7 +611,9 @@ class AIService {
         if (eventTypeErrors.length > 0) {
           parts.push(`\n## Recent Errors for Event Type: ${pageContext.eventType}`);
           eventTypeErrors.forEach((err) => {
-            parts.push(`- **${err.__KEEP_integrationName__ || 'Unknown'}** [${err.status || 'FAILED'}]: ${String(err.errorMessage || 'Unknown error').substring(0, 140)}`);
+            parts.push(
+              `- **${err.__KEEP_integrationName__ || 'Unknown'}** [${err.status || 'FAILED'}]: ${String(err.errorMessage || 'Unknown error').substring(0, 140)}`
+            );
           });
         }
       }
@@ -585,10 +623,7 @@ class AIService {
 
     if (parts.length === 0) return '';
 
-    return [
-      '## Integration Gateway Context for This Organization',
-      ...parts
-    ].join('\n');
+    return ['## Integration Gateway Context for This Organization', ...parts].join('\n');
   }
 }
 

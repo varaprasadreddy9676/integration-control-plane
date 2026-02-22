@@ -10,7 +10,7 @@ const extractOrgIdFromQuery = (req) => {
   if (usedLegacyKey) {
     log('warn', 'Deprecated query parameter used: entityParentRid. Use orgId instead.', {
       path: req.path,
-      requestId: req.id
+      requestId: req.id,
     });
   }
   return orgId;
@@ -26,16 +26,15 @@ const applyOrgContext = (req, orgId) => {
 };
 
 function auth(req, res, next) {
-  if ((req.query && Object.prototype.hasOwnProperty.call(req.query, 'tenantId')) ||
-    (req.body && Object.prototype.hasOwnProperty.call(req.body, 'tenantId'))) {
+  if ((req.query && Object.hasOwn(req.query, 'tenantId')) || (req.body && Object.hasOwn(req.body, 'tenantId'))) {
     return res.status(400).json({
       error: 'tenantId is not supported. Use orgId instead.',
-      code: 'TENANT_ID_NOT_ALLOWED'
+      code: 'TENANT_ID_NOT_ALLOWED',
     });
   }
 
   const authHeader = req.header('authorization');
-  if (authHeader && authHeader.toLowerCase().startsWith('bearer ')) {
+  if (authHeader?.toLowerCase().startsWith('bearer ')) {
     const token = authHeader.slice(7).trim();
     const jwtSecret = config.security?.jwtSecret;
 
@@ -52,7 +51,7 @@ function auth(req, res, next) {
         role: payload.role,
         orgId: payload.orgId || null,
         impersonatedBy: payload.impersonatedBy || null,
-        impersonated: !!payload.impersonated
+        impersonated: !!payload.impersonated,
       };
 
       if (payload.orgId) {
@@ -72,7 +71,7 @@ function auth(req, res, next) {
       log('warn', 'Invalid JWT', {
         path: req.path,
         requestId: req.id,
-        error: err.message
+        error: err.message,
       });
       return next(new UnauthorizedError('Invalid token'));
     }
@@ -83,7 +82,7 @@ function auth(req, res, next) {
     log('warn', 'Missing API key', {
       path: req.path,
       requestId: req.id,
-      ip: req.ip || req.connection.remoteAddress
+      ip: req.ip || req.connection.remoteAddress,
     });
     return next(new UnauthorizedError('Missing API key'));
   }
@@ -93,7 +92,7 @@ function auth(req, res, next) {
     log('warn', 'Invalid API key', {
       path: req.path,
       requestId: req.id,
-      ip: req.ip || req.connection.remoteAddress
+      ip: req.ip || req.connection.remoteAddress,
     });
     return next(new UnauthorizedError('Invalid API key'));
   }
@@ -112,14 +111,14 @@ function auth(req, res, next) {
   return next();
 }
 
-auth.requireEntity = (req, res, next) => {
+auth.requireEntity = (req, _res, next) => {
   if (!req.orgId && !req.entityParentRid) {
     return next(new UnauthorizedError('Missing orgId query parameter'));
   }
   return next();
 };
 
-auth.requireRole = (roles) => (req, res, next) => {
+auth.requireRole = (roles) => (req, _res, next) => {
   const allowed = Array.isArray(roles) ? roles : [roles];
   if (!req.user) {
     return next(new UnauthorizedError('Missing user context'));

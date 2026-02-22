@@ -45,7 +45,7 @@ function getNestedValue(obj, path) {
 }
 
 async function applySimpleTransform(payload, transformation = {}, event = {}) {
-  const source = (payload && typeof payload === 'object') ? payload : {};
+  const source = payload && typeof payload === 'object' ? payload : {};
   const result = { ...source }; // Start with original payload, then apply mappings
   const mappings = transformation && Array.isArray(transformation.mappings) ? transformation.mappings : [];
 
@@ -94,7 +94,7 @@ async function applySimpleTransform(payload, transformation = {}, event = {}) {
 
   const staticFields = transformation && Array.isArray(transformation.staticFields) ? transformation.staticFields : [];
   staticFields.forEach((field) => {
-    if (field && field.key) {
+    if (field?.key) {
       result[field.key] = field.value;
     }
   });
@@ -114,7 +114,7 @@ async function applyTransform(integration, payload, context = {}) {
   let transformed = payload;
   const event = {
     orgId: context.orgId || integration.orgId,
-    orgUnitRid: context.orgUnitRid || integration.orgUnitRid || integration.entityRid
+    orgUnitRid: context.orgUnitRid || integration.orgUnitRid || integration.entityRid,
   };
 
   switch (integration.transformationMode) {
@@ -135,7 +135,7 @@ async function applyTransform(integration, payload, context = {}) {
   if (integration.lookups && integration.lookups.length > 0) {
     const event = {
       orgId: context.orgId || integration.orgId,
-      orgUnitRid: context.orgUnitRid || integration.orgUnitRid || integration.entityRid
+      orgUnitRid: context.orgUnitRid || integration.orgUnitRid || integration.entityRid,
     };
     transformed = await applyLookups(transformed, integration.lookups, event);
   }
@@ -148,7 +148,7 @@ async function applyTransform(integration, payload, context = {}) {
  */
 function getGlobalUtilities() {
   // Define epoch as a standalone function so datetime can reference it directly
-  const epochFn = function(dateStr) {
+  const epochFn = (dateStr) => {
     if (!dateStr) return null;
     try {
       let date;
@@ -170,13 +170,26 @@ function getGlobalUtilities() {
         }
       } else if (dateStr.match(/^\d{1,2}-[A-Za-z]{3}-\d{4}/)) {
         const parts = dateStr.split(/[\s-]+/);
-        const monthMap = {'jan':0,'feb':1,'mar':2,'apr':3,'may':4,'jun':5,'jul':6,'aug':7,'sep':8,'oct':9,'nov':10,'dec':11};
-        date = new Date(parts[2], monthMap[parts[1].toLowerCase().substring(0,3)], parts[0]);
+        const monthMap = {
+          jan: 0,
+          feb: 1,
+          mar: 2,
+          apr: 3,
+          may: 4,
+          jun: 5,
+          jul: 6,
+          aug: 7,
+          sep: 8,
+          oct: 9,
+          nov: 10,
+          dec: 11,
+        };
+        date = new Date(parts[2], monthMap[parts[1].toLowerCase().substring(0, 3)], parts[0]);
       } else {
         date = new Date(dateStr);
       }
-      return isNaN(date.getTime()) ? null : Math.floor(date.getTime() / 1000);
-    } catch(e) {
+      return Number.isNaN(date.getTime()) ? null : Math.floor(date.getTime() / 1000);
+    } catch (_e) {
       return null;
     }
   };
@@ -185,37 +198,31 @@ function getGlobalUtilities() {
     // Date/Time utilities
     epoch: epochFn,
 
-    datetime: function(date, time, timezone) {
+    datetime: (date, time, timezone) => {
       if (!date) return null;
       const tz = timezone || '+05:30';
-      const dateTimeStr = time ? date + 'T' + time + tz : date + 'T00:00:00' + tz;
-      return epochFn(dateTimeStr);  // Call epochFn directly instead of this.epoch
+      const dateTimeStr = time ? `${date}T${time}${tz}` : `${date}T00:00:00${tz}`;
+      return epochFn(dateTimeStr); // Call epochFn directly instead of this.epoch
     },
 
     // String utilities
-    uppercase: function(str) {
-      return str ? String(str).toUpperCase() : str;
-    },
+    uppercase: (str) => (str ? String(str).toUpperCase() : str),
 
-    lowercase: function(str) {
-      return str ? String(str).toLowerCase() : str;
-    },
+    lowercase: (str) => (str ? String(str).toLowerCase() : str),
 
-    trim: function(str) {
-      return str ? String(str).trim() : str;
-    },
+    trim: (str) => (str ? String(str).trim() : str),
 
     // Phone utilities
-    formatPhone: function(phone, countryCode) {
+    formatPhone: (phone, countryCode) => {
       if (!phone) return phone;
       const cc = countryCode || '91';
       const cleaned = String(phone).replace(/\D/g, '');
-      if (cleaned.startsWith(cc)) return '+' + cleaned;
-      return '+' + cc + cleaned;
+      if (cleaned.startsWith(cc)) return `+${cleaned}`;
+      return `+${cc}${cleaned}`;
     },
 
     // Object utilities
-    get: function(obj, path, defaultValue) {
+    get: (obj, path, defaultValue) => {
       if (!path || !obj) return defaultValue;
       const keys = path.split('.');
       let value = obj;
@@ -224,7 +231,7 @@ function getGlobalUtilities() {
         if (value === undefined) return defaultValue;
       }
       return value;
-    }
+    },
   };
 }
 
@@ -241,7 +248,7 @@ function createHttpHelper(context) {
      * @param {string} url - Target URL
      * @param {object} options - Request options (headers, timeout, etc.)
      */
-    get: async function(url, options = {}) {
+    get: async (url, options = {}) => {
       log('debug', 'Script HTTP GET request', { url, context: context.eventType });
 
       try {
@@ -249,13 +256,13 @@ function createHttpHelper(context) {
           timeout: options.timeout || 30000,
           headers: options.headers || {},
           params: options.params || {},
-          validateStatus: () => true // Don't throw on non-2xx
+          validateStatus: () => true, // Don't throw on non-2xx
         });
 
         return {
           status: response.status,
           data: response.data,
-          headers: response.headers
+          headers: response.headers,
         };
       } catch (error) {
         log('error', 'Script HTTP GET failed', { url, error: error.message });
@@ -269,20 +276,20 @@ function createHttpHelper(context) {
      * @param {object} data - Request body
      * @param {object} options - Request options (headers, timeout, etc.)
      */
-    post: async function(url, data, options = {}) {
+    post: async (url, data, options = {}) => {
       log('debug', 'Script HTTP POST request', { url, context: context.eventType });
 
       try {
         const response = await axios.post(url, data, {
           timeout: options.timeout || 30000,
           headers: options.headers || {},
-          validateStatus: () => true
+          validateStatus: () => true,
         });
 
         return {
           status: response.status,
           data: response.data,
-          headers: response.headers
+          headers: response.headers,
         };
       } catch (error) {
         log('error', 'Script HTTP POST failed', { url, error: error.message });
@@ -293,20 +300,20 @@ function createHttpHelper(context) {
     /**
      * Make a PUT request
      */
-    put: async function(url, data, options = {}) {
+    put: async (url, data, options = {}) => {
       log('debug', 'Script HTTP PUT request', { url, context: context.eventType });
 
       try {
         const response = await axios.put(url, data, {
           timeout: options.timeout || 30000,
           headers: options.headers || {},
-          validateStatus: () => true
+          validateStatus: () => true,
         });
 
         return {
           status: response.status,
           data: response.data,
-          headers: response.headers
+          headers: response.headers,
         };
       } catch (error) {
         log('error', 'Script HTTP PUT failed', { url, error: error.message });
@@ -317,20 +324,20 @@ function createHttpHelper(context) {
     /**
      * Make a PATCH request
      */
-    patch: async function(url, data, options = {}) {
+    patch: async (url, data, options = {}) => {
       log('debug', 'Script HTTP PATCH request', { url, context: context.eventType });
 
       try {
         const response = await axios.patch(url, data, {
           timeout: options.timeout || 30000,
           headers: options.headers || {},
-          validateStatus: () => true
+          validateStatus: () => true,
         });
 
         return {
           status: response.status,
           data: response.data,
-          headers: response.headers
+          headers: response.headers,
         };
       } catch (error) {
         log('error', 'Script HTTP PATCH failed', { url, error: error.message });
@@ -341,20 +348,20 @@ function createHttpHelper(context) {
     /**
      * Make a DELETE request
      */
-    delete: async function(url, options = {}) {
+    delete: async (url, options = {}) => {
       log('debug', 'Script HTTP DELETE request', { url, context: context.eventType });
 
       try {
         const response = await axios.delete(url, {
           timeout: options.timeout || 30000,
           headers: options.headers || {},
-          validateStatus: () => true
+          validateStatus: () => true,
         });
 
         return {
           status: response.status,
           data: response.data,
-          headers: response.headers
+          headers: response.headers,
         };
       } catch (error) {
         log('error', 'Script HTTP DELETE failed', { url, error: error.message });
@@ -368,7 +375,7 @@ function createHttpHelper(context) {
      * @param {object} options - Request options (headers, timeout)
      * @returns {Promise<{base64: string, contentType: string, status: number}>}
      */
-    getBuffer: async function(url, options = {}) {
+    getBuffer: async (url, options = {}) => {
       log('debug', 'Script HTTP getBuffer request', { url, context: context.eventType });
 
       try {
@@ -376,7 +383,7 @@ function createHttpHelper(context) {
           timeout: options.timeout || 30000,
           headers: options.headers || {},
           responseType: 'arraybuffer',
-          validateStatus: () => true
+          validateStatus: () => true,
         });
 
         const base64 = Buffer.from(response.data).toString('base64');
@@ -385,13 +392,13 @@ function createHttpHelper(context) {
         return {
           status: response.status,
           base64,
-          contentType
+          contentType,
         };
       } catch (error) {
         log('error', 'Script HTTP getBuffer failed', { url, error: error.message });
         throw new Error(`HTTP getBuffer failed: ${error.message}`);
       }
-    }
+    },
   };
 }
 
@@ -411,10 +418,10 @@ async function applyScriptTransform(script, payload, context) {
         // Inject global utility functions
         ...getGlobalUtilities(),
         // Inject HTTP helper for external API calls
-        http
+        http,
         // Note: console.log is provided by SecureVM automatically
       },
-      allowAsync: true // ENABLE async/await for complex workflows
+      allowAsync: true, // ENABLE async/await for complex workflows
     });
 
     // Execute the transformation inside the VM so timeout/memory guards always apply.
@@ -429,7 +436,6 @@ async function applyScriptTransform(script, payload, context) {
       throw new Error('Transformed object too deep');
     }
     return result;
-
   } catch (error) {
     throw new Error(`Script execution failed: ${error.message}`);
   }
@@ -452,7 +458,7 @@ async function applyResponseTransform(integration, response, context = {}) {
 
   const event = {
     orgId: context.orgId || integration.orgId,
-    orgUnitRid: context.orgUnitRid || integration.orgUnitRid || integration.entityRid
+    orgUnitRid: context.orgUnitRid || integration.orgUnitRid || integration.entityRid,
   };
 
   let transformed = response;
@@ -462,34 +468,21 @@ async function applyResponseTransform(integration, response, context = {}) {
 
   switch (mode) {
     case 'SIMPLE':
-      transformed = await applySimpleTransform(
-        response,
-        integration.responseTransformation,
-        event
-      );
+      transformed = await applySimpleTransform(response, integration.responseTransformation, event);
       break;
     case 'SCRIPT':
       if (!validateScript(integration.responseTransformation?.script)) {
         throw new Error('Invalid response transformation script');
       }
-      transformed = await applyScriptTransform(
-        integration.responseTransformation.script,
-        response,
-        context
-      );
+      transformed = await applyScriptTransform(integration.responseTransformation.script, response, context);
       break;
     default:
       transformed = response;
   }
 
   // Apply lookups if configured (optional for response transformations)
-  if (integration.responseTransformation.lookups &&
-      integration.responseTransformation.lookups.length > 0) {
-    transformed = await applyLookups(
-      transformed,
-      integration.responseTransformation.lookups,
-      event
-    );
+  if (integration.responseTransformation.lookups && integration.responseTransformation.lookups.length > 0) {
+    transformed = await applyLookups(transformed, integration.responseTransformation.lookups, event);
   }
 
   return transformed;
@@ -498,5 +491,5 @@ async function applyResponseTransform(integration, response, context = {}) {
 module.exports = {
   validateScript,
   applyTransform,
-  applyResponseTransform
+  applyResponseTransform,
 };

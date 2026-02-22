@@ -52,11 +52,10 @@ async function recreatePool() {
       pool = null;
       throw err;
     }
-  })()
-    .finally(() => {
-      poolRecreating = false;
-      poolRecreationPromise = null;
-    });
+  })().finally(() => {
+    poolRecreating = false;
+    poolRecreationPromise = null;
+  });
 
   return poolRecreationPromise;
 }
@@ -80,7 +79,7 @@ function createPoolWithHandlers() {
     namedPlaceholders: true,
     // Connection health settings
     enableKeepAlive: true,
-    keepAliveInitialDelay: 10000
+    keepAliveInitialDelay: 10000,
     // Note: acquireTimeout, idleTimeout, maxIdle not supported in mysql2
     // Connection limits controlled via connectionLimit + queueLimit only
   });
@@ -90,12 +89,12 @@ function createPoolWithHandlers() {
     log('error', 'MySQL pool error', {
       error: err.message,
       code: err.code,
-      fatal: err.fatal
+      fatal: err.fatal,
     });
 
     // Recreate pool on fatal errors
     if (err.fatal || err.code === 'PROTOCOL_CONNECTION_LOST') {
-      recreatePool().catch(recreateErr => {
+      recreatePool().catch((recreateErr) => {
         log('error', 'Pool recreation failed', { error: recreateErr.message });
       });
     }
@@ -105,7 +104,7 @@ function createPoolWithHandlers() {
     host: dbConfig.host,
     db: dbConfig.database,
     connectionLimit: safePoolConfig.connectionLimit,
-    queueLimit: safePoolConfig.queueLimit
+    queueLimit: safePoolConfig.queueLimit,
   });
 
   return newPool;
@@ -140,21 +139,22 @@ async function query(sql, params = {}, retries = 2) {
       return await conn.execute(sql, params);
     } catch (err) {
       const isLastAttempt = attempt === retries;
-      const isTransientError = err.code === 'PROTOCOL_CONNECTION_LOST' ||
-                               err.code === 'ECONNRESET' ||
-                               err.code === 'ETIMEDOUT' ||
-                               err.errno === 'ENOTFOUND';
+      const isTransientError =
+        err.code === 'PROTOCOL_CONNECTION_LOST' ||
+        err.code === 'ECONNRESET' ||
+        err.code === 'ETIMEDOUT' ||
+        err.errno === 'ENOTFOUND';
 
       if (isTransientError && !isLastAttempt) {
-        const delayMs = Math.min(1000 * Math.pow(2, attempt), 5000); // Max 5s
+        const delayMs = Math.min(1000 * 2 ** attempt, 5000); // Max 5s
         log('warn', 'MySQL query failed, retrying', {
           attempt: attempt + 1,
           maxRetries: retries,
           error: err.message,
           code: err.code,
-          delayMs
+          delayMs,
         });
-        await new Promise(resolve => setTimeout(resolve, delayMs));
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
 
         // Wait for pool recreation if it started during retry delay
         if (poolRecreationPromise) {
@@ -165,7 +165,7 @@ async function query(sql, params = {}, retries = 2) {
           log('error', 'MySQL query failed after retries', {
             error: err.message,
             code: err.code,
-            attempts: retries + 1
+            attempts: retries + 1,
           });
         }
         throw err;
@@ -204,19 +204,18 @@ async function getConnection(retries = 2) {
       return await conn.getConnection();
     } catch (err) {
       const isLastAttempt = attempt === retries;
-      const isTransientError = err.code === 'PROTOCOL_CONNECTION_LOST' ||
-                               err.code === 'ECONNRESET' ||
-                               err.code === 'ETIMEDOUT';
+      const isTransientError =
+        err.code === 'PROTOCOL_CONNECTION_LOST' || err.code === 'ECONNRESET' || err.code === 'ETIMEDOUT';
 
       if (isTransientError && !isLastAttempt) {
-        const delayMs = Math.min(1000 * Math.pow(2, attempt), 5000);
+        const delayMs = Math.min(1000 * 2 ** attempt, 5000);
         log('warn', 'Failed to get MySQL connection, retrying', {
           attempt: attempt + 1,
           maxRetries: retries,
           error: err.message,
-          delayMs
+          delayMs,
         });
-        await new Promise(resolve => setTimeout(resolve, delayMs));
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
 
         // Wait for pool recreation if it started during retry delay
         if (poolRecreationPromise) {

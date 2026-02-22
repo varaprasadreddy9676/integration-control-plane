@@ -48,7 +48,7 @@ async function upsertConfig(orgId, { type, config: sourceConfig = {} }) {
     { orgId },
     {
       $set: { type, config: sourceConfig, isActive: true, updatedAt: now },
-      $setOnInsert: { orgId, createdAt: now }
+      $setOnInsert: { orgId, createdAt: now },
     },
     { upsert: true, returnDocument: 'after' }
   );
@@ -61,10 +61,7 @@ async function upsertConfig(orgId, { type, config: sourceConfig = {} }) {
  */
 async function deactivateConfig(orgId) {
   const db = await mongodb.getDbSafe();
-  await db.collection(CONFIGS_COLLECTION).updateOne(
-    { orgId },
-    { $set: { isActive: false, updatedAt: new Date() } }
-  );
+  await db.collection(CONFIGS_COLLECTION).updateOne({ orgId }, { $set: { isActive: false, updatedAt: new Date() } });
 }
 
 // ---------------------------------------------------------------------------
@@ -85,7 +82,7 @@ async function enqueuePushEvent(event) {
     payload: event.payload,
     source: event.source || 'http_push',
     status: 'pending',
-    createdAt: new Date()
+    createdAt: new Date(),
   };
   const result = await db.collection(PENDING_COLLECTION).insertOne(doc);
   log('debug', 'Enqueued push event', { eventId: event.eventId, orgId: event.orgId });
@@ -106,11 +103,13 @@ async function claimPendingEvents(orgId, batchSize = 10) {
 
   // Claim one at a time to avoid race conditions without transactions
   for (let i = 0; i < batchSize; i++) {
-    const doc = await db.collection(PENDING_COLLECTION).findOneAndUpdate(
-      { orgId, status: 'pending' },
-      { $set: { status: 'processing', claimedAt: now } },
-      { sort: { createdAt: 1 }, returnDocument: 'after' }
-    );
+    const doc = await db
+      .collection(PENDING_COLLECTION)
+      .findOneAndUpdate(
+        { orgId, status: 'pending' },
+        { $set: { status: 'processing', claimedAt: now } },
+        { sort: { createdAt: 1 }, returnDocument: 'after' }
+      );
     if (!doc) break;
     claimed.push(doc);
   }
@@ -124,10 +123,9 @@ async function claimPendingEvents(orgId, batchSize = 10) {
  */
 async function markPendingEventDone(id) {
   const db = await mongodb.getDbSafe();
-  await db.collection(PENDING_COLLECTION).updateOne(
-    { _id: mongodb.toObjectId(id) },
-    { $set: { status: 'done', completedAt: new Date() } }
-  );
+  await db
+    .collection(PENDING_COLLECTION)
+    .updateOne({ _id: mongodb.toObjectId(id) }, { $set: { status: 'done', completedAt: new Date() } });
 }
 
 /**
@@ -137,10 +135,9 @@ async function markPendingEventDone(id) {
  */
 async function markPendingEventFailed(id, errorMessage) {
   const db = await mongodb.getDbSafe();
-  await db.collection(PENDING_COLLECTION).updateOne(
-    { _id: mongodb.toObjectId(id) },
-    { $set: { status: 'failed', failedAt: new Date(), errorMessage } }
-  );
+  await db
+    .collection(PENDING_COLLECTION)
+    .updateOne({ _id: mongodb.toObjectId(id) }, { $set: { status: 'failed', failedAt: new Date(), errorMessage } });
 }
 
 /**
@@ -151,10 +148,12 @@ async function markPendingEventFailed(id, errorMessage) {
 async function resetStalePendingEvents(staleAfterMs = 5 * 60 * 1000) {
   const db = await mongodb.getDbSafe();
   const staleThreshold = new Date(Date.now() - staleAfterMs);
-  const result = await db.collection(PENDING_COLLECTION).updateMany(
-    { status: 'processing', claimedAt: { $lt: staleThreshold } },
-    { $set: { status: 'pending', claimedAt: null } }
-  );
+  const result = await db
+    .collection(PENDING_COLLECTION)
+    .updateMany(
+      { status: 'processing', claimedAt: { $lt: staleThreshold } },
+      { $set: { status: 'pending', claimedAt: null } }
+    );
   if (result.modifiedCount > 0) {
     log('info', 'Reset stale pending events', { count: result.modifiedCount });
   }

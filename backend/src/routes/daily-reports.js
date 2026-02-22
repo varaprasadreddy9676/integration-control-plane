@@ -29,7 +29,7 @@ router.get(
     const db = mongodb.getDb();
 
     const config = await db.collection('daily_report_config').findOne({
-      $or: [{ orgId }, { entityParentRid: orgId }]
+      $or: [{ orgId }, { entityParentRid: orgId }],
     });
 
     if (!config) {
@@ -38,7 +38,7 @@ router.get(
         orgId,
         enabled: false,
         recipients: [],
-        format: 'pdf'
+        format: 'pdf',
       });
     }
 
@@ -88,7 +88,7 @@ router.put(
       recipients,
       format,
       updatedAt: new Date(),
-      updatedBy: req.apiKeyInfo?._id || null
+      updatedBy: req.apiKeyInfo?._id || null,
     };
 
     // Upsert configuration
@@ -96,7 +96,7 @@ router.put(
       { $or: [{ orgId }, { entityParentRid: orgId }] },
       {
         $set: config,
-        $setOnInsert: { createdAt: new Date() }
+        $setOnInsert: { createdAt: new Date() },
       },
       { upsert: true }
     );
@@ -104,13 +104,13 @@ router.put(
     logger.info(`[DailyReports] Configuration updated for org ${orgId}`, {
       enabled,
       recipients: recipients.length,
-      format
+      format,
     });
 
     res.json({
       success: true,
       message: 'Daily report configuration updated successfully',
-      config
+      config,
     });
   })
 );
@@ -131,7 +131,7 @@ router.post(
 
     // Get configuration
     const config = await db.collection('daily_report_config').findOne({
-      $or: [{ orgId }, { entityParentRid: orgId }]
+      $or: [{ orgId }, { entityParentRid: orgId }],
     });
 
     if (!config) {
@@ -155,7 +155,7 @@ router.post(
       success: true,
       message: 'Test report sent successfully',
       recipients: result.recipients,
-      messageId: result.messageId
+      messageId: result.messageId,
     });
   })
 );
@@ -180,21 +180,21 @@ router.get(
     const logs = await db
       .collection('daily_report_logs')
       .find({
-        $or: [{ 'results.orgId': orgId }, { 'results.entityParentRid': orgId }]
+        $or: [{ 'results.orgId': orgId }, { 'results.entityParentRid': orgId }],
       })
       .sort({ timestamp: -1 })
-      .skip(parseInt(offset))
-      .limit(parseInt(limit))
+      .skip(parseInt(offset, 10))
+      .limit(parseInt(limit, 10))
       .toArray();
 
     // Filter results to only show this entity's data
     const filteredLogs = logs.map((log) => ({
       ...log,
-      results: log.results.filter((r) => r.orgId === orgId || r.entityParentRid === orgId)
+      results: log.results.filter((r) => r.orgId === orgId || r.entityParentRid === orgId),
     }));
 
     const total = await db.collection('daily_report_logs').countDocuments({
-      $or: [{ 'results.orgId': orgId }, { 'results.entityParentRid': orgId }]
+      $or: [{ 'results.orgId': orgId }, { 'results.entityParentRid': orgId }],
     });
 
     res.set('X-Total-Count', total);
@@ -208,7 +208,7 @@ router.get(
  */
 router.get(
   '/status',
-  asyncHandler(async (req, res) => {
+  asyncHandler(async (_req, res) => {
     const db = mongodb.getDb();
 
     // Count configurations
@@ -216,9 +216,7 @@ router.get(
     const enabledConfigs = await db.collection('daily_report_config').countDocuments({ enabled: true });
 
     // Get last execution
-    const lastExecution = await db
-      .collection('daily_report_logs')
-      .findOne({}, { sort: { timestamp: -1 } });
+    const lastExecution = await db.collection('daily_report_logs').findOne({}, { sort: { timestamp: -1 } });
 
     res.json({
       totalConfigurations: totalConfigs,
@@ -229,9 +227,9 @@ router.get(
             timestamp: lastExecution.timestamp,
             duration: lastExecution.duration,
             successful: lastExecution.successful,
-            failed: lastExecution.failed
+            failed: lastExecution.failed,
           }
-        : null
+        : null,
     });
   })
 );

@@ -9,8 +9,8 @@ const config = require('../../../config');
 const { log } = require('../../../logger');
 
 // Communication service URL
-const COMMUNICATION_SERVICE_URL = config.communicationServiceUrl ||
-  'https://notification.example.com/notification-service/api/sendNotification';
+const COMMUNICATION_SERVICE_URL =
+  config.communicationServiceUrl || 'https://notification.example.com/notification-service/api/sendNotification';
 
 function postJson(url, payload, timeoutMs = 10000) {
   return new Promise((resolve, reject) => {
@@ -26,13 +26,15 @@ function postJson(url, payload, timeoutMs = 10000) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(body)
+          'Content-Length': Buffer.byteLength(body),
         },
-        timeout: timeoutMs
+        timeout: timeoutMs,
       },
       (res) => {
         let data = '';
-        res.on('data', (chunk) => { data += chunk; });
+        res.on('data', (chunk) => {
+          data += chunk;
+        });
         res.on('end', () => {
           resolve({ status: res.statusCode || 0, body: data });
         });
@@ -119,7 +121,7 @@ function formatEmailBody(notification) {
 
     if (data.health.alerts && data.health.alerts.length > 0) {
       body += `Active Alerts:\n`;
-      data.health.alerts.forEach(alert => {
+      data.health.alerts.forEach((alert) => {
         body += `- ${alert.severity}: ${alert.message}\n`;
       });
       body += `\n`;
@@ -178,15 +180,15 @@ async function send(notification, config) {
         to: recipients,
         hospitalCode: hospitalCode || 'integration-gateway',
         corporateEntityCode: corporateEntityCode || 'integration-gateway',
-        source: 'integration-gateway-alerts'
-      }
+        source: 'integration-gateway-alerts',
+      },
     };
 
     log('debug', 'Sending email via communication service', {
       to: recipients,
       subject,
       type: notification.type,
-      severity: notification.severity
+      severity: notification.severity,
     });
 
     const response = await postJson(COMMUNICATION_SERVICE_URL, payload, 10000);
@@ -195,7 +197,7 @@ async function send(notification, config) {
       status: response.status,
       body: response.body,
       to: recipients,
-      type: notification.type
+      type: notification.type,
     });
 
     if (response.status < 200 || response.status >= 300) {
@@ -203,7 +205,11 @@ async function send(notification, config) {
     }
 
     let parsed = null;
-    try { parsed = JSON.parse(response.body); } catch (e) { /* non-JSON is fine */ }
+    try {
+      parsed = JSON.parse(response.body);
+    } catch (_e) {
+      /* non-JSON is fine */
+    }
     if (parsed && parsed.success === false) {
       throw new Error(`Communication service accepted request but did not send: ${JSON.stringify(parsed)}`);
     }
@@ -212,7 +218,7 @@ async function send(notification, config) {
       to: recipients,
       type: notification.type,
       severity: notification.severity,
-      responseStatus: response.status
+      responseStatus: response.status,
     });
 
     return true;
@@ -221,7 +227,7 @@ async function send(notification, config) {
       recipients,
       type: notification.type,
       error: error.message,
-      stack: error.stack
+      stack: error.stack,
     });
     return false;
   }
@@ -239,19 +245,19 @@ async function test(config) {
       severity: 'INFO',
       title: 'Email Channel Test',
       message: 'This is a test notification from Event Gateway.',
-      data: {}
+      data: {},
     };
 
     const success = await send(testNotification, config);
 
     return {
       success,
-      message: success ? 'Test email sent successfully' : 'Failed to send test email'
+      message: success ? 'Test email sent successfully' : 'Failed to send test email',
     };
   } catch (error) {
     return {
       success: false,
-      message: error.message
+      message: error.message,
     };
   }
 }
@@ -261,5 +267,5 @@ module.exports = {
   test,
   channelName: 'email',
   displayName: 'Email (Internal Communication Service)',
-  description: 'Send alerts via notification service'
+  description: 'Send alerts via notification service',
 };
