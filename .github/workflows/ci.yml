@@ -16,18 +16,14 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: "npm"
-          cache-dependency-path: |
-            backend/package-lock.json
-            backend/test/package-lock.json
 
       - name: Install backend dependencies
         working-directory: backend
-        run: npm install
+        run: rm -f package-lock.json && npm install
 
       - name: Install test dependencies
         working-directory: backend/test
-        run: npm install
+        run: rm -f package-lock.json && npm install
 
       - name: Run backend tests
         working-directory: backend/test
@@ -49,12 +45,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: "npm"
-          cache-dependency-path: backend/package-lock.json
 
       - name: Install dependencies
         working-directory: backend
-        run: npm install
+        run: rm -f package-lock.json && npm install
 
       - name: Run Biome check
         working-directory: backend
@@ -69,12 +63,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: "npm"
-          cache-dependency-path: frontend/package-lock.json
 
       - name: Install dependencies
         working-directory: frontend
-        run: npm install
+        run: rm -f package-lock.json && npm install
 
       - name: Run Biome check
         working-directory: frontend
@@ -89,12 +81,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: "npm"
-          cache-dependency-path: frontend/package-lock.json
 
       - name: Install dependencies
         working-directory: frontend
-        run: npm install
+        run: rm -f package-lock.json && npm install
 
       - name: Run frontend tests
         working-directory: frontend
