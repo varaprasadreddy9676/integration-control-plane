@@ -101,3 +101,11 @@ docker run -d \
   -v /path/to/your/custom-config.json:/app/config.json:ro \
   ghcr.io/varaprasadreddy9676/integration-control-plane-backend:main
 ```
+
+## 6. URL Path Configuration
+
+By default, the Docker image is built to serve the frontend from the **root path (`/`)**.
+
+- **Why?** This is the most portable setting for modern Docker environments and reverse proxies.
+- **Custom Subpaths**: If you MUST serve the app from a subpath (e.g., `yourdomain.com/portal/`), you should handle this routing at your **Load Balancer** or **Reverse Proxy** level by stripping the prefix before passing traffic to the container.
+- **Legacy Note**: You may see a `.htaccess` file or old references to `/event-gateway/`. These are legacy Apache configurations and are **ignored** by the Docker Nginx setup.
