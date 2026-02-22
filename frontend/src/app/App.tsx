@@ -322,7 +322,7 @@ export const App = () => {
 
   // On initial login, redirect SUPER_ADMIN to admin dashboard
   useEffect(() => {
-    if (isAuthenticated && isSuperAdmin && location.pathname === '/event-gateway/') {
+    if (isAuthenticated && isSuperAdmin && location.pathname === '/') {
       navigate('/admin/orgs');
     }
   }, [isAuthenticated, isSuperAdmin, location.pathname, navigate]);

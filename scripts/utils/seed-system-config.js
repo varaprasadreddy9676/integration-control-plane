@@ -28,7 +28,7 @@ const DRY_RUN = process.argv.includes('--dry-run');
 const SEED = {
   // URLs
   communicationServiceUrl: 'https://medicsprime.in/medics-communication-service/api/sendNotification',
-  frontendUrl: 'https://medicsprime.in/event-gateway',
+  frontendUrl: 'https://medicsprime.in',
 
   // Security (runtime-tunable flags only — never put apiKey / jwtSecret here)
   security: {

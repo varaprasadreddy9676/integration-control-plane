@@ -118,7 +118,7 @@ npm run build
 server {
     listen 80;
     server_name dashboard.yourdomain.com;
-    root /path/to/medics-event-gateway/frontend/dist;
+    root /path/to/integration-control-plane/frontend/dist;
     location / {
         try_files $uri /index.html;
     }
@@ -160,7 +160,7 @@ find backend/logs/ -mtime +7 -delete     # Delete old logs
 ### Automatic rotation
 Create `/etc/logrotate.d/medics-gateway`:
 ```bash
-/path/to/medics-event-gateway/backend/logs/*.log {
+/path/to/integration-control-plane/backend/logs/*.log {
     daily
     rotate 7
     compress

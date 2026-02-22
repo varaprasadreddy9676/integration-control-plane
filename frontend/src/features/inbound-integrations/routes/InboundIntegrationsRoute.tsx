@@ -474,7 +474,7 @@ export const InboundIntegrationsRoute = ({ hideHeader = false, isActive = true }
           title="Inbound Integrations"
           description="Real-time API proxy integrations that transform and forward requests from the client app to external systems"
           breadcrumb={[
-            { label: 'Configuration', path: '/event-gateway/integrations' },
+            { label: 'Configuration', path: '/integrations' },
             { label: 'Inbound Integrations' }
           ]}
           compact

@@ -176,8 +176,8 @@ export const ScheduledJobsRoute = ({ hideHeader = false, isActive = true }: Sche
       render: (dataSource: any) => (
         <Tag color={
           dataSource.type === 'SQL' ? 'blue' :
-          dataSource.type === 'MONGODB' ? 'green' :
-          'purple'
+            dataSource.type === 'MONGODB' ? 'green' :
+              'purple'
         }>
           {dataSource.type}
         </Tag>
@@ -217,8 +217,8 @@ export const ScheduledJobsRoute = ({ hideHeader = false, isActive = true }: Sche
         const statusIcon = lastExecution.status === 'SUCCESS'
           ? <CheckCircleOutlined style={{ color: colors.success[500] }} />
           : lastExecution.status === 'FAILED'
-          ? <CloseCircleOutlined style={{ color: colors.error[500] }} />
-          : <SyncOutlined spin style={{ color: colors.primary[500] }} />;
+            ? <CloseCircleOutlined style={{ color: colors.error[500] }} />
+            : <SyncOutlined spin style={{ color: colors.primary[500] }} />;
 
         return (
           <Space direction="vertical" size="small">
@@ -306,7 +306,7 @@ export const ScheduledJobsRoute = ({ hideHeader = false, isActive = true }: Sche
           title="Scheduled Jobs"
           description="Time-driven batch integrations that run on cron schedules or intervals"
           breadcrumb={[
-            { label: 'Configuration', path: '/event-gateway/integrations' },
+            { label: 'Configuration', path: '/integrations' },
             { label: 'Scheduled Jobs' }
           ]}
           compact

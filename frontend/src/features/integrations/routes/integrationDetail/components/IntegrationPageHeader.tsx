@@ -46,22 +46,22 @@ export const IntegrationPageHeader = ({
 }: IntegrationPageHeaderProps) => {
   const statusChips = isCreate
     ? [
-        { label: 'Draft', color: cssVar.text.secondary },
-        { label: isMultiAction ? 'Multi-action' : 'Single' },
-        deliveryModeValue && {
-          label: deliveryModeValue === 'IMMEDIATE' ? 'Immediate' : 'Scheduled'
-        }
-      ].filter(Boolean)
+      { label: 'Draft', color: cssVar.text.secondary },
+      { label: isMultiAction ? 'Multi-action' : 'Single' },
+      deliveryModeValue && {
+        label: deliveryModeValue === 'IMMEDIATE' ? 'Immediate' : 'Scheduled'
+      }
+    ].filter(Boolean)
     : [
-        {
-          label: existingIntegration?.isActive ? 'Active' : 'Paused',
-          color: existingIntegration?.isActive ? colors.success[600] : colors.warning[600]
-        },
-        { label: isMultiAction ? 'Multi-action' : 'Single' },
-        deliveryModeValue && { label: deliveryModeValue === 'IMMEDIATE' ? 'Immediate' : 'Scheduled' },
-        { label: transformationTab === 'SCRIPT' ? 'JavaScript Transform' : 'Simple Mapping' },
-        existingIntegration?.updatedAt && { label: `Last updated ${formatDateTime(existingIntegration.updatedAt)}` }
-      ].filter(Boolean);
+      {
+        label: existingIntegration?.isActive ? 'Active' : 'Paused',
+        color: existingIntegration?.isActive ? colors.success[600] : colors.warning[600]
+      },
+      { label: isMultiAction ? 'Multi-action' : 'Single' },
+      deliveryModeValue && { label: deliveryModeValue === 'IMMEDIATE' ? 'Immediate' : 'Scheduled' },
+      { label: transformationTab === 'SCRIPT' ? 'JavaScript Transform' : 'Simple Mapping' },
+      existingIntegration?.updatedAt && { label: `Last updated ${formatDateTime(existingIntegration.updatedAt)}` }
+    ].filter(Boolean);
 
   return (
     <PageHeader
@@ -72,7 +72,7 @@ export const IntegrationPageHeader = ({
           : 'Manage delivery settings, authentication, and transformations'
       }
       breadcrumb={[
-        { label: 'Configuration', path: '/event-gateway/integrations' },
+        { label: 'Configuration', path: '/integrations' },
         { label: 'Outbound Integrations', path: '/integrations' },
         { label: isCreate ? 'New' : existingIntegration?.name ?? 'Details' }
       ]}

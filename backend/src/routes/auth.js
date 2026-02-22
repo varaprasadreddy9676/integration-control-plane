@@ -248,7 +248,7 @@ router.post(
     // IMPORTANT: portalUrl uses config.frontendUrl (set FRONTEND_URL env var) so it
     // points at the frontend host, not the backend API host. In production both are
     // typically served from the same nginx, so the origin will match automatically.
-    const frontendBase = config.frontendUrl || config.publicUrl || 'http://localhost:5174/event-gateway';
+    const frontendBase = config.frontendUrl || config.publicUrl || 'http://localhost:5174';
     const portalUrl = `${frontendBase}/integrations?token=${accessToken}&embedded=true`;
 
     res.json({

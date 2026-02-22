@@ -724,7 +724,7 @@ export const ScheduledJobDetailRoute = () => {
         title={isCreate ? 'Create Scheduled Job' : job?.name || 'Scheduled Job'}
         description={isCreate ? 'Configure a new time-driven batch integration' : 'Manage scheduled job configuration'}
         breadcrumb={[
-          { label: 'Configuration', path: '/event-gateway/integrations' },
+          { label: 'Configuration', path: '/integrations' },
           { label: 'Scheduled Jobs', path: `/scheduled-jobs?orgId=${orgId}` },
           { label: isCreate ? 'New' : job?.name || 'Details' }
         ]}
@@ -785,600 +785,600 @@ export const ScheduledJobDetailRoute = () => {
             const datasourceComplete = dataSourceType === 'SQL'
               ? !!(values.sqlQuery)
               : dataSourceType === 'MONGODB'
-              ? !!(values.mongoConnectionString && values.mongoDatabase && values.mongoCollection && values.mongoPipeline)
-              : !!(values.apiUrl);
+                ? !!(values.mongoConnectionString && values.mongoDatabase && values.mongoCollection && values.mongoPipeline)
+                : !!(values.apiUrl);
             const transformComplete = !!(values.transformScript);
             const targetComplete = !!(values.targetUrl);
 
             return [
-            {
-              key: 'basic',
-              label: (
-                <Space size={6}>
-                  <ThunderboltOutlined />
-                  Basic Info
-                  {basicComplete && (
-                    <CheckCircleOutlined style={{ color: colors.success[600], fontSize: 14 }} />
-                  )}
-                </Space>
-              ),
-              disabled: false, // First tab always enabled
-              children: (
-                <Card style={{ marginTop: spacing[2] }} size="small">
-                  <Space direction="vertical" size="large" style={{ width: '100%' }}>
-                    <Form.Item
-                      label="Job Name"
-                      name="name"
-                      rules={[{ required: true, message: 'Job name is required' }]}
-                    >
-                      <Input size="large" placeholder="Daily Bills Export" />
-                    </Form.Item>
-
-                    <Form.Item
-                      label="Job Type"
-                      name="type"
-                      extra="Categorize this job for better organization"
-                    >
-                      <Input size="large" placeholder="DAILY_EXPORT" />
-                    </Form.Item>
-
-                    <Form.Item label="Description" name="description">
-                      <TextArea rows={3} placeholder="Export daily bills to finance system" />
-                    </Form.Item>
-
-                    <Form.Item label="Status" name="isActive" valuePropName="checked">
-                      <Radio.Group buttonStyle="solid">
-                        <Radio.Button value={true}>Active</Radio.Button>
-                        <Radio.Button value={false}>Paused</Radio.Button>
-                      </Radio.Group>
-                    </Form.Item>
-                  </Space>
-                </Card>
-              )
-            },
-            {
-              key: 'schedule',
-              label: (
-                <Space size={6}>
-                  <ClockCircleOutlined />
-                  Schedule
-                  {scheduleComplete && (
-                    <CheckCircleOutlined style={{ color: colors.success[600], fontSize: 14 }} />
-                  )}
-                </Space>
-              ),
-              disabled: !basicComplete, // Requires Basic Info to be complete
-              children: (
-                <Card style={{ marginTop: spacing[2] }} size="small">
-                  <Space direction="vertical" size="large" style={{ width: '100%' }}>
-                    <div>
-                      <Text strong style={{ display: 'block', marginBottom: spacing[2] }}>Schedule Type</Text>
-                      <Radio.Group
-                        value={scheduleType}
-                        onChange={(e) => setScheduleType(e.target.value)}
-                        buttonStyle="solid"
-                      >
-                        <Radio.Button value="CRON">Cron Expression</Radio.Button>
-                        <Radio.Button value="INTERVAL">Fixed Interval</Radio.Button>
-                      </Radio.Group>
-                    </div>
-
-                    {scheduleType === 'CRON' ? (
-                      <>
-                        <Form.Item name="cronExpression" hidden />
-                        <Form.Item name="timezone" hidden />
-                        <CronBuilder
-                          value={form.getFieldValue('cronExpression')}
-                          timezone={form.getFieldValue('timezone')}
-                          onChange={(cron) => form.setFieldValue('cronExpression', cron)}
-                          onTimezoneChange={(tz) => form.setFieldValue('timezone', tz)}
-                        />
-                      </>
-                    ) : (
-                      <Form.Item
-                        label="Interval (milliseconds)"
-                        name="intervalMs"
-                        rules={[
-                          { required: scheduleType === 'INTERVAL', message: 'Interval is required' },
-                          {
-                            type: 'number',
-                            min: 60000,
-                            message: 'Minimum interval is 60000ms (1 minute)'
-                          }
-                        ]}
-                        extra="Minimum: 60000ms (1 minute)"
-                      >
-                        <Input type="number" size="large" placeholder="3600000" addonAfter="ms" />
-                      </Form.Item>
+              {
+                key: 'basic',
+                label: (
+                  <Space size={6}>
+                    <ThunderboltOutlined />
+                    Basic Info
+                    {basicComplete && (
+                      <CheckCircleOutlined style={{ color: colors.success[600], fontSize: 14 }} />
                     )}
                   </Space>
-                </Card>
-              )
-            },
-            {
-              key: 'datasource',
-              label: (
-                <Space size={6}>
-                  <DatabaseOutlined />
-                  Data Source
-                  {datasourceComplete && (
-                    <CheckCircleOutlined style={{ color: colors.success[600], fontSize: 14 }} />
-                  )}
-                </Space>
-              ),
-              disabled: !basicComplete || !scheduleComplete, // Requires Basic Info and Schedule to be complete
-              children: (
-                <Card style={{ marginTop: spacing[2] }} size="small">
-                  <Space direction="vertical" size="large" style={{ width: '100%' }}>
-                    <div>
-                      <Text strong style={{ display: 'block', marginBottom: spacing[2] }}>Data Source Type</Text>
-                      <Radio.Group
-                        value={dataSourceType}
-                        onChange={(e) => setDataSourceType(e.target.value)}
-                        buttonStyle="solid"
+                ),
+                disabled: false, // First tab always enabled
+                children: (
+                  <Card style={{ marginTop: spacing[2] }} size="small">
+                    <Space direction="vertical" size="large" style={{ width: '100%' }}>
+                      <Form.Item
+                        label="Job Name"
+                        name="name"
+                        rules={[{ required: true, message: 'Job name is required' }]}
                       >
-                        {DATA_SOURCE_TYPES.map(type => (
-                          <Radio.Button key={type.value} value={type.value}>
-                            <Space>
-                              {type.icon}
-                              {type.label}
-                            </Space>
-                          </Radio.Button>
-                        ))}
-                      </Radio.Group>
-                    </div>
+                        <Input size="large" placeholder="Daily Bills Export" />
+                      </Form.Item>
 
-                    {renderDataSourceConfig()}
+                      <Form.Item
+                        label="Job Type"
+                        name="type"
+                        extra="Categorize this job for better organization"
+                      >
+                        <Input size="large" placeholder="DAILY_EXPORT" />
+                      </Form.Item>
 
-                    {/* Test Data Source Section */}
-                    <div style={{ paddingTop: spacing[2] }}>
+                      <Form.Item label="Description" name="description">
+                        <TextArea rows={3} placeholder="Export daily bills to finance system" />
+                      </Form.Item>
+
+                      <Form.Item label="Status" name="isActive" valuePropName="checked">
+                        <Radio.Group buttonStyle="solid">
+                          <Radio.Button value={true}>Active</Radio.Button>
+                          <Radio.Button value={false}>Paused</Radio.Button>
+                        </Radio.Group>
+                      </Form.Item>
+                    </Space>
+                  </Card>
+                )
+              },
+              {
+                key: 'schedule',
+                label: (
+                  <Space size={6}>
+                    <ClockCircleOutlined />
+                    Schedule
+                    {scheduleComplete && (
+                      <CheckCircleOutlined style={{ color: colors.success[600], fontSize: 14 }} />
+                    )}
+                  </Space>
+                ),
+                disabled: !basicComplete, // Requires Basic Info to be complete
+                children: (
+                  <Card style={{ marginTop: spacing[2] }} size="small">
+                    <Space direction="vertical" size="large" style={{ width: '100%' }}>
+                      <div>
+                        <Text strong style={{ display: 'block', marginBottom: spacing[2] }}>Schedule Type</Text>
+                        <Radio.Group
+                          value={scheduleType}
+                          onChange={(e) => setScheduleType(e.target.value)}
+                          buttonStyle="solid"
+                        >
+                          <Radio.Button value="CRON">Cron Expression</Radio.Button>
+                          <Radio.Button value="INTERVAL">Fixed Interval</Radio.Button>
+                        </Radio.Group>
+                      </div>
+
+                      {scheduleType === 'CRON' ? (
+                        <>
+                          <Form.Item name="cronExpression" hidden />
+                          <Form.Item name="timezone" hidden />
+                          <CronBuilder
+                            value={form.getFieldValue('cronExpression')}
+                            timezone={form.getFieldValue('timezone')}
+                            onChange={(cron) => form.setFieldValue('cronExpression', cron)}
+                            onTimezoneChange={(tz) => form.setFieldValue('timezone', tz)}
+                          />
+                        </>
+                      ) : (
+                        <Form.Item
+                          label="Interval (milliseconds)"
+                          name="intervalMs"
+                          rules={[
+                            { required: scheduleType === 'INTERVAL', message: 'Interval is required' },
+                            {
+                              type: 'number',
+                              min: 60000,
+                              message: 'Minimum interval is 60000ms (1 minute)'
+                            }
+                          ]}
+                          extra="Minimum: 60000ms (1 minute)"
+                        >
+                          <Input type="number" size="large" placeholder="3600000" addonAfter="ms" />
+                        </Form.Item>
+                      )}
+                    </Space>
+                  </Card>
+                )
+              },
+              {
+                key: 'datasource',
+                label: (
+                  <Space size={6}>
+                    <DatabaseOutlined />
+                    Data Source
+                    {datasourceComplete && (
+                      <CheckCircleOutlined style={{ color: colors.success[600], fontSize: 14 }} />
+                    )}
+                  </Space>
+                ),
+                disabled: !basicComplete || !scheduleComplete, // Requires Basic Info and Schedule to be complete
+                children: (
+                  <Card style={{ marginTop: spacing[2] }} size="small">
+                    <Space direction="vertical" size="large" style={{ width: '100%' }}>
+                      <div>
+                        <Text strong style={{ display: 'block', marginBottom: spacing[2] }}>Data Source Type</Text>
+                        <Radio.Group
+                          value={dataSourceType}
+                          onChange={(e) => setDataSourceType(e.target.value)}
+                          buttonStyle="solid"
+                        >
+                          {DATA_SOURCE_TYPES.map(type => (
+                            <Radio.Button key={type.value} value={type.value}>
+                              <Space>
+                                {type.icon}
+                                {type.label}
+                              </Space>
+                            </Radio.Button>
+                          ))}
+                        </Radio.Group>
+                      </div>
+
+                      {renderDataSourceConfig()}
+
+                      {/* Test Data Source Section */}
+                      <div style={{ paddingTop: spacing[2] }}>
+                        <Alert
+                          message="Test Your Data Source"
+                          description={
+                            <div>
+                              <Text>Click below to validate your configuration and preview sample data.</Text>
+                              <ul style={{ marginTop: spacing[2], marginBottom: 0, paddingLeft: spacing[4] }}>
+                                <li>Variables like <code>{'{{config.tenantId}}'}</code> will be substituted with actual values</li>
+                                <li>Test may take up to 30 seconds for complex queries</li>
+                                <li>Returns up to 10 sample records for preview</li>
+                              </ul>
+                            </div>
+                          }
+                          type="info"
+                          showIcon
+                          icon={<InfoCircleOutlined />}
+                          style={{ marginBottom: spacing[3] }}
+                        />
+                        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                          <Button
+                            icon={<ExperimentOutlined />}
+                            onClick={() => testDataSourceMutation.mutate()}
+                            loading={testDataSourceMutation.isPending}
+                            disabled={!canTestDataSource()}
+                            size="large"
+                          >
+                            {testDataSourceMutation.isPending ? 'Testing Connection...' : 'Test Data Source'}
+                          </Button>
+                        </div>
+                      </div>
+
                       <Alert
-                        message="Test Your Data Source"
+                        message="Variable Substitution"
                         description={
                           <div>
-                            <Text>Click below to validate your configuration and preview sample data.</Text>
-                            <ul style={{ marginTop: spacing[2], marginBottom: 0, paddingLeft: spacing[4] }}>
-                              <li>Variables like <code>{'{{config.tenantId}}'}</code> will be substituted with actual values</li>
-                              <li>Test may take up to 30 seconds for complex queries</li>
-                              <li>Returns up to 10 sample records for preview</li>
+                            <Text>Available variables (works in connection strings, queries, and pipelines):</Text>
+                            <ul style={{ marginTop: spacing[2], marginBottom: 0 }}>
+                              <li><code>{'{{config.tenantId}}'}</code> - Current tenant ID</li>
+                              <li><code>{'{{date.today()}}'}</code> - Today's date (YYYY-MM-DD)</li>
+                              <li><code>{'{{date.yesterday()}}'}</code> - Yesterday's date</li>
+                              <li><code>{'{{date.todayStart()}}'}</code> - Today at 00:00:00 (ISO)</li>
+                              <li><code>{'{{date.todayEnd()}}'}</code> - Today at 23:59:59 (ISO)</li>
+                              <li><code>{'{{date.now()}}'}</code> - Current timestamp (ISO)</li>
+                              <li><code>{'{{env.VAR_NAME}}'}</code> - Environment variable</li>
                             </ul>
                           </div>
                         }
                         type="info"
                         showIcon
-                        icon={<InfoCircleOutlined />}
-                        style={{ marginBottom: spacing[3] }}
                       />
-                      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                    </Space>
+                  </Card>
+                )
+              },
+              {
+                key: 'transformation',
+                label: (
+                  <Space size={6}>
+                    <CodeOutlined />
+                    Transformation
+                    {transformComplete && (
+                      <CheckCircleOutlined style={{ color: colors.success[600], fontSize: 14 }} />
+                    )}
+                  </Space>
+                ),
+                disabled: !basicComplete || !scheduleComplete || !datasourceComplete, // Requires Basic Info, Schedule, and Data Source to be complete
+                children: (
+                  <Card style={{ marginTop: spacing[2] }} size="small">
+                    <Space direction="vertical" size="large" style={{ width: '100%' }}>
+                      <Form.Item
+                        label="Transformation Script"
+                        name="transformScript"
+                        rules={[{ required: true, message: 'Transformation script is required' }]}
+                        extra="JavaScript function to transform the query results. Return value will be sent to target URL."
+                      >
+                        <Editor
+                          height="300px"
+                          language="javascript"
+                          theme="vs-dark"
+                          value={transformScript}
+                          onChange={(value) => {
+                            setTransformScript(value || '');
+                            form.setFieldValue('transformScript', value || '');
+                          }}
+                          options={{
+                            minimap: { enabled: false },
+                            fontSize: 13,
+                            lineNumbers: 'on',
+                            wordWrap: 'on'
+                          }}
+                        />
+                      </Form.Item>
+
+                      <Alert
+                        message="Available Context"
+                        description={
+                          <div>
+                            <Text>The script receives:</Text>
+                            <ul style={{ marginTop: spacing[2], marginBottom: 0 }}>
+                              <li><code>payload.data</code> - Query results (array or object)</li>
+                              <li><code>payload.metadata</code> - Job execution metadata</li>
+                            </ul>
+                          </div>
+                        }
+                        type="info"
+                        showIcon
+                      />
+                    </Space>
+                  </Card>
+                )
+              },
+              {
+                key: 'target',
+                label: (
+                  <Space size={6}>
+                    <ApiOutlined />
+                    Target API
+                    {targetComplete && (
+                      <CheckCircleOutlined style={{ color: colors.success[600], fontSize: 14 }} />
+                    )}
+                  </Space>
+                ),
+                disabled: !basicComplete || !scheduleComplete || !datasourceComplete || !transformComplete, // Requires all previous tabs to be complete
+                children: (
+                  <Card style={{ marginTop: spacing[2] }} size="small">
+                    <Space direction="vertical" size="large" style={{ width: '100%' }}>
+                      <Form.Item
+                        label="Target URL"
+                        name="targetUrl"
+                        rules={[
+                          { required: true, message: 'Target URL is required' },
+                          { type: 'url', message: 'Must be a valid URL' }
+                        ]}
+                      >
+                        <Input size="large" placeholder="https://api.finance.com/v1/import" />
+                      </Form.Item>
+
+                      <Form.Item label="HTTP Method" name="httpMethod">
+                        <Radio.Group buttonStyle="solid">
+                          <Radio.Button value="POST">POST</Radio.Button>
+                          <Radio.Button value="PUT">PUT</Radio.Button>
+                        </Radio.Group>
+                      </Form.Item>
+                    </Space>
+                  </Card>
+                )
+              },
+              {
+                key: 'auth',
+                label: (
+                  <Space size={6}>
+                    <LockOutlined />
+                    Authentication
+                    <CheckCircleOutlined style={{ color: colors.success[600], fontSize: 14 }} />
+                  </Space>
+                ),
+                disabled: !basicComplete || !scheduleComplete || !datasourceComplete || !transformComplete || !targetComplete, // Requires all previous tabs to be complete
+                children: (
+                  <Card style={{ marginTop: spacing[2] }} size="small">
+                    <AuthenticationFields
+                      form={form}
+                      uiConfig={uiConfig}
+                      selectedAuthType={authType}
+                      fieldPrefix={['outgoingAuthConfig']}
+                      mode="scheduled"
+                      spacing={spacing}
+                      authTypeFieldName="outgoingAuthType"
+                    />
+                  </Card>
+                )
+              },
+              {
+                key: 'review',
+                label: (
+                  <Space size={6}>
+                    <EyeOutlined />
+                    Review & Submit
+                    {basicComplete && scheduleComplete && datasourceComplete && transformComplete && targetComplete && (
+                      <CheckCircleOutlined style={{ color: colors.success[600], fontSize: 14 }} />
+                    )}
+                  </Space>
+                ),
+                disabled: !basicComplete || !scheduleComplete || !datasourceComplete || !transformComplete || !targetComplete, // Requires all previous tabs to be complete
+                children: (
+                  <Card style={{ marginTop: spacing[2] }} size="small">
+                    <Space direction="vertical" size="large" style={{ width: '100%' }}>
+                      <Alert
+                        type="info"
+                        showIcon
+                        message="Review Your Configuration"
+                        description="Please review all settings before creating the scheduled job. You can click on any tab above to make changes."
+                      />
+
+                      {/* Basic Info Summary */}
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: spacing[2], marginBottom: spacing[3] }}>
+                          <ThunderboltOutlined style={{ fontSize: 18, color: colors.primary[600] }} />
+                          <Text strong style={{ fontSize: 16 }}>Basic Information</Text>
+                        </div>
+                        <Space direction="vertical" size="small" style={{ width: '100%', paddingLeft: spacing[4] }}>
+                          <div style={{ display: 'flex', gap: spacing[2] }}>
+                            <Text type="secondary" style={{ minWidth: 150 }}>Job Name:</Text>
+                            <Text strong>{form.getFieldValue('name') || <Text type="secondary">Not set</Text>}</Text>
+                          </div>
+                          <div style={{ display: 'flex', gap: spacing[2] }}>
+                            <Text type="secondary" style={{ minWidth: 150 }}>Job Type:</Text>
+                            <Text strong>{form.getFieldValue('type') || <Text type="secondary">Not set</Text>}</Text>
+                          </div>
+                          <div style={{ display: 'flex', gap: spacing[2] }}>
+                            <Text type="secondary" style={{ minWidth: 150 }}>Status:</Text>
+                            <Tag color={form.getFieldValue('isActive') ? 'success' : 'default'}>
+                              {form.getFieldValue('isActive') ? 'Active' : 'Paused'}
+                            </Tag>
+                          </div>
+                          {form.getFieldValue('description') && (
+                            <div style={{ display: 'flex', gap: spacing[2] }}>
+                              <Text type="secondary" style={{ minWidth: 150 }}>Description:</Text>
+                              <Text>{form.getFieldValue('description')}</Text>
+                            </div>
+                          )}
+                        </Space>
+                      </div>
+
+                      <Divider style={{ margin: 0 }} />
+
+                      {/* Schedule Summary */}
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: spacing[2], marginBottom: spacing[3] }}>
+                          <ClockCircleOutlined style={{ fontSize: 18, color: colors.primary[600] }} />
+                          <Text strong style={{ fontSize: 16 }}>Schedule</Text>
+                        </div>
+                        <Space direction="vertical" size="small" style={{ width: '100%', paddingLeft: spacing[4] }}>
+                          <div style={{ display: 'flex', gap: spacing[2] }}>
+                            <Text type="secondary" style={{ minWidth: 150 }}>Schedule Type:</Text>
+                            <Tag color={scheduleType === 'CRON' ? 'blue' : 'purple'}>{scheduleType}</Tag>
+                          </div>
+                          {scheduleType === 'CRON' && form.getFieldValue('cronExpression') && (
+                            <div style={{ display: 'flex', gap: spacing[2] }}>
+                              <Text type="secondary" style={{ minWidth: 150 }}>Cron Expression:</Text>
+                              <Text strong><code>{form.getFieldValue('cronExpression')}</code></Text>
+                            </div>
+                          )}
+                          {scheduleType === 'INTERVAL' && form.getFieldValue('intervalMs') && (
+                            <div style={{ display: 'flex', gap: spacing[2] }}>
+                              <Text type="secondary" style={{ minWidth: 150 }}>Interval:</Text>
+                              <Text strong>{form.getFieldValue('intervalMs')}ms</Text>
+                            </div>
+                          )}
+                          {form.getFieldValue('timezone') && (
+                            <div style={{ display: 'flex', gap: spacing[2] }}>
+                              <Text type="secondary" style={{ minWidth: 150 }}>Timezone:</Text>
+                              <Text>{form.getFieldValue('timezone')}</Text>
+                            </div>
+                          )}
+                        </Space>
+                      </div>
+
+                      <Divider style={{ margin: 0 }} />
+
+                      {/* Data Source Summary */}
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: spacing[2], marginBottom: spacing[3] }}>
+                          <DatabaseOutlined style={{ fontSize: 18, color: colors.primary[600] }} />
+                          <Text strong style={{ fontSize: 16 }}>Data Source</Text>
+                        </div>
+                        <Space direction="vertical" size="small" style={{ width: '100%', paddingLeft: spacing[4] }}>
+                          <div style={{ display: 'flex', gap: spacing[2] }}>
+                            <Text type="secondary" style={{ minWidth: 150 }}>Source Type:</Text>
+                            <Tag color={
+                              dataSourceType === 'SQL' ? 'blue' :
+                                dataSourceType === 'MONGODB' ? 'green' :
+                                  'purple'
+                            }>
+                              {dataSourceType}
+                            </Tag>
+                          </div>
+                          {dataSourceType === 'SQL' && (
+                            <>
+                              <div style={{ display: 'flex', gap: spacing[2] }}>
+                                <Text type="secondary" style={{ minWidth: 150 }}>Connection:</Text>
+                                {sqlConnectionMode === 'FIELDS' && (form.getFieldValue('sqlHost') || form.getFieldValue('sqlDatabase')) ? (
+                                  <Text type="secondary">
+                                    {form.getFieldValue('sqlHost') || 'host'}{form.getFieldValue('sqlPort') ? `:${form.getFieldValue('sqlPort')}` : ''} / {form.getFieldValue('sqlDatabase') || 'database'}
+                                  </Text>
+                                ) : form.getFieldValue('sqlConnectionString') ? (
+                                  <Text code style={{ fontSize: '11px' }}>{form.getFieldValue('sqlConnectionString')?.substring(0, 30)}...</Text>
+                                ) : (
+                                  <Text type="secondary">Platform database (default)</Text>
+                                )}
+                              </div>
+                              {form.getFieldValue('sqlQuery') && (
+                                <div style={{ display: 'flex', gap: spacing[2] }}>
+                                  <Text type="secondary" style={{ minWidth: 150 }}>SQL Query:</Text>
+                                  <Text type="secondary">Configured ({form.getFieldValue('sqlQuery').split('\n').length} lines)</Text>
+                                </div>
+                              )}
+                            </>
+                          )}
+                          {dataSourceType === 'MONGODB' && form.getFieldValue('mongoCollection') && (
+                            <>
+                              <div style={{ display: 'flex', gap: spacing[2] }}>
+                                <Text type="secondary" style={{ minWidth: 150 }}>Connection:</Text>
+                                <Text code style={{ fontSize: '11px' }}>{form.getFieldValue('mongoConnectionString')?.substring(0, 30)}...</Text>
+                              </div>
+                              <div style={{ display: 'flex', gap: spacing[2] }}>
+                                <Text type="secondary" style={{ minWidth: 150 }}>Database:</Text>
+                                <Text strong>{form.getFieldValue('mongoDatabase')}</Text>
+                              </div>
+                              <div style={{ display: 'flex', gap: spacing[2] }}>
+                                <Text type="secondary" style={{ minWidth: 150 }}>Collection:</Text>
+                                <Text strong>{form.getFieldValue('mongoCollection')}</Text>
+                              </div>
+                              <div style={{ display: 'flex', gap: spacing[2] }}>
+                                <Text type="secondary" style={{ minWidth: 150 }}>Aggregation:</Text>
+                                <Text type="secondary">Configured ({form.getFieldValue('mongoPipeline')?.split('\n').length || 0} lines)</Text>
+                              </div>
+                            </>
+                          )}
+                          {dataSourceType === 'API' && form.getFieldValue('apiUrl') && (
+                            <div style={{ display: 'flex', gap: spacing[2] }}>
+                              <Text type="secondary" style={{ minWidth: 150 }}>API URL:</Text>
+                              <Text strong>{form.getFieldValue('apiUrl')}</Text>
+                            </div>
+                          )}
+                        </Space>
+                      </div>
+
+                      <Divider style={{ margin: 0 }} />
+
+                      {/* Transformation Summary */}
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: spacing[2], marginBottom: spacing[3] }}>
+                          <CodeOutlined style={{ fontSize: 18, color: colors.primary[600] }} />
+                          <Text strong style={{ fontSize: 16 }}>Transformation</Text>
+                        </div>
+                        <Space direction="vertical" size="small" style={{ width: '100%', paddingLeft: spacing[4] }}>
+                          <div style={{ display: 'flex', gap: spacing[2] }}>
+                            <Text type="secondary" style={{ minWidth: 150 }}>Transform Script:</Text>
+                            {form.getFieldValue('transformScript') ? (
+                              <Text type="secondary">Configured ({form.getFieldValue('transformScript').split('\n').length} lines)</Text>
+                            ) : (
+                              <Text type="secondary">Not set</Text>
+                            )}
+                          </div>
+                        </Space>
+                      </div>
+
+                      <Divider style={{ margin: 0 }} />
+
+                      {/* Target API Summary */}
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: spacing[2], marginBottom: spacing[3] }}>
+                          <ApiOutlined style={{ fontSize: 18, color: colors.primary[600] }} />
+                          <Text strong style={{ fontSize: 16 }}>Target API</Text>
+                        </div>
+                        <Space direction="vertical" size="small" style={{ width: '100%', paddingLeft: spacing[4] }}>
+                          <div style={{ display: 'flex', gap: spacing[2] }}>
+                            <Text type="secondary" style={{ minWidth: 150 }}>Target URL:</Text>
+                            <Text strong>{form.getFieldValue('targetUrl') || <Text type="secondary">Not set</Text>}</Text>
+                          </div>
+                          <div style={{ display: 'flex', gap: spacing[2] }}>
+                            <Text type="secondary" style={{ minWidth: 150 }}>HTTP Method:</Text>
+                            <Tag color="blue">{form.getFieldValue('httpMethod') || 'POST'}</Tag>
+                          </div>
+                        </Space>
+                      </div>
+
+                      <Divider style={{ margin: 0 }} />
+
+                      {/* Authentication Summary */}
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: spacing[2], marginBottom: spacing[3] }}>
+                          <LockOutlined style={{ fontSize: 18, color: colors.primary[600] }} />
+                          <Text strong style={{ fontSize: 16 }}>Authentication</Text>
+                        </div>
+                        <Space direction="vertical" size="small" style={{ width: '100%', paddingLeft: spacing[4] }}>
+                          <div style={{ display: 'flex', gap: spacing[2] }}>
+                            <Text type="secondary" style={{ minWidth: 150 }}>Auth Type:</Text>
+                            <Tag color={authType === 'NONE' ? 'default' : 'blue'}>
+                              {authType || 'NONE'}
+                            </Tag>
+                          </div>
+                        </Space>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <Divider style={{ margin: 0 }} />
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: spacing[3], paddingTop: spacing[3] }}>
+                        <Button size="large" onClick={() => navigate('/scheduled-jobs')} disabled={saveMutation.isPending}>
+                          Cancel
+                        </Button>
                         <Button
-                          icon={<ExperimentOutlined />}
-                          onClick={() => testDataSourceMutation.mutate()}
-                          loading={testDataSourceMutation.isPending}
-                          disabled={!canTestDataSource()}
+                          type="primary"
                           size="large"
+                          icon={<SaveOutlined />}
+                          onClick={() => form.submit()}
+                          loading={saveMutation.isPending}
+                          disabled={!form.getFieldValue('name') || !form.getFieldValue('targetUrl')}
                         >
-                          {testDataSourceMutation.isPending ? 'Testing Connection...' : 'Test Data Source'}
+                          {isCreate ? 'Create Scheduled Job' : 'Save Changes'}
                         </Button>
                       </div>
-                    </div>
-
-                    <Alert
-                      message="Variable Substitution"
-                      description={
-                        <div>
-                          <Text>Available variables (works in connection strings, queries, and pipelines):</Text>
-                          <ul style={{ marginTop: spacing[2], marginBottom: 0 }}>
-                            <li><code>{'{{config.tenantId}}'}</code> - Current tenant ID</li>
-                            <li><code>{'{{date.today()}}'}</code> - Today's date (YYYY-MM-DD)</li>
-                            <li><code>{'{{date.yesterday()}}'}</code> - Yesterday's date</li>
-                            <li><code>{'{{date.todayStart()}}'}</code> - Today at 00:00:00 (ISO)</li>
-                            <li><code>{'{{date.todayEnd()}}'}</code> - Today at 23:59:59 (ISO)</li>
-                            <li><code>{'{{date.now()}}'}</code> - Current timestamp (ISO)</li>
-                            <li><code>{'{{env.VAR_NAME}}'}</code> - Environment variable</li>
-                          </ul>
-                        </div>
-                      }
-                      type="info"
-                      showIcon
-                    />
-                  </Space>
-                </Card>
-              )
-            },
-            {
-              key: 'transformation',
-              label: (
-                <Space size={6}>
-                  <CodeOutlined />
-                  Transformation
-                  {transformComplete && (
-                    <CheckCircleOutlined style={{ color: colors.success[600], fontSize: 14 }} />
-                  )}
-                </Space>
-              ),
-              disabled: !basicComplete || !scheduleComplete || !datasourceComplete, // Requires Basic Info, Schedule, and Data Source to be complete
-              children: (
-                <Card style={{ marginTop: spacing[2] }} size="small">
-                  <Space direction="vertical" size="large" style={{ width: '100%' }}>
-                    <Form.Item
-                      label="Transformation Script"
-                      name="transformScript"
-                      rules={[{ required: true, message: 'Transformation script is required' }]}
-                      extra="JavaScript function to transform the query results. Return value will be sent to target URL."
-                    >
-                      <Editor
-                        height="300px"
-                        language="javascript"
-                        theme="vs-dark"
-                        value={transformScript}
-                        onChange={(value) => {
-                          setTransformScript(value || '');
-                          form.setFieldValue('transformScript', value || '');
-                        }}
-                        options={{
-                          minimap: { enabled: false },
-                          fontSize: 13,
-                          lineNumbers: 'on',
-                          wordWrap: 'on'
-                        }}
-                      />
-                    </Form.Item>
-
-                    <Alert
-                      message="Available Context"
-                      description={
-                        <div>
-                          <Text>The script receives:</Text>
-                          <ul style={{ marginTop: spacing[2], marginBottom: 0 }}>
-                            <li><code>payload.data</code> - Query results (array or object)</li>
-                            <li><code>payload.metadata</code> - Job execution metadata</li>
-                          </ul>
-                        </div>
-                      }
-                      type="info"
-                      showIcon
-                    />
-                  </Space>
-                </Card>
-              )
-            },
-            {
-              key: 'target',
-              label: (
-                <Space size={6}>
-                  <ApiOutlined />
-                  Target API
-                  {targetComplete && (
-                    <CheckCircleOutlined style={{ color: colors.success[600], fontSize: 14 }} />
-                  )}
-                </Space>
-              ),
-              disabled: !basicComplete || !scheduleComplete || !datasourceComplete || !transformComplete, // Requires all previous tabs to be complete
-              children: (
-                <Card style={{ marginTop: spacing[2] }} size="small">
-                  <Space direction="vertical" size="large" style={{ width: '100%' }}>
-                    <Form.Item
-                      label="Target URL"
-                      name="targetUrl"
-                      rules={[
-                        { required: true, message: 'Target URL is required' },
-                        { type: 'url', message: 'Must be a valid URL' }
-                      ]}
-                    >
-                      <Input size="large" placeholder="https://api.finance.com/v1/import" />
-                    </Form.Item>
-
-                    <Form.Item label="HTTP Method" name="httpMethod">
-                      <Radio.Group buttonStyle="solid">
-                        <Radio.Button value="POST">POST</Radio.Button>
-                        <Radio.Button value="PUT">PUT</Radio.Button>
-                      </Radio.Group>
-                    </Form.Item>
-                  </Space>
-                </Card>
-              )
-            },
-            {
-              key: 'auth',
-              label: (
-                <Space size={6}>
-                  <LockOutlined />
-                  Authentication
-                  <CheckCircleOutlined style={{ color: colors.success[600], fontSize: 14 }} />
-                </Space>
-              ),
-              disabled: !basicComplete || !scheduleComplete || !datasourceComplete || !transformComplete || !targetComplete, // Requires all previous tabs to be complete
-              children: (
-                <Card style={{ marginTop: spacing[2] }} size="small">
-                  <AuthenticationFields
-                    form={form}
-                    uiConfig={uiConfig}
-                    selectedAuthType={authType}
-                    fieldPrefix={['outgoingAuthConfig']}
-                    mode="scheduled"
-                    spacing={spacing}
-                    authTypeFieldName="outgoingAuthType"
-                  />
-                </Card>
-              )
-            },
-            {
-              key: 'review',
-              label: (
-                <Space size={6}>
-                  <EyeOutlined />
-                  Review & Submit
-                  {basicComplete && scheduleComplete && datasourceComplete && transformComplete && targetComplete && (
-                    <CheckCircleOutlined style={{ color: colors.success[600], fontSize: 14 }} />
-                  )}
-                </Space>
-              ),
-              disabled: !basicComplete || !scheduleComplete || !datasourceComplete || !transformComplete || !targetComplete, // Requires all previous tabs to be complete
-              children: (
-                <Card style={{ marginTop: spacing[2] }} size="small">
-                  <Space direction="vertical" size="large" style={{ width: '100%' }}>
-                    <Alert
-                      type="info"
-                      showIcon
-                      message="Review Your Configuration"
-                      description="Please review all settings before creating the scheduled job. You can click on any tab above to make changes."
-                    />
-
-                    {/* Basic Info Summary */}
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: spacing[2], marginBottom: spacing[3] }}>
-                        <ThunderboltOutlined style={{ fontSize: 18, color: colors.primary[600] }} />
-                        <Text strong style={{ fontSize: 16 }}>Basic Information</Text>
-                      </div>
-                      <Space direction="vertical" size="small" style={{ width: '100%', paddingLeft: spacing[4] }}>
-                        <div style={{ display: 'flex', gap: spacing[2] }}>
-                          <Text type="secondary" style={{ minWidth: 150 }}>Job Name:</Text>
-                          <Text strong>{form.getFieldValue('name') || <Text type="secondary">Not set</Text>}</Text>
-                        </div>
-                        <div style={{ display: 'flex', gap: spacing[2] }}>
-                          <Text type="secondary" style={{ minWidth: 150 }}>Job Type:</Text>
-                          <Text strong>{form.getFieldValue('type') || <Text type="secondary">Not set</Text>}</Text>
-                        </div>
-                        <div style={{ display: 'flex', gap: spacing[2] }}>
-                          <Text type="secondary" style={{ minWidth: 150 }}>Status:</Text>
-                          <Tag color={form.getFieldValue('isActive') ? 'success' : 'default'}>
-                            {form.getFieldValue('isActive') ? 'Active' : 'Paused'}
-                          </Tag>
-                        </div>
-                        {form.getFieldValue('description') && (
-                          <div style={{ display: 'flex', gap: spacing[2] }}>
-                            <Text type="secondary" style={{ minWidth: 150 }}>Description:</Text>
-                            <Text>{form.getFieldValue('description')}</Text>
-                          </div>
-                        )}
-                      </Space>
-                    </div>
-
-                    <Divider style={{ margin: 0 }} />
-
-                    {/* Schedule Summary */}
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: spacing[2], marginBottom: spacing[3] }}>
-                        <ClockCircleOutlined style={{ fontSize: 18, color: colors.primary[600] }} />
-                        <Text strong style={{ fontSize: 16 }}>Schedule</Text>
-                      </div>
-                      <Space direction="vertical" size="small" style={{ width: '100%', paddingLeft: spacing[4] }}>
-                        <div style={{ display: 'flex', gap: spacing[2] }}>
-                          <Text type="secondary" style={{ minWidth: 150 }}>Schedule Type:</Text>
-                          <Tag color={scheduleType === 'CRON' ? 'blue' : 'purple'}>{scheduleType}</Tag>
-                        </div>
-                        {scheduleType === 'CRON' && form.getFieldValue('cronExpression') && (
-                          <div style={{ display: 'flex', gap: spacing[2] }}>
-                            <Text type="secondary" style={{ minWidth: 150 }}>Cron Expression:</Text>
-                            <Text strong><code>{form.getFieldValue('cronExpression')}</code></Text>
-                          </div>
-                        )}
-                        {scheduleType === 'INTERVAL' && form.getFieldValue('intervalMs') && (
-                          <div style={{ display: 'flex', gap: spacing[2] }}>
-                            <Text type="secondary" style={{ minWidth: 150 }}>Interval:</Text>
-                            <Text strong>{form.getFieldValue('intervalMs')}ms</Text>
-                          </div>
-                        )}
-                        {form.getFieldValue('timezone') && (
-                          <div style={{ display: 'flex', gap: spacing[2] }}>
-                            <Text type="secondary" style={{ minWidth: 150 }}>Timezone:</Text>
-                            <Text>{form.getFieldValue('timezone')}</Text>
-                          </div>
-                        )}
-                      </Space>
-                    </div>
-
-                    <Divider style={{ margin: 0 }} />
-
-                    {/* Data Source Summary */}
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: spacing[2], marginBottom: spacing[3] }}>
-                        <DatabaseOutlined style={{ fontSize: 18, color: colors.primary[600] }} />
-                        <Text strong style={{ fontSize: 16 }}>Data Source</Text>
-                      </div>
-                      <Space direction="vertical" size="small" style={{ width: '100%', paddingLeft: spacing[4] }}>
-                        <div style={{ display: 'flex', gap: spacing[2] }}>
-                          <Text type="secondary" style={{ minWidth: 150 }}>Source Type:</Text>
-                          <Tag color={
-                            dataSourceType === 'SQL' ? 'blue' :
-                            dataSourceType === 'MONGODB' ? 'green' :
-                            'purple'
-                          }>
-                            {dataSourceType}
-                          </Tag>
-                        </div>
-                        {dataSourceType === 'SQL' && (
-                          <>
-                            <div style={{ display: 'flex', gap: spacing[2] }}>
-                              <Text type="secondary" style={{ minWidth: 150 }}>Connection:</Text>
-                              {sqlConnectionMode === 'FIELDS' && (form.getFieldValue('sqlHost') || form.getFieldValue('sqlDatabase')) ? (
-                                <Text type="secondary">
-                                  {form.getFieldValue('sqlHost') || 'host'}{form.getFieldValue('sqlPort') ? `:${form.getFieldValue('sqlPort')}` : ''} / {form.getFieldValue('sqlDatabase') || 'database'}
-                                </Text>
-                              ) : form.getFieldValue('sqlConnectionString') ? (
-                                <Text code style={{ fontSize: '11px' }}>{form.getFieldValue('sqlConnectionString')?.substring(0, 30)}...</Text>
-                              ) : (
-                                <Text type="secondary">Platform database (default)</Text>
-                              )}
-                            </div>
-                            {form.getFieldValue('sqlQuery') && (
-                              <div style={{ display: 'flex', gap: spacing[2] }}>
-                                <Text type="secondary" style={{ minWidth: 150 }}>SQL Query:</Text>
-                                <Text type="secondary">Configured ({form.getFieldValue('sqlQuery').split('\n').length} lines)</Text>
-                              </div>
-                            )}
-                          </>
-                        )}
-                        {dataSourceType === 'MONGODB' && form.getFieldValue('mongoCollection') && (
-                          <>
-                            <div style={{ display: 'flex', gap: spacing[2] }}>
-                              <Text type="secondary" style={{ minWidth: 150 }}>Connection:</Text>
-                              <Text code style={{ fontSize: '11px' }}>{form.getFieldValue('mongoConnectionString')?.substring(0, 30)}...</Text>
-                            </div>
-                            <div style={{ display: 'flex', gap: spacing[2] }}>
-                              <Text type="secondary" style={{ minWidth: 150 }}>Database:</Text>
-                              <Text strong>{form.getFieldValue('mongoDatabase')}</Text>
-                            </div>
-                            <div style={{ display: 'flex', gap: spacing[2] }}>
-                              <Text type="secondary" style={{ minWidth: 150 }}>Collection:</Text>
-                              <Text strong>{form.getFieldValue('mongoCollection')}</Text>
-                            </div>
-                            <div style={{ display: 'flex', gap: spacing[2] }}>
-                              <Text type="secondary" style={{ minWidth: 150 }}>Aggregation:</Text>
-                              <Text type="secondary">Configured ({form.getFieldValue('mongoPipeline')?.split('\n').length || 0} lines)</Text>
-                            </div>
-                          </>
-                        )}
-                        {dataSourceType === 'API' && form.getFieldValue('apiUrl') && (
-                          <div style={{ display: 'flex', gap: spacing[2] }}>
-                            <Text type="secondary" style={{ minWidth: 150 }}>API URL:</Text>
-                            <Text strong>{form.getFieldValue('apiUrl')}</Text>
-                          </div>
-                        )}
-                      </Space>
-                    </div>
-
-                    <Divider style={{ margin: 0 }} />
-
-                    {/* Transformation Summary */}
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: spacing[2], marginBottom: spacing[3] }}>
-                        <CodeOutlined style={{ fontSize: 18, color: colors.primary[600] }} />
-                        <Text strong style={{ fontSize: 16 }}>Transformation</Text>
-                      </div>
-                      <Space direction="vertical" size="small" style={{ width: '100%', paddingLeft: spacing[4] }}>
-                        <div style={{ display: 'flex', gap: spacing[2] }}>
-                          <Text type="secondary" style={{ minWidth: 150 }}>Transform Script:</Text>
-                          {form.getFieldValue('transformScript') ? (
-                            <Text type="secondary">Configured ({form.getFieldValue('transformScript').split('\n').length} lines)</Text>
-                          ) : (
-                            <Text type="secondary">Not set</Text>
-                          )}
-                        </div>
-                      </Space>
-                    </div>
-
-                    <Divider style={{ margin: 0 }} />
-
-                    {/* Target API Summary */}
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: spacing[2], marginBottom: spacing[3] }}>
-                        <ApiOutlined style={{ fontSize: 18, color: colors.primary[600] }} />
-                        <Text strong style={{ fontSize: 16 }}>Target API</Text>
-                      </div>
-                      <Space direction="vertical" size="small" style={{ width: '100%', paddingLeft: spacing[4] }}>
-                        <div style={{ display: 'flex', gap: spacing[2] }}>
-                          <Text type="secondary" style={{ minWidth: 150 }}>Target URL:</Text>
-                          <Text strong>{form.getFieldValue('targetUrl') || <Text type="secondary">Not set</Text>}</Text>
-                        </div>
-                        <div style={{ display: 'flex', gap: spacing[2] }}>
-                          <Text type="secondary" style={{ minWidth: 150 }}>HTTP Method:</Text>
-                          <Tag color="blue">{form.getFieldValue('httpMethod') || 'POST'}</Tag>
-                        </div>
-                      </Space>
-                    </div>
-
-                    <Divider style={{ margin: 0 }} />
-
-                    {/* Authentication Summary */}
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: spacing[2], marginBottom: spacing[3] }}>
-                        <LockOutlined style={{ fontSize: 18, color: colors.primary[600] }} />
-                        <Text strong style={{ fontSize: 16 }}>Authentication</Text>
-                      </div>
-                      <Space direction="vertical" size="small" style={{ width: '100%', paddingLeft: spacing[4] }}>
-                        <div style={{ display: 'flex', gap: spacing[2] }}>
-                          <Text type="secondary" style={{ minWidth: 150 }}>Auth Type:</Text>
-                          <Tag color={authType === 'NONE' ? 'default' : 'blue'}>
-                            {authType || 'NONE'}
-                          </Tag>
-                        </div>
-                      </Space>
-                    </div>
-
-                    {/* Action Buttons */}
-                    <Divider style={{ margin: 0 }} />
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: spacing[3], paddingTop: spacing[3] }}>
-                      <Button size="large" onClick={() => navigate('/scheduled-jobs')} disabled={saveMutation.isPending}>
-                        Cancel
-                      </Button>
-                      <Button
-                        type="primary"
-                        size="large"
-                        icon={<SaveOutlined />}
-                        onClick={() => form.submit()}
-                        loading={saveMutation.isPending}
-                        disabled={!form.getFieldValue('name') || !form.getFieldValue('targetUrl')}
-                      >
-                        {isCreate ? 'Create Scheduled Job' : 'Save Changes'}
-                      </Button>
-                    </div>
-                  </Space>
-                </Card>
-              )
-            },
-            ...((!isCreate && job) ? [{
-              key: 'history',
-              label: (
-                <Space size={6}>
-                  <HistoryOutlined />
-                  Execution History
-                </Space>
-              ),
-              disabled: false, // History tab always enabled when viewing existing job
-              children: (
-                <Card style={{ marginTop: spacing[2] }} size="small">
-                  {job.lastExecution ? (
-                    <Space direction="vertical" size="large" style={{ width: '100%' }}>
-                      <div>
-                        <Text strong>Last Execution</Text>
-                        <div style={{ marginTop: spacing[2] }}>
-                          <Tag color={job.lastExecution.status === 'SUCCESS' ? 'success' : 'error'}>
-                            {job.lastExecution.status}
-                          </Tag>
-                          <Text type="secondary"> at {formatDateTime(job.lastExecution.startedAt)}</Text>
-                        </div>
-                      </div>
-                      {job.lastExecution.recordsFetched !== undefined && (
-                        <div>
-                          <Text type="secondary">Records Fetched: </Text>
-                          <Text strong>{job.lastExecution.recordsFetched}</Text>
-                        </div>
-                      )}
-                      {job.lastExecution.durationMs && (
-                        <div>
-                          <Text type="secondary">Duration: </Text>
-                          <Text strong>{job.lastExecution.durationMs}ms</Text>
-                        </div>
-                      )}
                     </Space>
-                  ) : (
-                    <Text type="secondary">No executions yet</Text>
-                  )}
-                </Card>
-              )
-            }] : [])
-          ];
+                  </Card>
+                )
+              },
+              ...((!isCreate && job) ? [{
+                key: 'history',
+                label: (
+                  <Space size={6}>
+                    <HistoryOutlined />
+                    Execution History
+                  </Space>
+                ),
+                disabled: false, // History tab always enabled when viewing existing job
+                children: (
+                  <Card style={{ marginTop: spacing[2] }} size="small">
+                    {job.lastExecution ? (
+                      <Space direction="vertical" size="large" style={{ width: '100%' }}>
+                        <div>
+                          <Text strong>Last Execution</Text>
+                          <div style={{ marginTop: spacing[2] }}>
+                            <Tag color={job.lastExecution.status === 'SUCCESS' ? 'success' : 'error'}>
+                              {job.lastExecution.status}
+                            </Tag>
+                            <Text type="secondary"> at {formatDateTime(job.lastExecution.startedAt)}</Text>
+                          </div>
+                        </div>
+                        {job.lastExecution.recordsFetched !== undefined && (
+                          <div>
+                            <Text type="secondary">Records Fetched: </Text>
+                            <Text strong>{job.lastExecution.recordsFetched}</Text>
+                          </div>
+                        )}
+                        {job.lastExecution.durationMs && (
+                          <div>
+                            <Text type="secondary">Duration: </Text>
+                            <Text strong>{job.lastExecution.durationMs}ms</Text>
+                          </div>
+                        )}
+                      </Space>
+                    ) : (
+                      <Text type="secondary">No executions yet</Text>
+                    )}
+                  </Card>
+                )
+              }] : [])
+            ];
           })()}
         />
       </Form>

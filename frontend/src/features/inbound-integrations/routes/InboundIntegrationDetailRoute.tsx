@@ -669,7 +669,7 @@ return {
             : 'Real-time API proxy - Client App → Gateway → External API → Response'
         }
         breadcrumb={[
-          { label: 'Configuration', path: '/event-gateway/integrations' },
+          { label: 'Configuration', path: '/integrations' },
           { label: 'Inbound Integrations', path: '/inbound-integrations' },
           { label: isCreate ? 'New' : integration?.name || 'Edit' }
         ]}

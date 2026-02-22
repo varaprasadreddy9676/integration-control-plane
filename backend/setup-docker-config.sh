@@ -33,7 +33,7 @@ cat > config.docker.json << EOF
     "basePrefix": "/api/v1"
   },
   "communicationServiceUrl": "https://your-domain.com/api/sendNotification",
-  "frontendUrl": "https://your-domain.com/event-gateway",
+  "frontendUrl": "https://your-domain.com",
   "db": {
     "host": "",
     "port": 3306,
