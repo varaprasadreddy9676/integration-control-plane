@@ -278,6 +278,21 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   throw lastError || new Error('Request failed after all retries');
 }
 
+export const createPortalSession = async (data: {
+  orgId: number;
+  role?: 'VIEWER' | 'INTEGRATION_EDITOR';
+  expiresInHours?: number;
+}): Promise<{
+  accessToken: string;
+  portalUrl: string;
+  expiresIn: string;
+  session: { orgId: number; role: string };
+}> =>
+  request('/auth/portal-session', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
+
 const serializeIntegrationInput = (input: IntegrationConfig) => ({
   name: input.name,
   eventType: input.eventType,

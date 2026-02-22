@@ -14,7 +14,8 @@ import {
   listAdminOrgSummaries,
   listAdminOrgUnits,
   updateAdminOrg,
-  updateAdminOrgUnit
+  updateAdminOrgUnit,
+  createPortalSession
 } from '../../services/api';
 
 const OrgUnitsInline = ({
@@ -172,6 +173,8 @@ export const OrgDirectoryRoute = () => {
   const [unitEditPhoneError, setUnitEditPhoneError] = useState('');
   const [createOrgVisible, setCreateOrgVisible] = useState(false);
   const [createUnitVisible, setCreateUnitVisible] = useState(false);
+  const [portalLink, setPortalLink] = useState<{ url: string; orgId: number } | null>(null);
+  const [generatingPortal, setGeneratingPortal] = useState(false);
 
   const parseTags = (value: string) => {
     const tokens = value.split(',').map((tag) => tag.trim()).filter(Boolean);
@@ -328,6 +331,23 @@ export const OrgDirectoryRoute = () => {
           </Button>
           <Button
             size="small"
+            onClick={async () => {
+              setGeneratingPortal(true);
+              try {
+                const res = await createPortalSession({ orgId: record.orgId, role: 'INTEGRATION_EDITOR' });
+                setPortalLink({ url: res.portalUrl, orgId: record.orgId });
+              } catch (err: any) {
+                messageApi.error(err?.message || 'Failed to generate portal link');
+              } finally {
+                setGeneratingPortal(false);
+              }
+            }}
+            loading={generatingPortal && portalLink?.orgId === record.orgId}
+          >
+            Portal
+          </Button>
+          <Button
+            size="small"
             danger
             onClick={() => {
               Modal.confirm({
@@ -346,7 +366,7 @@ export const OrgDirectoryRoute = () => {
           >
             Delete
           </Button>
-        </Space>
+        </Space >
       )
     }
   ];
@@ -452,6 +472,39 @@ export const OrgDirectoryRoute = () => {
   return (
     <div>
       {contextHolder}
+      <Modal
+        title="Portal Magic Link"
+        open={!!portalLink}
+        onCancel={() => setPortalLink(null)}
+        footer={[
+          <Button key="close" onClick={() => setPortalLink(null)}>Close</Button>,
+          <Button
+            key="copy"
+            type="primary"
+            onClick={() => {
+              if (portalLink) {
+                navigator.clipboard.writeText(portalLink.url);
+                messageApi.success('Link copied to clipboard');
+              }
+            }}
+          >
+            Copy Link
+          </Button>
+        ]}
+      >
+        <Typography.Paragraph>
+          Use this link to access the integration portal for <strong>Org {portalLink?.orgId}</strong> without logging in.
+        </Typography.Paragraph>
+        <Input.TextArea
+          rows={4}
+          readOnly
+          value={portalLink?.url}
+          style={{ fontFamily: token.fontFamilyCode, fontSize: token.fontSizeSM }}
+        />
+        <Typography.Text type="secondary" style={{ display: 'block', marginTop: 12 }}>
+          Note: This link is short-lived (2 hours) and gives <strong>Integration Editor</strong> permissions.
+        </Typography.Text>
+      </Modal>
       <PageHeader
         title="Org Directory"
         description="Create organizations and manage their units."

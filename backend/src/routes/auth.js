@@ -183,9 +183,10 @@ router.post('/impersonate', auth, asyncHandler(async (req, res) => {
 // Generates a short-lived, org-scoped magic link token for the embeddable portal.
 // This endpoint must be called via an admin API key, NOT a user JWT.
 router.post('/portal-session', auth, asyncHandler(async (req, res) => {
-  // 1. Must use API Key auth (not a user session)
-  if (req.authType !== 'apiKey') {
-    throw new UnauthorizedError('API Key authentication required to generate portal sessions');
+  // 1. Must use API Key auth or be a SUPER_ADMIN
+  const isSuperAdmin = req.authType === 'jwt' && req.user?.role === 'SUPER_ADMIN';
+  if (req.authType !== 'apiKey' && !isSuperAdmin) {
+    throw new UnauthorizedError('API Key or Super Admin authentication required to generate portal sessions');
   }
 
   // 2. Body validation
