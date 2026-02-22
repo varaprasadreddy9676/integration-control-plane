@@ -23,11 +23,11 @@ jobs:
 
       - name: Install backend dependencies
         working-directory: backend
-        run: npm install --prefer-offline
+        run: npm ci
 
       - name: Install test dependencies
         working-directory: backend/test
-        run: npm install --prefer-offline
+        run: npm ci
 
       - name: Run backend tests
         working-directory: backend/test
@@ -54,7 +54,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: backend
-        run: npm install --prefer-offline
+        run: npm ci
 
       - name: Run Biome check
         working-directory: backend
@@ -74,7 +74,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: frontend
-        run: npm install --prefer-offline
+        run: npm ci
 
       - name: Run Biome check
         working-directory: frontend
@@ -94,7 +94,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: frontend
-        run: npm install --prefer-offline
+        run: npm ci
 
       - name: Run frontend tests
         working-directory: frontend
