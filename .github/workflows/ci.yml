@@ -17,7 +17,13 @@ jobs:
         with:
           node-version: "20"
           cache: "npm"
-          cache-dependency-path: backend/test/package-lock.json
+          cache-dependency-path: |
+            backend/package-lock.json
+            backend/test/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: npm install --prefer-offline
 
       - name: Install test dependencies
         working-directory: backend/test
