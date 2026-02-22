@@ -280,6 +280,7 @@ See the full [comparison with Svix, Convoy, Hookdeck, and building it yourself](
 - [docs/README.md](docs/README.md)
 - [docs/guides/GETTING-STARTED.md](docs/guides/GETTING-STARTED.md)
 - [docs/guides/DOCKER.md](docs/guides/DOCKER.md)
+- [docs/guides/DEPLOYMENT.md](docs/guides/DEPLOYMENT.md)
 - [docs/guides/RBAC-GUIDE.md](docs/guides/RBAC-GUIDE.md)
 - [docs/architecture/ARCHITECTURE.md](docs/architecture/ARCHITECTURE.md)
 - [docs/architecture/SCHEDULED_JOBS.md](docs/architecture/SCHEDULED_JOBS.md)
