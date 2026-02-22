@@ -1,0 +1,8 @@
+# Global owner
+*                        @varaprasadreddy9676
+
+# Backend data layer (high impact, needs careful review)
+/backend/src/data/       @varaprasadreddy9676
+
+# CI/CD pipeline
+/.github/                @varaprasadreddy9676

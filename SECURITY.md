@@ -9,7 +9,7 @@ We take the security of Integration Gateway seriously. If you discover a securit
 **Please do not report security vulnerabilities through public GitHub issues.**
 
 Instead, please report them via email to:
-- **Email:** varaprasadreddy9676@gmail.com
+- **Email:** founder@icplane.com
 - **Subject:** [SECURITY] Brief description of the vulnerability
 
 ### What to Include in Your Report
@@ -492,13 +492,14 @@ Use this checklist before deploying to production:
 
 For security-related questions or concerns:
 
-- **Email:** security@example.com
+- **Email:** founder@icplane.com
 - **PGP Key:** (Coming soon)
 - **Response Time:** Within 24 hours
 
 For general support:
-- **GitHub Issues:** https://github.com/yourusername/integration-gateway/issues
-- **Documentation:** https://github.com/yourusername/integration-gateway/docs
+- **Website:** https://icplane.com
+- **GitHub Issues:** https://github.com/varaprasadreddy9676/integration-control-plane/issues
+- **Documentation:** https://github.com/varaprasadreddy9676/integration-control-plane/docs
 
 ---
 

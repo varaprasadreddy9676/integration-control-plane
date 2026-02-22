@@ -6,7 +6,8 @@
   "scripts": {
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "test:ci": "jest --ci --forceExit --coverage --testPathIgnorePatterns='clevertap-live|comprehensive-live|real-delivery|workers-integration-real'"
   },
   "devDependencies": {
     "jest": "^29.0.0",
@@ -14,13 +15,28 @@
   },
   "jest": {
     "testEnvironment": "node",
-    "collectCoverageFrom": [
-      "src/**/*.js",
-      "!src/config.js"
-    ],
+    "rootDir": "../",
     "testMatch": [
-      "**/tests/**/*.test.js"
+      "<rootDir>/test/tests/**/*.test.js"
     ],
-    "verbose": true
+    "collectCoverageFrom": [
+      "<rootDir>/src/**/*.js",
+      "!<rootDir>/src/config.js",
+      "!<rootDir>/src/event-sources/**",
+      "!<rootDir>/src/data/seed-*.js",
+      "!<rootDir>/src/data/mark-*.js"
+    ],
+    "coverageDirectory": "<rootDir>/test/coverage",
+    "verbose": true,
+    "coverageProvider": "v8",
+    "coverageThreshold": {
+      "global": {
+        "branches": 45,
+        "functions": 20,
+        "lines": 15,
+        "statements": 15
+      }
+    },
+    "coverageReporters": ["text", "lcov", "json-summary"]
   }
 }

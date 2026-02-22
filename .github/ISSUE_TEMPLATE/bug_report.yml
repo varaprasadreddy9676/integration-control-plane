@@ -1,0 +1,100 @@
+name: Bug Report
+description: File a bug report
+title: "[BUG] "
+labels: ["bug"]
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this bug report!
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Provide a clear and concise description of the bug
+      placeholder: What happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: Steps to reproduce the behavior
+      placeholder: |
+        1. Go to...
+        2. Click on...
+        3. See error...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What should have happened instead?
+      placeholder: The system should have...
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happened?
+      placeholder: Instead, the system...
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: "## Environment"
+
+  - type: input
+    id: node-version
+    attributes:
+      label: Node.js Version
+      description: Which Node.js version are you running?
+      placeholder: "18.x, 20.x, etc."
+    validations:
+      required: false
+
+  - type: input
+    id: mongo-version
+    attributes:
+      label: MongoDB Version
+      description: Which MongoDB version are you running?
+      placeholder: "5.x, 6.x, etc."
+    validations:
+      required: false
+
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Environment
+      options:
+        - Docker
+        - Bare Metal
+        - Kubernetes
+        - Other
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Logs
+      description: Please paste any relevant error logs or stack traces
+      render: bash
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Any other context about the problem?
+    validations:
+      required: false

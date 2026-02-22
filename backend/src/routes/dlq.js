@@ -87,113 +87,9 @@ router.get('/stats', asyncHandler(async (req, res) => {
 }));
 
 /**
- * GET /api/v1/dlq/:dlqId
- * Get specific DLQ entry
- */
-router.get('/:dlqId', asyncHandler(async (req, res) => {
-  const { dlqId } = req.params;
-
-  const entry = await dlqData.getDLQEntry(dlqId, req.orgId);
-
-  if (!entry) {
-    return res.status(404).json({
-      success: false,
-      error: 'DLQ entry not found',
-      code: 'NOT_FOUND'
-    });
-  }
-
-  res.json({
-    success: true,
-    data: entry
-  });
-}));
-
-/**
- * DELETE /api/v1/dlq/:dlqId
- * Delete a DLQ entry
- */
-router.delete('/:dlqId', asyncHandler(async (req, res) => {
-  const { dlqId } = req.params;
-  const userId = req.user?.id || 'system';
-
-  await dlqData.deleteDLQEntry(dlqId, req.orgId);
-
-  log('info', 'DLQ entry deleted', {
-    dlqId,
-    userId,
-    orgId: req.orgId
-  });
-
-  res.json({
-    success: true,
-    message: 'DLQ entry deleted',
-    data: { dlqId }
-  });
-}));
-
-/**
- * POST /api/v1/dlq/:dlqId/retry
- * Manually retry a DLQ entry
- */
-router.post('/:dlqId/retry', asyncHandler(async (req, res) => {
-  const { dlqId } = req.params;
-  const userId = req.user?.id || 'system';
-
-  const entry = await dlqData.manualRetryDLQ(dlqId, req.orgId, userId);
-
-  // Queue the retry (implement actual retry logic based on your worker setup)
-  // This will depend on how you process retries - could use a message queue, worker, etc.
-  // For now, we'll just mark it as retrying
-
-  log('info', 'DLQ manual retry initiated', {
-    dlqId,
-    userId,
-    orgId: req.orgId,
-    integrationConfigId: entry.integrationConfigId
-  });
-
-  res.json({
-    success: true,
-    message: 'Retry initiated',
-    data: {
-      dlqId,
-      status: 'retrying'
-    }
-  });
-}));
-
-/**
- * POST /api/v1/dlq/:dlqId/abandon
- * Abandon a DLQ entry
- */
-router.post('/:dlqId/abandon', asyncHandler(async (req, res) => {
-  const { dlqId } = req.params;
-  const { notes } = req.body;
-  const userId = req.user?.id || 'system';
-
-  await dlqData.abandonDLQEntry(dlqId, req.orgId, userId, notes);
-
-  log('info', 'DLQ entry abandoned', {
-    dlqId,
-    userId,
-    orgId: req.orgId,
-    notes
-  });
-
-  res.json({
-    success: true,
-    message: 'DLQ entry abandoned',
-    data: {
-      dlqId,
-      status: 'abandoned'
-    }
-  });
-}));
-
-/**
  * POST /api/v1/dlq/bulk/retry
  * Bulk retry DLQ entries
+ * NOTE: Bulk routes must be defined before /:dlqId param routes to avoid shadowing
  */
 router.post('/bulk/retry', asyncHandler(async (req, res) => {
   const { dlqIds } = req.body;
@@ -357,6 +253,107 @@ router.post('/bulk/delete', asyncHandler(async (req, res) => {
     success: true,
     message: `Deleted ${results.success.length} of ${dlqIds.length} entries`,
     data: results
+  });
+}));
+
+/**
+ * GET /api/v1/dlq/:dlqId
+ * Get specific DLQ entry
+ */
+router.get('/:dlqId', asyncHandler(async (req, res) => {
+  const { dlqId } = req.params;
+
+  const entry = await dlqData.getDLQEntry(dlqId, req.orgId);
+
+  if (!entry) {
+    return res.status(404).json({
+      success: false,
+      error: 'DLQ entry not found',
+      code: 'NOT_FOUND'
+    });
+  }
+
+  res.json({
+    success: true,
+    data: entry
+  });
+}));
+
+/**
+ * DELETE /api/v1/dlq/:dlqId
+ * Delete a DLQ entry
+ */
+router.delete('/:dlqId', asyncHandler(async (req, res) => {
+  const { dlqId } = req.params;
+  const userId = req.user?.id || 'system';
+
+  await dlqData.deleteDLQEntry(dlqId, req.orgId);
+
+  log('info', 'DLQ entry deleted', {
+    dlqId,
+    userId,
+    orgId: req.orgId
+  });
+
+  res.json({
+    success: true,
+    message: 'DLQ entry deleted',
+    data: { dlqId }
+  });
+}));
+
+/**
+ * POST /api/v1/dlq/:dlqId/retry
+ * Manually retry a DLQ entry
+ */
+router.post('/:dlqId/retry', asyncHandler(async (req, res) => {
+  const { dlqId } = req.params;
+  const userId = req.user?.id || 'system';
+
+  const entry = await dlqData.manualRetryDLQ(dlqId, req.orgId, userId);
+
+  log('info', 'DLQ manual retry initiated', {
+    dlqId,
+    userId,
+    orgId: req.orgId,
+    integrationConfigId: entry.integrationConfigId
+  });
+
+  res.json({
+    success: true,
+    message: 'Retry initiated',
+    data: {
+      dlqId,
+      status: 'retrying'
+    }
+  });
+}));
+
+/**
+ * POST /api/v1/dlq/:dlqId/abandon
+ * Abandon a DLQ entry
+ */
+router.post('/:dlqId/abandon', asyncHandler(async (req, res) => {
+  const { dlqId } = req.params;
+  const { notes } = req.body;
+  const userId = req.user?.id || 'system';
+
+  await dlqData.abandonDLQEntry(dlqId, req.orgId, userId, notes);
+
+  log('info', 'DLQ entry abandoned', {
+    dlqId,
+    userId,
+    orgId: req.orgId,
+    notes
+  });
+
+  res.json({
+    success: true,
+    message: 'DLQ entry abandoned',
+    data: {
+      dlqId,
+      status: 'abandoned'
+    }
   });
 }));
 

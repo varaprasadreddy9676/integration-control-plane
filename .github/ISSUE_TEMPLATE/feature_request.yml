@@ -1,0 +1,63 @@
+name: Feature Request
+description: Suggest an idea for this project
+title: "[FEATURE] "
+labels: ["enhancement"]
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting an idea to improve the Integration Control Plane!
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Description
+      description: What problem does this feature solve? Is it related to a current limitation?
+      placeholder: |
+        I'm trying to...
+        Currently, I have to...
+        This is challenging because...
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: Describe the solution you'd like to see
+      placeholder: |
+        The feature should...
+        This would work by...
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Have you considered any alternative solutions?
+      placeholder: |
+        Alternative 1: ...
+        Alternative 2: ...
+    validations:
+      required: false
+
+  - type: textarea
+    id: usecase
+    attributes:
+      label: Use Case / Who Benefits
+      description: Who would benefit from this feature? What are the use cases?
+      placeholder: |
+        This feature would help...
+        The use case is...
+    validations:
+      required: true
+
+  - type: checkbox
+    id: willing
+    attributes:
+      label: Willing to Implement
+      description: Would you be willing to submit a PR to implement this feature?
+      options:
+        - label: "Yes, I'd like to help implement this"

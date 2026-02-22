@@ -1,27 +1,30 @@
-# Contributing to Integration Gateway
+# Contributing to Integration Control Plane
 
-First off, thank you for considering contributing to Integration Gateway! It's people like you that make Integration Gateway such a great tool.
+Thank you for considering contributing to Integration Control Plane! This guide will help you get started.
+
+## Code of Conduct
+
+This project follows the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code.
 
 ## How Can I Contribute?
 
 ### Reporting Bugs
 
-Before creating bug reports, please check the existing issues to see if the problem has already been reported. When you are creating a bug report, please include as many details as possible:
+Before creating a bug report, check existing issues to avoid duplicates. Use the [bug report template](.github/ISSUE_TEMPLATE/bug_report.yml) and include:
 
-* **Use a clear and descriptive title**
-* **Describe the exact steps to reproduce the problem**
-* **Provide specific examples** (code snippets, screenshots, logs)
-* **Describe the behavior you observed and what you expected**
-* **Include your environment details** (OS, Node version, MongoDB version, Docker version)
+- Clear, descriptive title
+- Steps to reproduce
+- Expected vs actual behavior
+- Environment details (Node version, MongoDB version, Docker/bare metal)
+- Relevant logs or screenshots
 
-### Suggesting Enhancements
+### Suggesting Features
 
-Enhancement suggestions are tracked as GitHub issues. When creating an enhancement suggestion, please include:
+Use the [feature request template](.github/ISSUE_TEMPLATE/feature_request.yml) and explain:
 
-* **Use a clear and descriptive title**
-* **Provide a step-by-step description** of the suggested enhancement
-* **Provide specific examples** to demonstrate the enhancement
-* **Explain why this enhancement would be useful** to most users
+- The problem you're trying to solve
+- Your proposed solution
+- Who benefits from this feature
 
 ### Pull Requests
 
@@ -30,29 +33,33 @@ Enhancement suggestions are tracked as GitHub issues. When creating an enhanceme
    git checkout -b feature/my-new-feature
    ```
 
-2. **Make your changes** following our code style guidelines
+2. **Make your changes** following the code style guidelines below
 
-3. **Add tests** if you've added code that should be tested
+3. **Add tests** for any new code (see [Testing](#testing) below)
 
-4. **Ensure the test suite passes**:
+4. **Ensure CI passes locally**:
    ```bash
-   cd backend && npm test
-   cd frontend && npm test
+   # Backend
+   cd backend && npm run check && npm test
+
+   # Frontend
+   cd frontend && npm run check && npm test
    ```
 
-5. **Update documentation** if you've changed APIs or added features
-
-6. **Write clear commit messages** following the format:
+5. **Write clear commit messages** using [Conventional Commits](https://www.conventionalcommits.org/):
    ```
    type(scope): subject
-
-   body (optional)
-
-   footer (optional)
    ```
-   Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`
+   Types: `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`
 
-7. **Push to your fork** and submit a pull request to the `main` branch
+   Examples:
+   ```
+   feat(integrations): add GraphQL webhook support
+   fix(auth): resolve JWT token expiration issue
+   test(dlq): add bulk retry route tests
+   ```
+
+6. **Push to your fork** and open a pull request to `main`
 
 ## Development Setup
 
@@ -70,209 +77,217 @@ Enhancement suggestions are tracked as GitHub issues. When creating an enhanceme
 git clone https://github.com/YOUR_USERNAME/integration-control-plane.git
 cd integration-control-plane
 
-# Install backend dependencies
+# Backend
 cd backend
 npm install
-cp config.example.json config.json
-# Edit config.json with your local settings
+cp config.example.json config.json   # Edit with your local settings
 
-# Install frontend dependencies
+# Frontend
 cd ../frontend
 npm install
 cp .env.example .env
 
 # Start development servers
-cd ../backend && npm run dev  # Terminal 1
-cd ../frontend && npm run dev # Terminal 2
+cd ../backend && npm run dev   # Terminal 1
+cd ../frontend && npm run dev  # Terminal 2
 ```
 
-### Running Tests
+### Pre-commit Hooks
+
+This project uses [Husky](https://typicode.github.io/husky/) with lint-staged. After `npm install` in `backend/`, Biome will auto-format staged files on every commit. No setup required — it runs automatically.
+
+## Code Style
+
+We use **[Biome](https://biomejs.dev/)** for formatting and linting (not ESLint/Prettier):
 
 ```bash
-# Backend tests
-cd backend
-npm test
+# Check for issues
+npm run check
 
-# Frontend tests
-cd frontend
-npm test
-
-# Integration tests
-cd backend
-npm run test:integration
+# Auto-fix
+npm run check:fix
 ```
 
-### Code Style
+All code must pass `npm run check` before merging. The pre-commit hook handles this automatically for staged files.
 
-We use **Biome** for code formatting and linting:
+## Testing
+
+### Backend Tests (Jest + Supertest)
 
 ```bash
-# Format code
-npm run format
+cd backend
+npm test                    # Run all tests
+npm run test:ci             # CI mode with coverage
 
-# Lint code
-npm run lint
-
-# Auto-fix linting issues
-npm run lint:fix
+# Run specific test files
+cd test
+npx jest --testPathPattern=routes-dlq
+npx jest --testPathPattern=routes-users
 ```
 
-**Important**: All code must pass linting before being merged.
+**Coverage thresholds** are enforced in CI — new code in PRs should aim for 50%+ coverage.
 
-## Project Structure
+#### Writing Backend Route Tests
 
-```
-integration-gateway/
-├── backend/               # Node.js backend
-│   ├── src/
-│   │   ├── routes/       # API route handlers
-│   │   ├── services/     # Business logic
-│   │   ├── data/         # Data access layer
-│   │   ├── middleware/   # Express middleware
-│   │   ├── processor/    # Background workers
-│   │   └── utils/        # Utility functions
-│   └── test/             # Backend tests
-├── frontend/              # React frontend
-│   ├── src/
-│   │   ├── features/     # Feature modules
-│   │   ├── components/   # Reusable components
-│   │   ├── services/     # API clients
-│   │   └── hooks/        # Custom React hooks
-│   └── tests/            # Frontend tests
-├── docs/                  # Documentation
-├── scripts/               # Utility scripts
-└── docker-compose.yml     # Docker setup
-```
+All route tests follow a consistent pattern. Here's a minimal example:
 
-## Branching Strategy
-
-- `main` - Production-ready code
-- `develop` - Integration branch for features (if adopted)
-- `feature/*` - New features
-- `fix/*` - Bug fixes
-- `docs/*` - Documentation updates
-- `refactor/*` - Code refactoring
-
-## Commit Message Guidelines
-
-We follow the [Conventional Commits](https://www.conventionalcommits.org/) specification:
-
-```
-<type>(<scope>): <subject>
-
-[optional body]
-
-[optional footer]
-```
-
-**Types:**
-- `feat`: New feature
-- `fix`: Bug fix
-- `docs`: Documentation changes
-- `style`: Code style changes (formatting, missing semicolons, etc.)
-- `refactor`: Code refactoring (neither fixes a bug nor adds a feature)
-- `perf`: Performance improvements
-- `test`: Adding or updating tests
-- `chore`: Build process or auxiliary tool changes
-
-**Examples:**
-```
-feat(integrations): add support for GraphQL webhooks
-fix(auth): resolve JWT token expiration issue
-docs(readme): update quick start guide
-refactor(delivery): extract retry logic into separate service
-```
-
-## Testing Guidelines
-
-### Backend Tests
-
-- Write unit tests for all business logic in `services/`
-- Write integration tests for API endpoints in `routes/`
-- Use meaningful test descriptions
-- Aim for >80% code coverage
-
-**Example:**
 ```javascript
-describe('Integration Service', () => {
-  describe('createIntegration', () => {
-    it('should create integration with valid data', async () => {
-      // Test implementation
-    });
+'use strict';
 
-    it('should reject integration with invalid URL', async () => {
-      // Test implementation
-    });
+const express = require('express');
+const request = require('supertest');
+
+// Mock dependencies before requiring route
+jest.mock('../../src/mongodb', () => ({
+  getDb: jest.fn(),
+  getDbSafe: jest.fn(),
+  isConnected: jest.fn(() => true)
+}));
+
+jest.mock('../../src/db', () => ({
+  isConfigured: jest.fn(() => false),
+  ping: jest.fn(async () => false)
+}));
+
+jest.mock('../../src/data/store', () => ({
+  initStore: jest.fn(async () => {}),
+  getTenant: jest.fn(() => null),
+  findTenantByChildRid: jest.fn(() => null)
+}));
+
+jest.mock('../../src/logger', () => ({
+  log: jest.fn(),
+  logError: jest.fn(),
+  requestLogger: (_req, _res, next) => next(),
+  setDb: jest.fn(),
+  closeLogStreams: jest.fn()
+}));
+
+jest.mock('../../src/config', () => ({
+  api: { basePrefix: '/api/v1' },
+  security: { jwtSecret: 'test-secret' },
+  worker: {}
+}));
+
+jest.mock('../../src/middleware/rate-limit', () => (_req, _res, next) => next());
+jest.mock('../../src/middleware/request-id', () => (req, _res, next) => {
+  req.id = 'req-test-id';
+  next();
+});
+
+// Mock your data layer
+const mockData = {
+  listItems: jest.fn(async () => []),
+};
+jest.mock('../../src/data', () => mockData);
+
+function buildApp() {
+  const app = express();
+  app.use(express.json());
+
+  // Inject auth context
+  app.use((req, _res, next) => {
+    req.orgId = 1;
+    req.user = { id: 'user-123' };
+    next();
+  });
+
+  const router = require('../../src/routes/your-route');
+  const errorHandler = require('../../src/middleware/error-handler');
+
+  app.use('/api/v1/your-route', router);
+  app.use(errorHandler);
+  return app;
+}
+
+describe('Your Route', () => {
+  let app;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    app = buildApp();
+  });
+
+  it('returns 200 with items', async () => {
+    const res = await request(app).get('/api/v1/your-route');
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('items');
   });
 });
 ```
 
-### Frontend Tests
+Key patterns:
+- **Always mock** `mongodb`, `db`, `data/store`, `logger`, `config`, `rate-limit`, `request-id`
+- **Use `buildApp()`** in `beforeEach` so each test gets a fresh Express app
+- **Call `jest.clearAllMocks()`** in `beforeEach` to reset all mock call counts
+- **Mock the data layer**, not MongoDB collections directly (tests should exercise route logic, not DB queries)
+- **Use exact assertions** — `toBe(200)`, not `toBeOneOf([200, 201])`
+- **Test both success and error paths** — 200, 400, 404, etc.
+- Routes using `ObjectId` from mongodb require **valid 24-character hex strings** as test IDs (e.g., `'507f1f77bcf86cd799439011'`)
 
-- Write component tests using React Testing Library
-- Test user interactions and edge cases
-- Mock API calls appropriately
+### Frontend Tests (Vitest + Testing Library)
 
-## Documentation
+```bash
+cd frontend
+npm test                    # Run all tests
+npm run test:watch          # Watch mode
+npm run test:coverage       # With coverage report
+```
 
-- Update README.md for user-facing changes
-- Update relevant docs under `docs/` for endpoint or behavior changes
-- Add inline JSDoc comments for complex functions
-- Update architecture docs in `docs/architecture/` for system design changes
+Frontend tests use [Vitest](https://vitest.dev/) with [React Testing Library](https://testing-library.com/docs/react-testing-library/intro/). Place test files in `src/tests/` or colocate them with components as `*.test.tsx`.
+
+## Multi-Tenancy
+
+All data is scoped by `orgId`. The middleware extracts this from JWT/API key context and injects it into every query. **Always include `orgId`** when writing new data layer queries — never query across tenants.
+
+## Project Structure
+
+```
+integration-control-plane/
+├── backend/
+│   ├── src/
+│   │   ├── routes/        # Express routers (20+ files)
+│   │   ├── data/          # MongoDB data access (domain modules)
+│   │   ├── services/      # Business logic + AI providers
+│   │   ├── middleware/     # Auth, RBAC, rate-limit, error handling
+│   │   ├── workers/       # Background processes
+│   │   └── rbac/          # Role/permission definitions
+│   └── test/              # Jest test suite
+├── frontend/
+│   ├── src/
+│   │   ├── features/      # Domain feature modules
+│   │   ├── components/    # Shared UI components
+│   │   ├── services/      # API client (Axios)
+│   │   └── tests/         # Vitest test suite
+├── .github/
+│   ├── workflows/         # CI + Docker build pipelines
+│   └── ISSUE_TEMPLATE/    # Bug report + feature request forms
+└── docker-compose.yml
+```
+
+## Branching Strategy
+
+- `main` — Production-ready code
+- `feature/*` — New features
+- `fix/*` — Bug fixes
+- `docs/*` — Documentation updates
+- `refactor/*` — Code refactoring
 
 ## Pull Request Process
 
-1. **Update the README.md** with details of changes to the interface (if applicable)
-2. **Update the CHANGELOG.md** following the [Keep a Changelog](https://keepachangelog.com/) format
-3. **Ensure all CI checks pass** (tests, linting, build)
-4. **Get at least one review** from a maintainer
-5. **Squash commits** before merge if requested
-6. **Merge** will be done by maintainers once approved
-
-## Review Process
-
-Maintainers will review your PR and may:
-- Approve and merge
-- Request changes (address feedback and push updates)
-- Close (if not aligned with project goals - rare)
-
-**Timeline**: Expect initial feedback within 48-72 hours on weekdays.
+1. Fill out the [PR template](.github/PULL_REQUEST_TEMPLATE.md) completely
+2. Ensure all CI checks pass (tests, linting, build)
+3. Maintainers will review within 48-72 hours on weekdays
+4. Address any requested changes and push updates
+5. Maintainers will merge once approved
 
 ## Release Process
 
 Releases follow [Semantic Versioning](https://semver.org/):
-
-- **MAJOR** (v2.0.0): Breaking changes
-- **MINOR** (v1.1.0): New features (backwards compatible)
-- **PATCH** (v1.0.1): Bug fixes (backwards compatible)
-
-Releases are managed by maintainers and published to GitHub Releases.
-
-## Community Guidelines
-
-- **Be respectful** and inclusive
-- **Be patient** with new contributors
-- **Give constructive feedback**
-- **Assume good intentions**
-- **Focus on the code**, not the person
-
-## Getting Help
-
-- **Documentation**: Check [docs/](docs/) first
-- **GitHub Issues**: Search existing issues or create a new one
-- **Discussions**: Use GitHub Discussions for questions
-
-## Recognition
-
-Contributors will be recognized in:
-- The project's README.md (Contributors section)
-- GitHub's contribution graph
-- Release notes for significant contributions
+- **MAJOR**: Breaking changes
+- **MINOR**: New features (backwards compatible)
+- **PATCH**: Bug fixes (backwards compatible)
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the GNU Affero General Public License v3.0.
-
----
-
-Thank you for contributing to Integration Gateway! 🎉
+By contributing, you agree that your contributions will be licensed under the [GNU Affero General Public License v3.0](LICENSE).

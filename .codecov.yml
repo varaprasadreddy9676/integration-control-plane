@@ -1,0 +1,19 @@
+coverage:
+  status:
+    project:
+      default:
+        target: auto        # use previous commit's coverage as baseline
+        threshold: 2%       # allow 2% drop without failing PR
+    patch:
+      default:
+        target: 50%         # new code in PRs should be 50%+ covered
+
+comment:
+  layout: "reach,diff,flags,tree"
+  behavior: default
+
+flags:
+  backend:
+    paths: [backend/]
+  frontend:
+    paths: [frontend/]

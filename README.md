@@ -4,6 +4,7 @@ Open-source, multi-tenant integration control plane for outbound webhooks, inbou
 
 [![License](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+[![Website](https://img.shields.io/badge/Website-icplane.com-blue)](https://icplane.com)
 
 ## 💡 Why I Built This (The Origin Story)
 
@@ -279,6 +280,8 @@ If you discover a vulnerability, follow [SECURITY.md](SECURITY.md) and avoid pos
 
 ## Support and Community
 
+- Website: [icplane.com](https://icplane.com)
+- Email: founder@icplane.com
 - Documentation: [docs/README.md](docs/README.md)
 - Issues: [GitHub Issues](https://github.com/varaprasadreddy9676/integration-control-plane/issues)
 - Discussions: [GitHub Discussions](https://github.com/varaprasadreddy9676/integration-control-plane/discussions)

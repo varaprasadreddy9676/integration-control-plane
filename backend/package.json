@@ -27,7 +27,9 @@
     "sync:schemas:interactive": "./scripts/sync-schemas.sh",
     "restore:schemas": "node scripts/restore-from-backup.js",
     "test": "cd test && npm install && npm test",
+    "test:ci": "cd test && npm install --prefer-offline && npm run test:ci",
     "test:install": "cd test && npm install",
+    "prepare": "husky || true",
     "simulator": "node webhook-simulator.js"
   },
   "keywords": [],
@@ -55,6 +57,11 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.3.15",
+    "husky": "^9.0.0",
+    "lint-staged": "^15.0.0",
     "nodemon": "3.0.1"
+  },
+  "lint-staged": {
+    "src/**/*.js": ["biome check --write"]
   }
 }

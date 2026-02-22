@@ -1,11 +1,14 @@
 name: Build and Publish Docker Images
 
 on:
+  # Gate main-branch builds on CI passing
+  workflow_run:
+    workflows: ["CI"]
+    branches: ["main"]
+    types: [completed]
+  # Tag-based releases (applied to already-tested commits)
   push:
-    branches: [ "main" ]
-    tags: [ 'v*.*.*' ]
-  pull_request:
-    branches: [ "main" ]
+    tags: ["v*.*.*"]
 
 env:
   REGISTRY: ghcr.io
@@ -15,6 +18,10 @@ env:
 jobs:
   build-and-push-backend:
     runs-on: ubuntu-latest
+    # Only run if CI passed (or this is a tag release)
+    if: |
+      github.event_name == 'push' ||
+      github.event.workflow_run.conclusion == 'success'
     permissions:
       contents: read
       packages: write
@@ -55,6 +62,9 @@ jobs:
 
   build-and-push-frontend:
     runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'push' ||
+      github.event.workflow_run.conclusion == 'success'
     permissions:
       contents: read
       packages: write
