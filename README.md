@@ -261,6 +261,20 @@ Mounted in backend under `config.api.basePrefix` (default `/api/v1`):
 - Keep `backend/config.example.json` as template values only.
 - Configure AI provider keys per organization in AI settings/API (encrypted at rest in Mongo).
 
+## How ICPlane Compares
+
+See the full [comparison with Svix, Convoy, Hookdeck, and building it yourself](docs/comparison.md).
+
+| | **ICPlane** | **Svix** | **Convoy** | **Hookdeck** |
+|---|---|---|---|---|
+| Outbound + Inbound + Scheduled | All three | Outbound + Ingest | Both | Both (core is SaaS-only) |
+| Self-hosted | Yes (AGPL v3) | Yes (MIT, reduced) | Yes (Elastic, not OSI) | Outpost only |
+| Multi-tenant RBAC | 7 roles, org-scoped | Basic | Basic | Basic |
+| AI-assisted transforms | 4 providers | Single button | No | No |
+| Visual field mapping | Yes | No | No | No |
+| DLQ auto-retry | Yes | Manual only | Manual only | Manual only |
+| Paid tier starts at | Free | $490/mo | $99/mo | $39/mo |
+
 ## Documentation
 
 - [docs/README.md](docs/README.md)
@@ -269,6 +283,7 @@ Mounted in backend under `config.api.basePrefix` (default `/api/v1`):
 - [docs/guides/RBAC-GUIDE.md](docs/guides/RBAC-GUIDE.md)
 - [docs/architecture/ARCHITECTURE.md](docs/architecture/ARCHITECTURE.md)
 - [docs/architecture/SCHEDULED_JOBS.md](docs/architecture/SCHEDULED_JOBS.md)
+- [docs/comparison.md](docs/comparison.md)
 
 ## Contributing
 
