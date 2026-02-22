@@ -596,55 +596,7 @@ docker compose up -d
 docker compose logs -f backend
 ```
 
-### Option 2: PM2 Process Manager
 
-**1. Install PM2 globally:**
-
-```bash
-npm install -g pm2
-```
-
-**2. Create PM2 ecosystem file (`ecosystem.config.js`):**
-
-```javascript
-module.exports = {
-  apps: [
-    {
-      name: 'integration-gateway-backend',
-      script: './backend/src/index.js',
-      instances: 2,
-      exec_mode: 'cluster',
-      env: {
-        NODE_ENV: 'production',
-        PORT: 3545
-      },
-      error_file: './logs/pm2-error.log',
-      out_file: './logs/pm2-out.log',
-      log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
-      max_memory_restart: '1G',
-      autorestart: true,
-      watch: false
-    }
-  ]
-};
-```
-
-**3. Start with PM2:**
-
-```bash
-pm2 start ecosystem.config.js
-pm2 save
-pm2 startup
-```
-
-**4. Monitor:**
-
-```bash
-pm2 monit
-pm2 logs integration-gateway-backend
-```
-
-### Option 3: Systemd Service (Linux)
 
 **1. Create service file `/etc/systemd/system/integration-gateway.service`:**
 

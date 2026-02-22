@@ -52,8 +52,6 @@ temp/
 *.bak3
 *.bak4
 
-# PM2
-ecosystem.config.js
 
 # Docker
 Dockerfile
