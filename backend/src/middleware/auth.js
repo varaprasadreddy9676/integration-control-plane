@@ -21,8 +21,6 @@ const applyOrgContext = (req, orgId) => {
     return;
   }
   req.orgId = orgId;
-  // Backward compatibility for routes expecting legacy field
-  req.entityParentRid = orgId;
 };
 
 function auth(req, res, next) {
@@ -101,8 +99,6 @@ function auth(req, res, next) {
   req.user = { id: 'api-key', role: 'API_KEY' };
 
   // Extract orgId from query parameter and set it on the request object
-  // This makes it available to all routes as req.orgId
-  // Support both new (orgId) and legacy (entityParentRid) parameter names
   const orgId = extractOrgIdFromQuery(req);
   if (orgId) {
     applyOrgContext(req, orgId);
@@ -112,7 +108,7 @@ function auth(req, res, next) {
 }
 
 auth.requireEntity = (req, _res, next) => {
-  if (!req.orgId && !req.entityParentRid) {
+  if (!req.orgId) {
     return next(new UnauthorizedError('Missing orgId query parameter'));
   }
   return next();

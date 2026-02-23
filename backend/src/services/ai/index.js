@@ -36,7 +36,7 @@ function mergeObjects(base, override) {
 
 function stripUiConfig(doc) {
   if (!doc || typeof doc !== 'object') return {};
-  const { _id, orgId, entityParentRid, createdAt, updatedAt, ...rest } = doc;
+  const { _id, orgId, createdAt, updatedAt, ...rest } = doc;
   return rest;
 }
 
@@ -123,10 +123,7 @@ class AIService {
       const mongodb = require('../../mongodb');
       if (mongodb.isConnected()) {
         const db = await mongodb.getDbSafe();
-        // entityParentRid fallback: legacy alias for orgId used in pre-migration documents
-        const uiConfig = await db.collection('ui_config').findOne({
-          $or: [{ orgId: normalizedOrgId }, { entityParentRid: normalizedOrgId }],
-        });
+        const uiConfig = await db.collection('ui_config').findOne({ orgId: normalizedOrgId });
         const aiAssistantFlag = uiConfig?.features?.aiAssistant;
         const aiAssistantLegacyFlag = uiConfig?.features?.ai_assistant;
         if (aiAssistantFlag === false || aiAssistantLegacyFlag === false) {
@@ -375,14 +372,7 @@ class AIService {
 
     const parts = [];
     const errorStatuses = ['FAILED', 'ABANDONED', 'ERROR', 'failed', 'abandoned', 'error'];
-    // Legacy field aliases included so existing log documents stored under old field names are still found
-    const orgScope = {
-      $or: [
-        { orgId: normalizedOrgId },
-        { entityRid: normalizedOrgId }, // legacy alias
-        { entityParentRid: normalizedOrgId }, // legacy alias
-      ],
-    };
+    const orgScope = { orgId: normalizedOrgId };
     const errorScope = orgScope;
 
     try {
@@ -490,11 +480,8 @@ class AIService {
       }
 
       // Effective UI config: default + org override (safe subset only)
-      // entityParentRid fallback: legacy alias for orgId used in pre-migration documents
       const defaultUiDoc = await db.collection('ui_config').findOne({ _id: 'default' });
-      const orgUiDoc = await db.collection('ui_config').findOne({
-        $or: [{ orgId: normalizedOrgId }, { entityParentRid: normalizedOrgId }],
-      });
+      const orgUiDoc = await db.collection('ui_config').findOne({ orgId: normalizedOrgId });
       const effectiveUiConfig = mergeObjects(stripUiConfig(defaultUiDoc), stripUiConfig(orgUiDoc));
 
       if (Object.keys(effectiveUiConfig).length > 0) {

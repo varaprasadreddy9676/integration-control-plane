@@ -145,9 +145,7 @@ function validateInboundPayload(payload) {
 }
 
 function buildOrgScopeQuery(orgId) {
-  return {
-    $or: [{ orgId }, { entityRid: orgId }, { entityParentRid: orgId }],
-  };
+  return { orgId };
 }
 
 /**

@@ -213,6 +213,14 @@ router.post(
 router.post(
   '/',
   asyncHandler(async (req, res) => {
+    // Reject deprecated entityRid field — use orgUnitRid instead
+    if (req.body.entityRid !== undefined) {
+      return res.status(400).json({
+        error: 'entityRid is not supported. Use orgUnitRid instead.',
+        code: 'ENTITY_RID_NOT_ALLOWED',
+      });
+    }
+
     // Normalize eventType ↔ type for backward compatibility
     if (req.body.type && !req.body.eventType) {
       req.body.eventType = req.body.type;
@@ -358,6 +366,12 @@ router.post(
 router.put(
   '/:id',
   asyncHandler(async (req, res) => {
+    if (req.body.entityRid !== undefined) {
+      return res.status(400).json({
+        error: 'entityRid is not supported. Use orgUnitRid instead.',
+        code: 'ENTITY_RID_NOT_ALLOWED',
+      });
+    }
     const beforeIntegration = await data.getIntegration(req.params.id);
     if (req.body.targetUrl) {
       const urlCheck = validateTargetUrl(req.body.targetUrl, config.security);

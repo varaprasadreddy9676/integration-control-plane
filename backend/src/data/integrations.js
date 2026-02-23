@@ -279,7 +279,7 @@ async function addIntegration(orgId, payload) {
         eventType: payload.type || payload.eventType, // Keep eventType for backward compatibility during transition
         direction: payload.direction || 'OUTBOUND', // Default to OUTBOUND if not specified
         orgId: normalizedOrgId,
-        orgUnitRid: payload.orgUnitRid || payload.entityRid || normalizedOrgId,
+        orgUnitRid: payload.orgUnitRid || normalizedOrgId,
         entityName: payload.entityName || 'Tenant',
         scope: payload.scope || 'INCLUDE_CHILDREN',
         excludedEntityRids: payload.excludedEntityRids || [],

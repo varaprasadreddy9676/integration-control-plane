@@ -55,7 +55,7 @@ const buildCsv = (rows) => {
 router.get(
   '/',
   asyncHandler(async (req, res) => {
-    const orgId = req.orgId || req.entityParentRid || Number(req.query.orgId || req.query.entityParentRid);
+    const orgId = req.orgId;
     if (!orgId) {
       return res.status(400).json({ error: 'orgId missing', code: 'VALIDATION_ERROR' });
     }
@@ -78,7 +78,7 @@ router.get(
 router.get(
   '/status',
   asyncHandler(async (req, res) => {
-    const orgId = req.orgId || req.entityParentRid || Number(req.query.orgId || req.query.entityParentRid);
+    const orgId = req.orgId;
     const status = await data.getFailureReportSchedulerStatus(orgId);
     return res.json(status);
   })
@@ -87,7 +87,7 @@ router.get(
 router.get(
   '/export/json',
   asyncHandler(async (req, res) => {
-    const orgId = req.orgId || req.entityParentRid || Number(req.query.orgId || req.query.entityParentRid);
+    const orgId = req.orgId;
     if (!orgId) {
       return res.status(400).json({ error: 'orgId missing', code: 'VALIDATION_ERROR' });
     }
@@ -113,7 +113,7 @@ router.get(
 router.get(
   '/export/csv',
   asyncHandler(async (req, res) => {
-    const orgId = req.orgId || req.entityParentRid || Number(req.query.orgId || req.query.entityParentRid);
+    const orgId = req.orgId;
     if (!orgId) {
       return res.status(400).json({ error: 'orgId missing', code: 'VALIDATION_ERROR' });
     }

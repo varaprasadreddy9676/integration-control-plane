@@ -4,20 +4,15 @@ function parsePositiveInt(value) {
 }
 
 function getOrgIdFromQuery(query = {}) {
-  return parsePositiveInt(query.orgId || query.entityParentRid || query.entityparentrid);
+  return parsePositiveInt(query.orgId);
 }
 
 function getOrgIdFromRequest(req = {}) {
-  return parsePositiveInt(req.orgId) || parsePositiveInt(req.entityParentRid) || getOrgIdFromQuery(req.query);
-}
-
-function legacyOrgQuery(orgId) {
-  return { $or: [{ orgId }, { entityParentRid: orgId }] };
+  return parsePositiveInt(req.orgId) || getOrgIdFromQuery(req.query);
 }
 
 module.exports = {
   parsePositiveInt,
   getOrgIdFromQuery,
   getOrgIdFromRequest,
-  legacyOrgQuery,
 };

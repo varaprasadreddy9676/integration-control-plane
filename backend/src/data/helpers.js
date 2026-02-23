@@ -57,7 +57,7 @@ async function getCollection(name) {
 // Map MongoDB document to API format
 function mapIntegrationFromMongo(doc) {
   const orgId = doc.orgId;
-  const orgUnitRid = doc.orgUnitRid || doc.entityRid || orgId;
+  const orgUnitRid = doc.orgUnitRid || orgId;
   return {
     id: doc._id.toString(),
     name: doc.name,
@@ -112,7 +112,7 @@ function mapIntegrationFromMongo(doc) {
 
 function mapScheduledIntegrationFromMongo(doc) {
   const orgId = doc.orgId;
-  const orgUnitRid = doc.orgUnitRid || doc.entityRid || orgId;
+  const orgUnitRid = doc.orgUnitRid || orgId;
   return {
     id: doc._id.toString(),
     integrationConfigId: doc.__KEEP___KEEP_integrationConfig__Id__?.toString() || doc.integrationConfigId?.toString(),
