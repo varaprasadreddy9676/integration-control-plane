@@ -1,0 +1,518 @@
+[
+  {
+    "_id": {
+      "$oid": "6989f7f40219d4f4d92910e1"
+    },
+    "name": "Luma - Appointment Confirmation (Real-time)",
+    "direction": "OUTBOUND",
+    "type": "APPOINTMENT_CONFIRMATION",
+    "entityName": "Luma Fertility",
+    "scope": "INCLUDE_CHILDREN",
+    "targetUrl": "https://api.qikchat.in/v1/messages",
+    "httpMethod": "POST",
+    "outgoingAuthType": "CUSTOM_HEADERS",
+    "outgoingAuthConfig": {
+      "headers": {
+        "QIKCHAT-API-KEY": "G50G-b2S7-W2pG"
+      }
+    },
+    "isActive": true,
+    "timeoutMs": 5000,
+    "retryCount": 3,
+    "transformationMode": "SCRIPT",
+    "transformation": {
+      "mode": "SCRIPT",
+      "mappings": [],
+      "staticFields": [],
+      "script": "// Luma Fertility - Appointment Confirmation (Real-time)\n// Template: Appt confirmation with date, time, address, location link\n// Condition: Only send if reason_for_visit = 'new consult'\n\n\n// ===== HELPER FUNCTIONS =====\n\nfunction digitsOnlyPhone(p) {\n  if (!p) return '';\n  let s = String(p).trim().replace(/[^\\d]/g, '');\n  if (s.startsWith('0')) s = s.replace(/^0+/, '');\n  if (s.length === 10) s = '91' + s;\n  return s;\n}\n\nfunction toDisplayTime(timeStr) {\n  try {\n    if (!timeStr) return '';\n    if (/[ap]m$/i.test(timeStr.trim())) return timeStr.trim();\n    \n    const parts = timeStr.split(':').map(n => parseInt(n, 10));\n    const hh = parts[0];\n    const mm = parts[1] ?? 0;\n    \n    if (Number.isNaN(hh) || Number.isNaN(mm)) return timeStr;\n    \n    const h12 = ((hh + 11) % 12) + 1;\n    const ampm = hh >= 12 ? 'PM' : 'AM';\n    return `${h12}:${String(mm).padStart(2, '0')} ${ampm}`;\n  } catch (e) {\n    return timeStr || '';\n  }\n}\n\nfunction formatDate(dateStr) {\n  try {\n    if (!dateStr) return '';\n    const date = new Date(dateStr);\n    const day = String(date.getDate()).padStart(2, '0');\n    const month = String(date.getMonth() + 1).padStart(2, '0');\n    const year = date.getFullYear();\n    return `${year}-${month}-${day}`;\n  } catch (e) {\n    return dateStr;\n  }\n}\n\nfunction getDayName(dateStr) {\n  try {\n    if (!dateStr) return '';\n    const date = new Date(dateStr);\n    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];\n    return days[date.getDay()];\n  } catch (e) {\n    return '';\n  }\n}\n\n// ===== CONDITIONAL CHECK =====\n/// ===== CONDITIONAL CHECK =====\n// Only send if visit.reasonName = 'New Patient'\nconst reasonName =\n  payload.visit?.reasonName ||\n  payload.appt?.reasonName ||       // fallback (if some feeds put it on appt)\n  payload.reasonName ||\n  '';\n\nconst reasonNameNormalized = String(reasonName || '').trim().toLowerCase();\n\n// Send only for \"New Patient\"\nif (reasonNameNormalized !== 'new patient') {\n  return null;\n}\n\n\n// ===== EXTRACT VALUES =====\n\n// Phone (required)\nconst phone = \n  payload.patient?.phone ||\n  payload.appt?.patientPhone ||\n  payload.patientPhone ||\n  payload.phone ||\n  '';\n\nconst to_contact = digitsOnlyPhone(phone);\nif (!to_contact) return null; // No phone → don't send\n\n// Patient name\nconst patientName =\n  payload.patient?.fullName ||\n  payload.appt?.patientName ||\n  payload.patientName ||\n  payload.name ||\n  '';\n\n// UHID (unique reference)\nconst uhid = \n  payload.patient?.uhid ||\n  payload.uhid ||\n  payload.patient?.mrn?.documentNumber ||\n  payload.patientMRN ||\n  '';\n\n// Appointment date/time\nconst apptDate = \n  payload.appt?.apptDate || \n  payload.appt?.fromDate || \n  payload.apptDate || \n  payload.fromDate || \n  payload.appointmentDate ||\n  '';\n\nconst apptTime = \n  payload.appt?.apptTime || \n  payload.appt?.fromTime || \n  payload.apptTime || \n  payload.fromTime || \n  payload.appointmentTime ||\n  '';\n\n// Format date and time\nconst dateFormatted = formatDate(apptDate);\nconst dayName = getDayName(apptDate);\nconst timeFormatted = toDisplayTime(apptTime);\n\n// Address and location\nconst address = \n  payload.appt?.address ||\n  payload.address ||\n  payload.entityAddress ||\n  context.entityAddress ||\n  'Luma Fertility, 2nd Floor, Mansionz One, Linking Rd, near Copper Chimney Restaurant, Bandra West, Mumbai, Maharashtra 400050';\n\nconst locationLink = \n  payload.appt?.locationLink ||\n  payload.locationLink ||\n  payload.appt?.mapsLink ||\n  'https://maps.app.goo.gl/o71rYTsBtLYRqxu29?g_st=aw';\n\n// ===== QIKCHAT TEMPLATE MAPPING =====\n\nreturn {\n  to_contact,\n  type: 'template',\n  template: {\n    name: 'appointment_confirmation_final',\n    language: 'en',\n    components: [\n      {\n        type: 'body',\n        parameters: [\n          { type: 'text', text: patientName || 'Guest' },\n          { type: 'text', text: dateFormatted || '-' },\n          { type: 'text', text: dayName || '-' },\n          { type: 'text', text: timeFormatted || '-' },\n          { type: 'text', text: address || '-' },\n          { type: 'text', text: locationLink || '-' }\n        ]\n      }\n    ]\n  },\n  metadata: {\n    uhid: uhid,\n    appointmentDate: apptDate,\n    messageType: 'appointment_confirmation',\n    stage: 'new_consult'\n  }\n};"
+    },
+    "deliveryMode": "IMMEDIATE",
+    "version": "1.0.0",
+    "versionNotes": "Luma Fertility - Appointment confirmation sent immediately upon appointment creation for new consult patients",
+    "compatibilityMode": "BACKWARD_COMPATIBLE",
+    "isDefault": false,
+    "enableSigning": false,
+    "circuitOpenedAt": null,
+    "circuitState": "CLOSED",
+    "consecutiveFailures": 0,
+    "lastSuccessAt": {
+      "$date": "2026-02-23T12:42:16.345Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-23T12:42:16.345Z"
+    },
+    "eventType": "APPOINTMENT_CONFIRMATION",
+    "createdAt": {
+      "$date": "2026-02-09T00:00:00.000Z"
+    },
+    "orgId": 648,
+    "orgUnitRid": 648,
+    "excludedEntityRids": []
+  },
+  {
+    "_id": {
+      "$oid": "6989f7f40219d4f4d92910e2"
+    },
+    "name": "Luma - Reminder 1 (D-24hrs)",
+    "direction": "OUTBOUND",
+    "type": "APPOINTMENT_CONFIRMATION",
+    "entityName": "Luma Fertility",
+    "scope": "INCLUDE_CHILDREN",
+    "targetUrl": "https://api.qikchat.in/v1/messages",
+    "httpMethod": "POST",
+    "outgoingAuthType": "CUSTOM_HEADERS",
+    "outgoingAuthConfig": {
+      "headers": {
+        "QIKCHAT-API-KEY": "G50G-b2S7-W2pG"
+      }
+    },
+    "isActive": true,
+    "timeoutMs": 5000,
+    "retryCount": 3,
+    "transformationMode": "SCRIPT",
+    "transformation": {
+      "mode": "SCRIPT",
+      "mappings": [],
+      "staticFields": [],
+      "script": "// Luma Fertility - Reminder 1 (D-24hrs before appointment)\n// Template: Gentle reminder 24 hours before appointment\n// Condition: Only send if reason_for_visit = 'new consult'\n\n// ===== HELPER FUNCTIONS =====\n\nfunction digitsOnlyPhone(p) {\n  if (!p) return '';\n  let s = String(p).trim().replace(/[^\\d]/g, '');\n  if (s.startsWith('0')) s = s.replace(/^0+/, '');\n  if (s.length === 10) s = '91' + s;\n  return s;\n}\n\nfunction toDisplayTime(timeStr) {\n  try {\n    if (!timeStr) return '';\n    if (/[ap]m$/i.test(timeStr.trim())) return timeStr.trim();\n    \n    const parts = timeStr.split(':').map(n => parseInt(n, 10));\n    const hh = parts[0];\n    const mm = parts[1] ?? 0;\n    \n    if (Number.isNaN(hh) || Number.isNaN(mm)) return timeStr;\n    \n    const h12 = ((hh + 11) % 12) + 1;\n    const ampm = hh >= 12 ? 'PM' : 'AM';\n    return `${h12}:${String(mm).padStart(2, '0')} ${ampm}`;\n  } catch (e) {\n    return timeStr || '';\n  }\n}\n\nfunction formatDate(dateStr) {\n  try {\n    if (!dateStr) return '';\n    const date = new Date(dateStr);\n    const day = String(date.getDate()).padStart(2, '0');\n    const month = String(date.getMonth() + 1).padStart(2, '0');\n    const year = date.getFullYear();\n    return `${year}-${month}-${day}`;\n  } catch (e) {\n    return dateStr;\n  }\n}\n\nfunction getDayName(dateStr) {\n  try {\n    if (!dateStr) return '';\n    const date = new Date(dateStr);\n    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];\n    return days[date.getDay()];\n  } catch (e) {\n    return '';\n  }\n}\n\n/// ===== CONDITIONAL CHECK =====\n// Only send if visit.reasonName = 'New Patient'\nconst reasonName =\n  payload.visit?.reasonName ||\n  payload.appt?.reasonName ||       // fallback (if some feeds put it on appt)\n  payload.reasonName ||\n  '';\n\nconst reasonNameNormalized = String(reasonName || '').trim().toLowerCase();\n\n// Send only for \"New Patient\"\nif (reasonNameNormalized !== 'new patient') {\n  return null;\n}\n\n// ===== EXTRACT VALUES =====\n\nconst phone = \n  payload.patient?.phone ||\n  payload.appt?.patientPhone ||\n  payload.patientPhone ||\n  payload.phone ||\n  '';\n\nconst to_contact = digitsOnlyPhone(phone);\nif (!to_contact) return null;\n\nconst patientName =\n  payload.patient?.fullName ||\n  payload.appt?.patientName ||\n  payload.patientName ||\n  payload.name ||\n  '';\n\nconst uhid = \n  payload.patient?.uhid ||\n  payload.uhid ||\n  payload.patient?.mrn?.documentNumber ||\n  payload.patientMRN ||\n  '';\n\nconst apptDate = \n  payload.appt?.apptDate || \n  payload.appt?.fromDate || \n  payload.apptDate || \n  payload.fromDate || \n  payload.appointmentDate ||\n  '';\n\nconst apptTime = \n  payload.appt?.apptTime || \n  payload.appt?.fromTime || \n  payload.apptTime || \n  payload.fromTime || \n  payload.appointmentTime ||\n  '';\n\nconst address =\n  payload.appt?.address ||\n  payload.address ||\n  payload.entityAddress ||\n  context.entityAddress ||\n  'Luma Fertility, 2nd Floor, Mansionz One, Linking Rd, near Copper Chimney Restaurant, Bandra West, Mumbai, Maharashtra 400050';\n\nconst locationLink =\n  payload.appt?.locationLink ||\n  payload.locationLink ||\n  payload.appt?.mapsLink ||\n  'https://maps.app.goo.gl/o71rYTsBtLYRqxu29?g_st=aw';\n\nconst dateFormatted = formatDate(apptDate);\nconst dayName = getDayName(apptDate);\nconst timeFormatted = toDisplayTime(apptTime);\n\n// ===== QIKCHAT TEMPLATE MAPPING =====\n\nreturn {\n  to_contact,\n  type: 'template',\n  template: {\n    name: 'reminder_1',\n    language: 'en',\n    components: [\n      {\n        type: 'body',\n        parameters: [\n          { type: 'text', text: patientName || '' },\n          { type: 'text', text: dateFormatted },\n          { type: 'text', text: dayName },\n          { type: 'text', text: timeFormatted }\n        ]\n      }\n    ]\n  },\n  metadata: {\n    uhid: uhid,\n    appointmentDate: apptDate,\n    messageType: 'reminder_1_d24',\n    stage: 'new_consult'\n  }\n};"
+    },
+    "deliveryMode": "DELAYED",
+    "schedulingConfig": {
+      "timezone": "Asia/Kolkata",
+      "description": "Send reminder 24 hours before appointment (D-24hrs)",
+      "script": "// Calculate D-24hrs (24 hours before appointment)\n\nconst apptDate = event?.appt?.apptDate || event?.appt?.fromDate || event?.apptDate || event?.fromDate || event?.appointmentDate;\nconst apptTime = event?.appt?.apptTime || event?.appt?.fromTime || event?.apptTime || event?.fromTime || event?.appointmentTime;\n\nconst combinedDateTime = event?.appointmentDateTime || event?.scheduledDateTime;\n\nlet apptAt;\n\nif (combinedDateTime) {\n  apptAt = parseDate(combinedDateTime);\n} else {\n  if (!apptDate || !apptTime) {\n    throw new Error('Missing appointment date/time for D-24hrs reminder');\n  }\n  \n  const timeWithSeconds = apptTime.length === 5 ? `${apptTime}:00` : apptTime;\n  const apptDateTime = `${apptDate}T${timeWithSeconds}+05:30`;\n  apptAt = parseDate(apptDateTime);\n}\n\n// Send 24 hours before appointment\nconst reminderAt = subtractHours(apptAt, 24);\nreturn toTimestamp(reminderAt);"
+    },
+    "version": "1.0.0",
+    "versionNotes": "Luma Fertility - Gentle reminder sent 24 hours before appointment for new consult patients",
+    "compatibilityMode": "BACKWARD_COMPATIBLE",
+    "isDefault": false,
+    "enableSigning": false,
+    "circuitOpenedAt": null,
+    "circuitState": "CLOSED",
+    "consecutiveFailures": 0,
+    "lastSuccessAt": {
+      "$date": "2026-02-23T06:15:40.985Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-23T06:15:40.985Z"
+    },
+    "eventType": "APPOINTMENT_CONFIRMATION",
+    "createdAt": {
+      "$date": "2026-02-09T00:00:00.000Z"
+    },
+    "orgId": 648,
+    "orgUnitRid": 648,
+    "excludedEntityRids": []
+  },
+  {
+    "_id": {
+      "$oid": "6989f7f40219d4f4d92910e3"
+    },
+    "name": "Luma - Reminder 2 (T-3hrs)",
+    "direction": "OUTBOUND",
+    "type": "APPOINTMENT_CONFIRMATION",
+    "entityName": "Luma Fertility",
+    "scope": "INCLUDE_CHILDREN",
+    "targetUrl": "https://api.qikchat.in/v1/messages",
+    "httpMethod": "POST",
+    "outgoingAuthType": "CUSTOM_HEADERS",
+    "outgoingAuthConfig": {
+      "headers": {
+        "QIKCHAT-API-KEY": "G50G-b2S7-W2pG"
+      }
+    },
+    "isActive": true,
+    "timeoutMs": 5000,
+    "retryCount": 3,
+    "transformationMode": "SCRIPT",
+    "transformation": {
+      "mode": "SCRIPT",
+      "mappings": [],
+      "staticFields": [],
+      "script": "// Luma Fertility - Reminder 2 (T-3hrs before appointment)\n// Template: Quick reminder 3 hours before appointment\n// Condition: Only send if reason_for_visit = 'new consult'\n\n// ===== HELPER FUNCTIONS =====\n\nfunction digitsOnlyPhone(p) {\n  if (!p) return '';\n  let s = String(p).trim().replace(/[^\\d]/g, '');\n  if (s.startsWith('0')) s = s.replace(/^0+/, '');\n  if (s.length === 10) s = '91' + s;\n  return s;\n}\n\nfunction toDisplayTime(timeStr) {\n  try {\n    if (!timeStr) return '';\n    if (/[ap]m$/i.test(timeStr.trim())) return timeStr.trim();\n    \n    const parts = timeStr.split(':').map(n => parseInt(n, 10));\n    const hh = parts[0];\n    const mm = parts[1] ?? 0;\n    \n    if (Number.isNaN(hh) || Number.isNaN(mm)) return timeStr;\n    \n    const h12 = ((hh + 11) % 12) + 1;\n    const ampm = hh >= 12 ? 'PM' : 'AM';\n    return `${h12}:${String(mm).padStart(2, '0')} ${ampm}`;\n  } catch (e) {\n    return timeStr || '';\n  }\n}\n\nfunction formatDate(dateStr) {\n  try {\n    if (!dateStr) return '';\n    const date = new Date(dateStr);\n    const day = String(date.getDate()).padStart(2, '0');\n    const month = String(date.getMonth() + 1).padStart(2, '0');\n    const year = date.getFullYear();\n    return `${year}-${month}-${day}`;\n  } catch (e) {\n    return dateStr;\n  }\n}\n\nfunction getDayName(dateStr) {\n  try {\n    if (!dateStr) return '';\n    const date = new Date(dateStr);\n    const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];\n    return days[date.getDay()];\n  } catch (e) {\n    return '';\n  }\n}\n\n// Only send if visit.reasonName = 'New Patient'\nconst reasonName =\n  payload.visit?.reasonName ||\n  payload.appt?.reasonName ||       // fallback (if some feeds put it on appt)\n  payload.reasonName ||\n  '';\n\nconst reasonNameNormalized = String(reasonName || '').trim().toLowerCase();\n\n// Send only for \"New Patient\"\nif (reasonNameNormalized !== 'new patient') {\n  return null;\n}\n\n// ===== EXTRACT VALUES =====\n\nconst phone = \n  payload.patient?.phone ||\n  payload.appt?.patientPhone ||\n  payload.patientPhone ||\n  payload.phone ||\n  '';\n\nconst to_contact = digitsOnlyPhone(phone);\nif (!to_contact) return null;\n\nconst patientName =\n  payload.patient?.fullName ||\n  payload.appt?.patientName ||\n  payload.patientName ||\n  payload.name ||\n  '';\n\nconst uhid = \n  payload.patient?.uhid ||\n  payload.uhid ||\n  payload.patient?.mrn?.documentNumber ||\n  payload.patientMRN ||\n  '';\n\nconst apptDate = \n  payload.appt?.apptDate || \n  payload.appt?.fromDate || \n  payload.apptDate || \n  payload.fromDate || \n  payload.appointmentDate ||\n  '';\n\nconst apptTime = \n  payload.appt?.apptTime || \n  payload.appt?.fromTime || \n  payload.apptTime || \n  payload.fromTime || \n  payload.appointmentTime ||\n  '';\n\nconst dateFormatted = formatDate(apptDate);\nconst dayName = getDayName(apptDate);\nconst timeFormatted = toDisplayTime(apptTime);\n// Address and location\nconst address = \n  payload.appt?.address ||\n  payload.address ||\n  payload.entityAddress ||\n  context.entityAddress ||\n  'Luma Fertility, 2nd Floor, Mansionz One, Linking Rd, near Copper Chimney Restaurant, Bandra West, Mumbai, Maharashtra 400050';\n\nconst locationLink = \n  payload.appt?.locationLink ||\n  payload.locationLink ||\n  payload.appt?.mapsLink ||\n  'https://maps.app.goo.gl/o71rYTsBtLYRqxu29?g_st=aw';\n// ===== QIKCHAT TEMPLATE MAPPING =====\n\nreturn {\n  to_contact,\n  type: 'template',\n  template: {\n    name: 'reminder_2',\n    language: 'en',\n    components: [\n      {\n        type: 'body',\n        parameters: [\n          { type: 'text', text: patientName || '' },\n          { type: 'text', text: (dayName + \" : \" + timeFormatted) },\n          { type: 'text', text: address },\n          { type: 'text', text: locationLink }\n        ]\n      }\n    ]\n  },\n  metadata: {\n    uhid: uhid,\n    appointmentDate: apptDate,\n    messageType: 'reminder_2_t3',\n    stage: 'new_consult'\n  }\n};"
+    },
+    "deliveryMode": "DELAYED",
+    "schedulingConfig": {
+      "timezone": "Asia/Kolkata",
+      "description": "Send reminder 3 hours before appointment (T-3hrs)",
+      "script": "// Calculate T-3hrs (3 hours before appointment)\n\nconst apptDate = event?.appt?.apptDate || event?.appt?.fromDate || event?.apptDate || event?.fromDate || event?.appointmentDate;\nconst apptTime = event?.appt?.apptTime || event?.appt?.fromTime || event?.apptTime || event?.fromTime || event?.appointmentTime;\n\nconst combinedDateTime = event?.appointmentDateTime || event?.scheduledDateTime;\n\nlet apptAt;\n\nif (combinedDateTime) {\n  apptAt = parseDate(combinedDateTime);\n} else {\n  if (!apptDate || !apptTime) {\n    throw new Error('Missing appointment date/time for T-3hrs reminder');\n  }\n  \n  const timeWithSeconds = apptTime.length === 5 ? `${apptTime}:00` : apptTime;\n  const apptDateTime = `${apptDate}T${timeWithSeconds}+05:30`;\n  apptAt = parseDate(apptDateTime);\n}\n\n// Send 3 hours before appointment\nconst reminderAt = subtractHours(apptAt, 3);\nreturn toTimestamp(reminderAt);"
+    },
+    "version": "1.0.0",
+    "versionNotes": "Luma Fertility - Quick reminder sent 3 hours before appointment for new consult patients",
+    "compatibilityMode": "BACKWARD_COMPATIBLE",
+    "isDefault": false,
+    "enableSigning": false,
+    "circuitOpenedAt": null,
+    "circuitState": "CLOSED",
+    "consecutiveFailures": 0,
+    "lastSuccessAt": {
+      "$date": "2026-02-23T06:15:41.104Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-23T06:15:41.104Z"
+    },
+    "eventType": "APPOINTMENT_CONFIRMATION",
+    "createdAt": {
+      "$date": "2026-02-09T00:00:00.000Z"
+    },
+    "orgId": 648,
+    "orgUnitRid": 648,
+    "excludedEntityRids": []
+  },
+  {
+    "_id": {
+      "$oid": "6989f7f40219d4f4d92910e4"
+    },
+    "name": "Luma - Welcome Message (D+5hrs)",
+    "direction": "OUTBOUND",
+    "type": "OP_VISIT_CREATED",
+    "entityName": "Luma Fertility",
+    "scope": "INCLUDE_CHILDREN",
+    "targetUrl": "https://api.qikchat.in/v1/messages",
+    "httpMethod": "POST",
+    "outgoingAuthType": "CUSTOM_HEADERS",
+    "outgoingAuthConfig": {
+      "headers": {
+        "QIKCHAT-API-KEY": "G50G-b2S7-W2pG"
+      }
+    },
+    "isActive": false,
+    "timeoutMs": 5000,
+    "retryCount": 3,
+    "transformationMode": "SCRIPT",
+    "transformation": {
+      "mode": "SCRIPT",
+      "mappings": [],
+      "staticFields": [],
+      "script": "// Luma Fertility - Welcome Message (D+5hrs after arrival)\n// Template: Welcome message with care plan and Luma App link\n// Condition: Only send if reason_for_visit = 'new consult'\n\n// ===== HELPER FUNCTIONS =====\n\nfunction digitsOnlyPhone(p) {\n  if (!p) return '';\n  let s = String(p).trim().replace(/[^\\d]/g, '');\n  if (s.startsWith('0')) s = s.replace(/^0+/, '');\n  if (s.length === 10) s = '91' + s;\n  return s;\n}\n\n// ===== CONDITIONAL CHECK =====\n// Note: For ARRIVED event, we need to check the original appointment's reason_for_visit\n// This may be in the event payload under different field names\nconst reasonForVisit = \n  payload.appt?.reasonForVisit || \n  payload.reasonForVisit || \n  payload.appt?.visitReason ||\n  payload.visitReason ||\n  payload.appointment?.reasonForVisit ||\n  payload.appointment?.visitReason ||\n  '';\n\nconst reasonForVisitNormalized = String(reasonForVisit || '').trim().toLowerCase();\nif (reasonForVisitNormalized && reasonForVisitNormalized !== 'new consult') {\n  // Don't send if explicitly not a new consult\n  return null;\n}\n\n// ===== EXTRACT VALUES =====\n\nconst phone = \n  payload.patient?.phone ||\n  payload.appt?.patientPhone ||\n  payload.patientPhone ||\n  payload.phone ||\n  payload.appointment?.patientPhone ||\n  '';\n\nconst to_contact = digitsOnlyPhone(phone);\nif (!to_contact) return null;\n\nconst patientName =\n  payload.patient?.fullName ||\n  payload.appt?.patientName ||\n  payload.patientName ||\n  payload.name ||\n  payload.appointment?.patientName ||\n  '';\n\nconst uhid = \n  payload.patient?.uhid ||\n  payload.uhid ||\n  payload.patient?.mrn?.documentNumber ||\n  payload.patientMRN ||\n  '';\n\nconst arrivedDate = \n  payload.arrivedAt ||\n  payload.arrivalDateTime ||\n  payload.timestamp ||\n  new Date().toISOString();\n\n// ===== QIKCHAT TEMPLATE MAPPING =====\n\nreturn {\n  to_contact,\n  type: 'template',\n  template: {\n    name: 'check_in_2',\n    language: 'en',\n    components: [\n      {\n        type: 'body',\n        parameters: [\n          { type: 'text', text: patientName || '' }\n        ]\n      }\n    ]\n  },\n  metadata: {\n    uhid: uhid,\n    arrivedDate: arrivedDate,\n    messageType: 'welcome_message',\n    stage: 'new_consult',\n    lumaAppLink: 'https://qr-codes.io/BVfT8K'\n  }\n};"
+    },
+    "deliveryMode": "DELAYED",
+    "schedulingConfig": {
+      "timezone": "Asia/Kolkata",
+      "description": "Send welcome message 5 hours after patient arrival (D+5hrs)",
+      "script": "// Calculate D+5hrs (5 hours after patient arrival)\n\nconst arrivedAt = event?.arrivedAt || event?.arrivalDateTime || event?.timestamp;\n\nif (!arrivedAt) {\n  throw new Error('Missing arrival time for D+5hrs welcome message');\n}\n\nlet arrivedDate;\n\n// Handle both ISO string and timestamp formats\nif (typeof arrivedAt === 'string') {\n  arrivedDate = parseDate(arrivedAt);\n} else if (typeof arrivedAt === 'number') {\n  arrivedDate = new Date(arrivedAt);\n} else {\n  throw new Error('Invalid arrival time format');\n}\n\n// Send 5 hours after arrival\nconst welcomeAt = addHours(arrivedDate, 5);\nreturn toTimestamp(welcomeAt);"
+    },
+    "version": "1.0.0",
+    "versionNotes": "Luma Fertility - Welcome message sent 5 hours after patient arrival for new consult patients",
+    "compatibilityMode": "BACKWARD_COMPATIBLE",
+    "isDefault": false,
+    "enableSigning": false,
+    "circuitOpenedAt": null,
+    "circuitState": "CLOSED",
+    "consecutiveFailures": 0,
+    "eventType": "OP_VISIT_CREATED",
+    "createdAt": {
+      "$date": "2026-02-09T00:00:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-18T17:53:16.068Z"
+    },
+    "orgId": 648,
+    "orgUnitRid": 648,
+    "excludedEntityRids": []
+  },
+  {
+    "_id": {
+      "$oid": "698ed635301b774ac5f8ba9e"
+    },
+    "name": "Luma - Welcome Message (D+5hrs) (Registration event)",
+    "type": "PATIENT_REGISTERED",
+    "eventType": "PATIENT_REGISTERED",
+    "direction": "OUTBOUND",
+    "entityName": "Tenant",
+    "scope": "INCLUDE_CHILDREN",
+    "excludedEntityRids": [],
+    "targetUrl": "https://api.qikchat.in/v1/messages",
+    "httpMethod": "POST",
+    "outgoingAuthType": "CUSTOM_HEADERS",
+    "outgoingAuthConfig": {
+      "headers": {
+        "QIKCHAT-API-KEY": "G50G-b2S7-W2pG"
+      }
+    },
+    "inboundAuthType": null,
+    "inboundAuthConfig": null,
+    "responseTransformation": null,
+    "streamResponse": false,
+    "rateLimits": null,
+    "isActive": false,
+    "timeoutMs": 5000,
+    "retryCount": 3,
+    "transformationMode": "SCRIPT",
+    "transformation": {
+      "mode": "SCRIPT",
+      "mappings": [],
+      "staticFields": [],
+      "script": "// Luma Fertility - Welcome Message (D+5hrs after registration)\n// Template: Welcome message with care plan and Luma App link\n// Condition: Only send if reasonName = 'New Patient'\n\n// ===== HELPER FUNCTIONS =====\n\nfunction digitsOnlyPhone(p) {\n  if (!p) return '';\n  let s = String(p).trim().replace(/[^\\d]/g, '');\n  if (s.startsWith('0')) s = s.replace(/^0+/, '');\n  if (s.length === 10) s = '91' + s;\n  return s;\n}\n\n// ===== CONDITIONAL CHECK =====\n// Check visit.reasonName for 'New Patient'\nconst reasonName = \n  payload.visit?.reasonName ||\n  payload.reasonName ||\n  '';\n\nconst reasonNameNormalized = String(reasonName || '').trim().toLowerCase();\n\n\n// ===== EXTRACT VALUES =====\n\nconst phone = \n  payload.patient?.phone ||\n  payload.patientPhone ||\n  payload.phone ||\n  '';\n\nconst to_contact = digitsOnlyPhone(phone);\nif (!to_contact) return null;\n\nconst patientName =\n  payload.patient?.fullName ||\n  payload.patientName ||\n  payload.name ||\n  '';\n\nconst uhid = \n  payload.patient?.uhid ||\n  payload.uhid ||\n  payload.patient?.mrn?.documentNumber ||\n  payload.patientMRN ||\n  '';\n\nconst registeredDate = \n  payload.datetime ||\n  new Date().toISOString();\n\n// ===== QIKCHAT TEMPLATE MAPPING =====\n\nreturn {\n  to_contact,\n  type: 'template',\n  template: {\n    name: 'check_in_2',\n    language: 'en',\n    components: [\n      {\n        type: 'body',\n        parameters: [\n          { type: 'text', text: patientName || 'Guest' }\n        ]\n      }\n    ]\n  },\n  metadata: {\n    uhid: uhid,\n    registeredDate: registeredDate,\n    messageType: 'welcome_message',\n    stage: 'new_patient',\n    lumaAppLink: 'https://qr-codes.io/BVfT8K'\n  }\n};"
+    },
+    "actions": null,
+    "isInherited": false,
+    "sourceEntityName": null,
+    "version": "1.0.0",
+    "versionNotes": "Initial version",
+    "compatibilityMode": "BACKWARD_COMPATIBLE",
+    "isDefault": false,
+    "autoIncrement": false,
+    "versionStrategy": "SEMANTIC",
+    "signingSecret": "whsec_pS3t3J6JuX5OdgphJxntYEgh44iQ019PrCOzIpjIhyI=",
+    "signingSecrets": [
+      "whsec_pS3t3J6JuX5OdgphJxntYEgh44iQ019PrCOzIpjIhyI="
+    ],
+    "enableSigning": false,
+    "signatureVersion": "v1",
+    "deliveryMode": "DELAYED",
+    "schedulingConfig": {
+      "timezone": "Asia/Kolkata",
+      "description": "Send welcome message 5 hours after patient registration (D+5hrs)",
+      "script": "// Calculate D+5hrs (5 hours after patient registration)\n// For PATIENT_REGISTERED events, use the datetime field\n\nconst datetime = event?.datetime || event?.visit?.datetime;\n\nif (!datetime) {\n  throw new Error('Missing datetime for D+5hrs welcome message');\n}\n\n// Parse datetime format: \"13/02/2026 01:12 PM\"\n// Format: DD/MM/YYYY hh:mm AM/PM\nfunction parseDatetime(dtStr) {\n  const parts = dtStr.split(' ');\n  const dateParts = parts[0].split('/');\n  const timeParts = parts[1].split(':');\n  const ampm = parts[2];\n  \n  const day = parseInt(dateParts[0], 10);\n  const month = parseInt(dateParts[1], 10) - 1; // JS months are 0-indexed\n  const year = parseInt(dateParts[2], 10);\n  let hours = parseInt(timeParts[0], 10);\n  const minutes = parseInt(timeParts[1], 10);\n  \n  // Convert to 24-hour format\n  if (ampm === 'PM' && hours !== 12) hours += 12;\n  if (ampm === 'AM' && hours === 12) hours = 0;\n  \n  return new Date(year, month, day, hours, minutes, 0);\n}\n\nconst registrationDate = parseDatetime(datetime);\n\n// Send 5 hours after registration\nconst welcomeAt = addHours(registrationDate, 5);\nreturn toTimestamp(welcomeAt);"
+    },
+    "metadata": {
+      "versioning": {
+        "version": "1.0.0",
+        "versionNotes": "Initial version",
+        "compatibilityMode": "BACKWARD_COMPATIBLE",
+        "isDefault": false,
+        "autoIncrement": false,
+        "versionStrategy": "SEMANTIC"
+      }
+    },
+    "createdAt": {
+      "$date": "2026-02-13T07:43:49.646Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-18T17:53:16.068Z"
+    },
+    "circuitOpenedAt": null,
+    "circuitState": "CLOSED",
+    "consecutiveFailures": 0,
+    "lastSuccessAt": {
+      "$date": "2026-02-13T13:46:15.376Z"
+    },
+    "orgId": 648,
+    "orgUnitRid": 648
+  },
+  {
+    "_id": {
+      "$oid": "6995eca0afe300fff733c131"
+    },
+    "name": "NCX - Appointment Cancellation",
+    "type": "APPOINTMENT_CANCELLATION",
+    "eventType": "APPOINTMENT_CANCELLATION",
+    "direction": "OUTBOUND",
+    "entityName": "Tenant",
+    "scope": "INCLUDE_CHILDREN",
+    "excludedEntityRids": [],
+    "targetUrl": "https://gt2.askadmissionsone.in/webhook?examId=78&identifier=medics-hook",
+    "httpMethod": "POST",
+    "outgoingAuthType": "BEARER",
+    "outgoingAuthConfig": {
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleGFtSWQiOiI3OCIsImF1dGhDb2RlIjoibWVkaWNzLWhvb2siLCJpYXQiOjE3NjU4NzU5OTJ9.aorWVepYzllVgK3Mv677XWyON1KZrTZ_oeidOG7l4sQ"
+    },
+    "isActive": true,
+    "timeoutMs": 3000,
+    "retryCount": 3,
+    "transformationMode": "SCRIPT",
+    "transformation": {
+      "mode": "SCRIPT",
+      "mappings": [],
+      "staticFields": [],
+      "script": "const transformed = { source: 'medics', ...payload }; return transformed;"
+    },
+    "actions": null,
+    "enableSigning": false,
+    "circuitOpenedAt": null,
+    "circuitState": "CLOSED",
+    "consecutiveFailures": 0,
+    "deliveryMode": "IMMEDIATE",
+    "schedulingConfig": null,
+    "createdAt": {
+      "$date": "2026-02-18T16:55:27.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-18T16:55:27.000Z"
+    },
+    "orgId": 812,
+    "orgUnitRid": 812
+  },
+  {
+    "_id": {
+      "$oid": "6995eca0afe300fff733c132"
+    },
+    "name": "NCX - Appointment Confirmation",
+    "type": "APPOINTMENT_CONFIRMATION",
+    "eventType": "APPOINTMENT_CONFIRMATION",
+    "direction": "OUTBOUND",
+    "entityName": "Tenant",
+    "scope": "INCLUDE_CHILDREN",
+    "excludedEntityRids": [],
+    "targetUrl": "https://gt2.askadmissionsone.in/webhook?examId=78&identifier=medics-hook",
+    "httpMethod": "POST",
+    "outgoingAuthType": "BEARER",
+    "outgoingAuthConfig": {
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleGFtSWQiOiI3OCIsImF1dGhDb2RlIjoibWVkaWNzLWhvb2siLCJpYXQiOjE3NjU4NzU5OTJ9.aorWVepYzllVgK3Mv677XWyON1KZrTZ_oeidOG7l4sQ"
+    },
+    "isActive": true,
+    "timeoutMs": 3000,
+    "retryCount": 3,
+    "transformationMode": "SCRIPT",
+    "transformation": {
+      "mode": "SCRIPT",
+      "mappings": [],
+      "staticFields": [],
+      "script": "const transformed = { source: 'medics', ...payload }; return transformed;"
+    },
+    "actions": null,
+    "enableSigning": false,
+    "circuitOpenedAt": null,
+    "circuitState": "CLOSED",
+    "consecutiveFailures": 0,
+    "deliveryMode": "IMMEDIATE",
+    "schedulingConfig": null,
+    "createdAt": {
+      "$date": "2026-02-18T16:55:27.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-18T16:55:27.000Z"
+    },
+    "orgId": 812,
+    "orgUnitRid": 812
+  },
+  {
+    "_id": {
+      "$oid": "6995eca0afe300fff733c133"
+    },
+    "name": "NCX - Appointment Rescheduled",
+    "type": "APPOINTMENT_RESCHEDULED",
+    "eventType": "APPOINTMENT_RESCHEDULED",
+    "direction": "OUTBOUND",
+    "entityName": "Tenant",
+    "scope": "INCLUDE_CHILDREN",
+    "excludedEntityRids": [],
+    "targetUrl": "https://gt2.askadmissionsone.in/webhook?examId=78&identifier=medics-hook",
+    "httpMethod": "POST",
+    "outgoingAuthType": "BEARER",
+    "outgoingAuthConfig": {
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleGFtSWQiOiI3OCIsImF1dGhDb2RlIjoibWVkaWNzLWhvb2siLCJpYXQiOjE3NjU4NzU5OTJ9.aorWVepYzllVgK3Mv677XWyON1KZrTZ_oeidOG7l4sQ"
+    },
+    "isActive": true,
+    "timeoutMs": 3000,
+    "retryCount": 3,
+    "transformationMode": "SCRIPT",
+    "transformation": {
+      "mode": "SCRIPT",
+      "mappings": [],
+      "staticFields": [],
+      "script": "const transformed = { source: 'medics', ...payload }; return transformed;"
+    },
+    "actions": null,
+    "enableSigning": false,
+    "circuitOpenedAt": null,
+    "circuitState": "CLOSED",
+    "consecutiveFailures": 0,
+    "deliveryMode": "IMMEDIATE",
+    "schedulingConfig": null,
+    "createdAt": {
+      "$date": "2026-02-18T16:55:27.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-18T16:55:27.000Z"
+    },
+    "orgId": 812,
+    "orgUnitRid": 812
+  },
+  {
+    "_id": {
+      "$oid": "6995eca0afe300fff733c134"
+    },
+    "name": "NCX Dashboard - OP Visit Created",
+    "type": "OP_VISIT_CREATED",
+    "eventType": "OP_VISIT_CREATED",
+    "direction": "OUTBOUND",
+    "entityName": "Tenant",
+    "scope": "INCLUDE_CHILDREN",
+    "excludedEntityRids": [],
+    "targetUrl": "https://gt2.askadmissionsone.in/webhook?examId=78&identifier=medics-hook",
+    "httpMethod": "POST",
+    "outgoingAuthType": "BEARER",
+    "outgoingAuthConfig": {
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleGFtSWQiOiI3OCIsImF1dGhDb2RlIjoibWVkaWNzLWhvb2siLCJpYXQiOjE3NjU4NzU5OTJ9.aorWVepYzllVgK3Mv677XWyON1KZrTZ_oeidOG7l4sQ"
+    },
+    "isActive": true,
+    "timeoutMs": 3000,
+    "retryCount": 3,
+    "transformationMode": "SCRIPT",
+    "transformation": {
+      "mode": "SCRIPT",
+      "mappings": [],
+      "staticFields": [],
+      "script": "const transformed = { source: 'medics', ...payload }; return transformed;"
+    },
+    "actions": null,
+    "enableSigning": false,
+    "circuitOpenedAt": null,
+    "circuitState": "CLOSED",
+    "consecutiveFailures": 0,
+    "deliveryMode": "IMMEDIATE",
+    "schedulingConfig": null,
+    "createdAt": {
+      "$date": "2026-02-18T16:55:27.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-18T16:55:27.000Z"
+    },
+    "orgId": 812,
+    "orgUnitRid": 812
+  },
+  {
+    "_id": {
+      "$oid": "6995eca6afe300fff733c135"
+    },
+    "name": "NetSuite OP Visit Created",
+    "description": "Send OP visit data to NetSuite RESTlet when patient visit is created",
+    "type": "OP_VISIT_CREATED",
+    "eventType": "OP_VISIT_CREATED",
+    "direction": "OUTBOUND",
+    "entityName": "Tenant",
+    "scope": "INCLUDE_CHILDREN",
+    "excludedEntityRids": [],
+    "isActive": false,
+    "deliveryMode": "IMMEDIATE",
+    "targetUrl": "https://5688780.restlets.api.netsuite.com/app/site/hosting/restlet.nl?script=1458&deploy=1",
+    "httpMethod": "POST",
+    "outgoingAuthType": "OAUTH1",
+    "outgoingAuthConfig": {
+      "consumerKey": "f03d4e24f74f72f683a7e3193629f40c855933590e3751fd606f8208bfad5c3e",
+      "consumerSecret": "685db793193687b1bc6ea351bdcecb75ac54e21ca00d203380f82e592e6c49d2",
+      "token": "76825f8b8f3fe0fd1fa51efbd2638fc955937cc0cacc33301ac46578cd487e49",
+      "tokenSecret": "a520e3c0007b7b38bc7840492d6727cb047fd849d848c052c9a79b8d2bb0d5ce",
+      "realm": "5688780",
+      "signatureMethod": "HMAC-SHA256"
+    },
+    "transformationMode": "SCRIPT",
+    "transformation": {
+      "mode": "SCRIPT",
+      "mappings": [],
+      "staticFields": [],
+      "script": "const patient = payload.patient || {};\nconst visit = payload.visit || {};\n\nconst mrNumber = typeof patient.mrn === 'object' && patient.mrn !== null ? patient.mrn.documentNumber : patient.mrn;\nconst leadNo = visit.leadNo || visit.visitLeadNo || visit.leadNumber || payload.leadNo || null;\nif (!leadNo) throw new Error('Missing lead_no');\nif (!patient.fullName) throw new Error('Missing patient.fullName');\nif (!mrNumber) throw new Error('Missing patient MRN');\n\nfunction formatDateToDDMMYYYY(dateStr) {\n  if (!dateStr) return null;\n  if (/^\\d{2}\\/\\d{2}\\/\\d{4}$/.test(dateStr)) return dateStr;\n  if (/^\\d{4}-\\d{2}-\\d{2}$/.test(dateStr)) {\n    const [yyyy, mm, dd] = dateStr.split('-');\n    return `${dd}/${mm}/${yyyy}`;\n  }\n  return null;\n}\n\nconst details = {\n  lead_status: '7',\n  mr_number: mrNumber,\n  medics_patient_name: patient.fullName\n};\nif (patient.email && patient.email.trim() !== '') details.email_id = patient.email;\nif (patient.phone) details.mobile_no = patient.phone;\nconst visitDate = formatDateToDDMMYYYY(visit.date);\nif (visitDate) details.visit_date = visitDate;\nif (visit.typeName) details.visit_type = visit.typeName;\nconst remarks = visit.leadRemarks || visit.visitLeadRemarks || '';\nif (remarks.trim() !== '') details.remarks = remarks;\n\nreturn { lead_no: leadNo, details };"
+    },
+    "timeoutMs": 15000,
+    "retryCount": 3,
+    "actions": null,
+    "enableSigning": false,
+    "schedulingConfig": null,
+    "circuitOpenedAt": null,
+    "circuitState": "CLOSED",
+    "consecutiveFailures": 0,
+    "lastSuccessAt": {
+      "$date": "2026-02-18T17:37:26.714Z"
+    },
+    "createdAt": {
+      "$date": "2026-02-18T17:37:26.714Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-18T17:37:26.714Z"
+    },
+    "orgId": 84,
+    "orgUnitRid": 84
+  }
+]

@@ -1,0 +1,102 @@
+[
+  {
+    "orgId": 84,
+    "name": "Org 84",
+    "code": "ORG-84",
+    "email": null,
+    "phone": null,
+    "address": null,
+    "tags": [],
+    "region": null,
+    "timezone": null,
+    "createdAt": {
+      "$date": "2026-02-23T18:40:06.432Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-23T18:40:06.432Z"
+    },
+    "metadata": {
+      "generatedPlaceholder": true,
+      "reason": "added_for_setup_consistency"
+    }
+  },
+  {
+    "orgId": 145,
+    "name": "Org 145",
+    "code": "ORG-145",
+    "email": null,
+    "phone": null,
+    "address": null,
+    "tags": [],
+    "region": null,
+    "timezone": null,
+    "createdAt": {
+      "$date": "2026-02-23T18:40:06.432Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-23T18:40:06.432Z"
+    },
+    "metadata": {
+      "generatedPlaceholder": true,
+      "reason": "added_for_setup_consistency"
+    }
+  },
+  {
+    "_id": {
+      "$oid": "698b4eff4129be5285faf162"
+    },
+    "orgId": 648,
+    "name": "LUMA FERTILITY- Corp",
+    "code": "7117610",
+    "email": null,
+    "phone": "7045131934",
+    "address": "2nd Floor, Mansionz One, Above Shoppers Stop, Linking Road, Bandra West",
+    "region": "0",
+    "timezone": null,
+    "tags": [],
+    "updatedAt": {
+      "$date": "2026-02-18T17:37:57.121Z"
+    }
+  },
+  {
+    "orgId": 784,
+    "name": "Org 784",
+    "code": "ORG-784",
+    "email": null,
+    "phone": null,
+    "address": null,
+    "tags": [],
+    "region": null,
+    "timezone": null,
+    "createdAt": {
+      "$date": "2026-02-23T18:40:06.432Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-23T18:40:06.432Z"
+    },
+    "metadata": {
+      "generatedPlaceholder": true,
+      "reason": "added_for_setup_consistency"
+    }
+  },
+  {
+    "_id": {
+      "$oid": "6995f3b9afe300fff733c165"
+    },
+    "orgId": 812,
+    "name": "Ovum",
+    "code": "7298375",
+    "email": null,
+    "phone": null,
+    "address": null,
+    "tags": [],
+    "region": null,
+    "timezone": null,
+    "createdAt": {
+      "$date": "2026-02-18T16:55:27.457Z"
+    },
+    "updatedAt": {
+      "$date": "2026-02-18T16:55:27.457Z"
+    }
+  }
+]

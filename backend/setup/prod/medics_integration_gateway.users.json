@@ -1,0 +1,114 @@
+[{
+  "_id": {
+    "$oid": "69862584a46d02e52a43ac76"
+  },
+  "email": "admin@example.com",
+  "passwordHash": "$2b$12$i4sSIjwnI.w45PAKFeSO8.mbfds2AykFnyKHHoWQdRn9divq8edQ6",
+  "role": "SUPER_ADMIN",
+  "orgId": null,
+  "isActive": true,
+  "createdAt": {
+    "$date": "2026-02-06T17:31:48.851Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-19T05:42:07.432Z"
+  },
+  "lastLoginAt": {
+    "$date": "2026-02-19T05:42:07.432Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6989f92c26cf8e9a63cfd0cd"
+  },
+  "email": "luma@medics-integration.com",
+  "passwordHash": "$2b$10$qrjA.Y0opprsvvslVB4E3OGOtePzwUj22vk9OpZfmbgn/9oqDHMvy",
+  "role": "ORG_ADMIN",
+  "orgId": 648,
+  "isActive": true,
+  "createdAt": {
+    "$date": "2026-02-09T15:11:40.255Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-23T04:43:35.502Z"
+  },
+  "lastLoginAt": {
+    "$date": "2026-02-23T04:43:35.502Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "698a0532044bb45c11f89f67"
+  },
+  "email": "nova@medics-integration.com",
+  "passwordHash": "$2b$10$wgFEVWsMaCYQyYD0Js6hQe2SfiCEwZUm66fgxp/A5qBGvWvtAoXuC",
+  "role": "ORG_ADMIN",
+  "orgId": 145,
+  "isActive": true,
+  "createdAt": {
+    "$date": "2026-02-09T16:02:58.236Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-18T11:34:21.532Z"
+  },
+  "lastLoginAt": {
+    "$date": "2026-02-18T11:34:21.532Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6995a90775706689dab29ac8"
+  },
+  "email": "unity@medics-integration.com",
+  "passwordHash": "$2b$10$urJnHzBAPGReUjKJLoE3dOx5gYIGksa7xMVFmmZ3kbjqFKvQ/5mMe",
+  "role": "ORG_ADMIN",
+  "orgId": 784,
+  "isActive": true,
+  "createdAt": {
+    "$date": "2026-02-18T11:56:55.053Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-18T13:52:08.260Z"
+  },
+  "lastLoginAt": {
+    "$date": "2026-02-18T13:52:08.260Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6995ef23155900087f1858a4"
+  },
+  "email": "sankara@medics-integration.com",
+  "passwordHash": "$2b$10$A27v1h8hqnuvK8G57v/0J.Ib4iwyRAnKiwkgGc4B94SKYXMJKy4P6",
+  "role": "ORG_ADMIN",
+  "orgId": 84,
+  "isActive": true,
+  "createdAt": {
+    "$date": "2026-02-18T16:56:03.340Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-18T17:21:45.350Z"
+  },
+  "lastLoginAt": {
+    "$date": "2026-02-18T17:21:45.350Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6995f38c155900087f185ca1"
+  },
+  "email": "ovum@medics-integration.com",
+  "passwordHash": "$2b$10$9oDpF1jBIz3HmMPSH1AKqOH7al7oeVfGbzUU5uet/mOxnSTMWeQdy",
+  "role": "ORG_ADMIN",
+  "orgId": 812,
+  "isActive": true,
+  "createdAt": {
+    "$date": "2026-02-18T17:14:52.457Z"
+  },
+  "updatedAt": {
+    "$date": "2026-02-18T17:15:33.165Z"
+  },
+  "lastLoginAt": {
+    "$date": "2026-02-18T17:15:33.165Z"
+  }
+}]

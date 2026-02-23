@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react';
 import { fileURLToPath, URL } from 'url';
 export default defineConfig({
     plugins: [react()],
-    base: '/event-gateway/', // Set correct base path for deployment
+    base: '/', // Set to root for standard Docker/Nginx deployment
     resolve: {
         alias: {
             '@': fileURLToPath(new URL('./src', import.meta.url)),

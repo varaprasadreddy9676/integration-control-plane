@@ -1,0 +1,207 @@
+[{
+  "_id": "default",
+  "httpMethods": [
+    {
+      "value": "POST",
+      "label": "POST"
+    },
+    {
+      "value": "PUT",
+      "label": "PUT"
+    },
+    {
+      "value": "GET",
+      "label": "GET"
+    },
+    {
+      "value": "DELETE",
+      "label": "DELETE"
+    },
+    {
+      "value": "PATCH",
+      "label": "PATCH"
+    }
+  ],
+  "authTypes": [
+    {
+      "value": "NONE",
+      "label": "None - No authentication"
+    },
+    {
+      "value": "API_KEY",
+      "label": "API Key - Custom header"
+    },
+    {
+      "value": "BASIC",
+      "label": "Basic Auth - Username & password"
+    },
+    {
+      "value": "BEARER",
+      "label": "Bearer Token - Authorization header"
+    },
+    {
+      "value": "OAUTH1",
+      "label": "OAuth 1.0a - Signature-based auth (NetSuite, Twitter)"
+    },
+    {
+      "value": "OAUTH2",
+      "label": "OAuth 2.0 - Token-based auth"
+    },
+    {
+      "value": "CUSTOM",
+      "label": "Custom - Advanced configuration"
+    },
+    {
+      "value": "CUSTOM_HEADERS",
+      "label": "Custom Headers - Multiple headers"
+    }
+  ],
+  "scopeTypes": [
+    {
+      "value": "ENTITY_ONLY",
+      "label": "This entity only"
+    },
+    {
+      "value": "INCLUDE_CHILDREN",
+      "label": "Include child entities"
+    }
+  ],
+  "deliveryStatuses": [
+    {
+      "value": "PENDING",
+      "label": "Pending"
+    },
+    {
+      "value": "SUCCESS",
+      "label": "Success"
+    },
+    {
+      "value": "FAILED",
+      "label": "Failed"
+    },
+    {
+      "value": "RETRYING",
+      "label": "Retrying"
+    },
+    {
+      "value": "ABANDONED",
+      "label": "Abandoned"
+    }
+  ],
+  "transformationModes": [
+    {
+      "value": "SIMPLE",
+      "label": "Simple Mapping"
+    },
+    {
+      "value": "SCRIPT",
+      "label": "JavaScript Script"
+    }
+  ],
+  "transformationFunctions": [
+    {
+      "value": "none",
+      "label": "None"
+    },
+    {
+      "value": "trim",
+      "label": "Trim whitespace"
+    },
+    {
+      "value": "upper",
+      "label": "Uppercase"
+    },
+    {
+      "value": "lower",
+      "label": "Lowercase"
+    },
+    {
+      "value": "date",
+      "label": "Format as date"
+    },
+    {
+      "value": "default",
+      "label": "Default value if empty"
+    }
+  ],
+  "validationRules": {
+    "timeout": {
+      "min": 500,
+      "max": 60000,
+      "default": 3000,
+      "step": 500,
+      "label": "Timeout (ms)",
+      "description": "Request timeout in milliseconds"
+    },
+    "retry": {
+      "min": 0,
+      "max": 10,
+      "default": 3,
+      "step": 1,
+      "label": "Retry Count",
+      "description": "Number of retry attempts on failure"
+    }
+  },
+  "pagination": {
+    "defaultPageSize": 10,
+    "pageSizeOptions": [
+      10,
+      20,
+      50,
+      100
+    ]
+  },
+  "analytics": {
+    "timeRangeOptions": [
+      {
+        "value": 7,
+        "label": "Last 7 days"
+      },
+      {
+        "value": 30,
+        "label": "Last 30 days"
+      },
+      {
+        "value": 90,
+        "label": "Last 90 days"
+      }
+    ]
+  },
+  "notifications": {
+    "failureEmailReports": {
+      "enabled": true,
+      "intervalMinutes": 15,
+      "lookbackMinutes": 60,
+      "minFailures": 1,
+      "maxItems": 25,
+      "email": "sai.varaprasad@ubq.in"
+    }
+  },
+  "version": "1.0.0",
+  "updatedAt": {
+    "$date": "2026-02-06T13:43:18.612Z"
+  },
+  "updatedBy": "integration-migration",
+  "createdAt": {
+    "$date": "2026-01-27T16:59:14.933Z"
+  },
+  "features": {
+    "aiAssistant": true,
+    "advancedTransformations": true,
+    "multiActionIntegrations": true,
+    "scheduledDelivery": true,
+    "integrationSigning": true,
+    "circuitBreaker": true,
+    "integrationFlowBuilderEnabled": true
+  },
+  "limits": {
+    "maxIntegrationsPerEntity": 100,
+    "maxActionsPerIntegration": 10,
+    "maxTransformationSize": 100000,
+    "maxRetryAttempts": 5,
+    "maxScheduledIntegrations": 1000
+  },
+  "worker": {
+    "multiActionDelayMs": 10000
+  }
+}]

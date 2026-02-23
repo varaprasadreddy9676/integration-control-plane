@@ -1,9 +1,10 @@
 const path = require('path');
 const fs = require('fs');
+require('dotenv').config();
 
 const defaultConfig = {
-  port: 4000,
-  api: { basePrefix: '/api/v1' },
+  port: process.env.PORT || 4000,
+  api: { basePrefix: process.env.API_PREFIX || '/api/v1' },
   communicationServiceUrl: process.env.COMMUNICATION_SERVICE_URL || '',
   frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5174',
   db: {
@@ -17,11 +18,19 @@ const defaultConfig = {
     // Note: mysql2 doesn't support acquireTimeout, idleTimeout, maxIdle
     // Pool limits controlled via connectionLimit + queueLimit only
   },
+  mongodb: {
+    uri: process.env.MONGODB_URI || 'mongodb://localhost:27017/integration_gateway',
+    database: process.env.MONGODB_DATABASE || 'integration_gateway',
+    options: {
+      maxPoolSize: 100,
+      minPoolSize: 10
+    }
+  },
   security: {
     enforceHttps: true,
     blockPrivateNetworks: true,
-    apiKey: 'mdcs_dev_key_1f4a',
-    jwtSecret: 'change_me_dev_jwt_secret',
+    apiKey: process.env.API_KEY || 'mdcs_dev_key_1f4a',
+    jwtSecret: process.env.JWT_SECRET || 'change_me_dev_jwt_secret',
     jwtExpiresIn: '12h',
   },
   eventSource: {
@@ -96,6 +105,7 @@ const merged = {
   ...fileConfig,
   api: { ...defaultConfig.api, ...(fileConfig.api || {}) },
   db: { ...defaultConfig.db, ...(fileConfig.db || {}) },
+  mongodb: { ...defaultConfig.mongodb, ...(fileConfig.mongodb || {}) },
   security: { ...defaultConfig.security, ...(fileConfig.security || {}) },
   eventSource: { ...defaultConfig.eventSource, ...(fileConfig.eventSource || {}) },
   kafka: { ...defaultConfig.kafka, ...(fileConfig.kafka || {}) },

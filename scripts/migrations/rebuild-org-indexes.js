@@ -141,27 +141,8 @@ const creates = [
       { key: { createdAt: 1 }, expireAfterSeconds: 7776000, name: 'ttl_idx' }
     ]
   },
-  {
-    collection: 'event_audit',
-    indexes: [
-      {
-        key: { source: 1, sourceId: 1 },
-        name: 'source_id_unique_idx',
-        unique: true,
-        partialFilterExpression: { sourceId: { $exists: true, $ne: null } }
-      },
-      { key: { orgId: 1, eventKey: 1, receivedAtBucket: 1 }, name: 'fallback_unique_idx', unique: true },
-      { key: { orgId: 1, receivedAt: -1 }, name: 'parent_received_idx' },
-      { key: { orgId: 1, status: 1, receivedAt: -1 }, name: 'parent_status_received_idx' },
-      { key: { orgId: 1, eventType: 1, receivedAt: -1 }, name: 'parent_event_received_idx' },
-      { key: { orgId: 1, source: 1, receivedAt: -1 }, name: 'parent_source_received_idx' },
-      { key: { orgId: 1, skipCategory: 1, receivedAt: -1 }, name: 'parent_skip_received_idx' },
-      { key: { status: 1, processingStartedAt: 1 }, name: 'status_processing_idx' },
-      { key: { eventId: 1 }, name: 'event_id_idx' },
-      { key: { orgId: 1, eventId: 1 }, name: 'parent_event_id_idx' },
-      { key: { expiresAt: 1 }, expireAfterSeconds: 0, name: 'ttl_idx' }
-    ]
-  },
+  // NOTE: event_audit indexes are managed by the application on startup.
+  // Skipped here because pre-existing data may have duplicate entries.
   {
     collection: 'source_checkpoints',
     indexes: [
@@ -212,7 +193,16 @@ async function dropIndexIfExists(db, entry) {
 
 async function dropLegacyIndexes(db, collectionName) {
   const col = db.collection(collectionName);
-  const indexes = await col.indexes();
+  let indexes;
+  try {
+    indexes = await col.indexes();
+  } catch (err) {
+    if (err.code === 26) { // NamespaceNotFound — collection doesn't exist yet
+      console.log(`${collectionName}: collection does not exist, skipping`);
+      return;
+    }
+    throw err;
+  }
   const candidates = indexes.filter((idx) => {
     if (idx.name === '_id_') return false;
     const key = idx.key || {};
