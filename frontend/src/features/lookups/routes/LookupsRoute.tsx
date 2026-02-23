@@ -57,8 +57,8 @@ export const LookupsRoute = () => {
       if (statusFilter === 'inactive' && item.isActive) return false;
 
       // Filter by hierarchy level
-      if (hierarchyFilter === 'parent' && item.tenantId !== null) return false;
-      if (hierarchyFilter === 'entity' && item.tenantId === null) return false;
+      if (hierarchyFilter === 'parent' && item.orgUnitRid !== null) return false;
+      if (hierarchyFilter === 'entity' && item.orgUnitRid === null) return false;
 
       // Search across source, target, type
       if (searchQuery) {
@@ -313,17 +313,17 @@ export const LookupsRoute = () => {
     },
     {
       title: 'Level',
-      dataIndex: 'tenantId',
+      dataIndex: 'orgUnitRid',
       key: 'level',
       width: 120,
-      render: (tenantId: number | null) => (
-        <Tag color={tenantId === null ? 'purple' : 'cyan'}>
-          {tenantId === null ? 'Parent' : 'Entity'}
+      render: (orgUnitRid: number | null) => (
+        <Tag color={orgUnitRid === null ? 'purple' : 'cyan'}>
+          {orgUnitRid === null ? 'Parent' : 'Entity'}
         </Tag>
       ),
       sorter: (a: Lookup, b: Lookup) => {
-        if (a.tenantId === null && b.tenantId !== null) return -1;
-        if (a.tenantId !== null && b.tenantId === null) return 1;
+        if (a.orgUnitRid === null && b.orgUnitRid !== null) return -1;
+        if (a.orgUnitRid !== null && b.orgUnitRid === null) return 1;
         return 0;
       }
     },

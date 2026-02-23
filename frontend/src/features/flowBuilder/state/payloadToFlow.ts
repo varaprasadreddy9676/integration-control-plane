@@ -46,7 +46,7 @@ export function payloadToFlow(payload: BackendIntegrationPayload, integrationId?
     errors: [],
     warnings: [],
     isDirty: false,
-    orgId: payload.tenantId,
+    orgId: payload.orgId,
   };
 
   // Convert based on mode
@@ -658,7 +658,7 @@ export function canConvertToFlow(payload: BackendIntegrationPayload): { canConve
     errors.push('Integration direction is required');
   }
 
-  if (!payload.tenantId) {
+  if (!payload.orgId) {
     errors.push('Organization ID is required');
   }
 

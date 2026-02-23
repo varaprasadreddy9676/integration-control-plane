@@ -23,8 +23,8 @@ const buildAuthHeadersNoContentType = (extra: HeadersInit = {}) => {
   } as HeadersInit;
 };
 
-// Store the current entity parent RID for automatic inclusion in all API requests
-let currentEntityParentRid: number | null = null;
+// Store the current orgId for automatic inclusion in all API requests
+let currentOrgId: number | null = null;
 
 // Error types for better error handling
 export class APIError extends Error {
@@ -54,17 +54,17 @@ export class TimeoutError extends Error {
 }
 
 /**
- * Set the entity parent RID to be automatically included in all API requests.
+ * Set the orgId to be automatically included in all API requests.
  * This should be called by the TenantProvider when extracting the value from the URL.
  */
-export const setEntityParentRid = (rid: number | null) => {
-  currentEntityParentRid = rid;
+export const setCurrentOrgId = (orgId: number | null) => {
+  currentOrgId = orgId;
 };
 
 /**
- * Get the current entity parent RID
+ * Get the current orgId
  */
-export const getEntityParentRid = (): number | null => currentEntityParentRid;
+export const getCurrentOrgId = (): number | null => currentOrgId;
 
 /**
  * Configuration for retry logic
@@ -145,13 +145,13 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   let url = `${API_BASE_URL}${path}`;
 
   const shouldAppendOrgId =
-    currentEntityParentRid &&
-    currentEntityParentRid > 0 &&
+    currentOrgId &&
+    currentOrgId > 0 &&
     !path.startsWith('/admin');
 
   if (shouldAppendOrgId) {
     const separator = url.includes('?') ? '&' : '?';
-    url = `${url}${separator}orgId=${currentEntityParentRid}`;
+    url = `${url}${separator}orgId=${currentOrgId}`;
   }
 
   const headers = buildAuthHeaders(options.headers || {});
@@ -957,9 +957,9 @@ export const exportEventAuditToCsv = async (filters?: {
 }): Promise<void> => {
   const params = new URLSearchParams();
 
-  const rid = getEntityParentRid();
-  if (rid && rid > 0) {
-    params.set('orgId', String(rid));
+  const orgId = getCurrentOrgId();
+  if (orgId && orgId > 0) {
+    params.set('orgId', String(orgId));
   }
 
   if (filters?.status) params.set('status', filters.status);
@@ -997,9 +997,9 @@ export const exportLogsToCsv = async (filters?: { status?: string; integrationId
   const params = new URLSearchParams();
 
   // Add orgId - CRITICAL for multi-tenant filtering
-  const rid = getEntityParentRid();
-  if (rid && rid > 0) {
-    params.set('orgId', String(rid));
+  const orgId = getCurrentOrgId();
+  if (orgId && orgId > 0) {
+    params.set('orgId', String(orgId));
   }
 
   if (filters?.status) params.set('status', filters.status);
@@ -1034,8 +1034,8 @@ export const exportLogsToCsv = async (filters?: { status?: string; integrationId
 };
 
 export const insertTestNotificationQueueEvents = async (input: {
-  tenantId: number;
   orgId: number;
+  orgUnitRid: number;
   phone?: string;
   mrn?: string;
   datetime?: string;
@@ -1055,9 +1055,9 @@ export const insertTestNotificationQueueEvents = async (input: {
 // Export selected delivery logs by IDs (server-side)
 export const exportSelectedLogs = async (ids: string[], format: 'csv' | 'json' = 'json'): Promise<void> => {
   const params = new URLSearchParams();
-  const rid = getEntityParentRid();
-  if (rid && rid > 0) {
-    params.set('orgId', String(rid));
+  const orgId = getCurrentOrgId();
+  if (orgId && orgId > 0) {
+    params.set('orgId', String(orgId));
   }
 
   const query = params.toString();
@@ -1088,9 +1088,9 @@ export const exportLogsToJson = async (filters?: { status?: string; integrationI
   const params = new URLSearchParams();
 
   // Add orgId - CRITICAL for multi-tenant filtering
-  const rid = getEntityParentRid();
-  if (rid && rid > 0) {
-    params.set('orgId', String(rid));
+  const orgId = getCurrentOrgId();
+  if (orgId && orgId > 0) {
+    params.set('orgId', String(orgId));
   }
 
   if (filters?.status) params.set('status', filters.status);
@@ -1534,7 +1534,7 @@ import type { Lookup, LookupStats, LookupImportResult, LookupTestResult } from '
  */
 export const getLookups = async (filters?: {
   type?: string;
-  tenantId?: number;
+  orgUnitRid?: number;
   isActive?: boolean;
   search?: string;
   limit?: number;
@@ -1542,7 +1542,7 @@ export const getLookups = async (filters?: {
 }): Promise<{ lookups: Lookup[]; total: number }> => {
   const params = new URLSearchParams();
   if (filters?.type) params.set('type', filters.type);
-  if (filters?.tenantId !== undefined) params.set('tenantId', filters.tenantId.toString());
+  if (filters?.orgUnitRid !== undefined) params.set('orgUnitRid', filters.orgUnitRid.toString());
   if (filters?.isActive !== undefined) params.set('isActive', filters.isActive.toString());
   if (filters?.search) params.set('search', filters.search);
   if (filters?.limit) params.set('limit', filters.limit.toString());
@@ -1626,24 +1626,32 @@ export const bulkDeleteLookups = async (ids: string[]): Promise<{
 export const resolveLookup = async (data: {
   sourceId: string;
   type: string;
-  tenantId?: number;
+  orgUnitRid?: number;
 }): Promise<{
   sourceId: string;
   targetId: string | null;
   found: boolean;
   lookupId?: string;
-}> =>
-  request('/lookups/resolve', {
+}> => {
+  const params = new URLSearchParams();
+  if (data.orgUnitRid !== undefined) params.set('orgUnitRid', String(data.orgUnitRid));
+  const query = params.toString() ? `?${params.toString()}` : '';
+  return request(`/lookups/resolve${query}`, {
     method: 'POST',
-    body: JSON.stringify(data)
+    body: JSON.stringify({
+      sourceId: data.sourceId,
+      type: data.type,
+    })
   });
+};
 
 /**
  * Resolve multiple code mappings
  */
 export const resolveLookupBulk = async (data: {
-  items: Array<{ sourceId: string; type: string }>;
-  tenantId?: number;
+  sourceIds: string[];
+  type: string;
+  orgUnitRid?: number;
 }): Promise<{
   results: Array<{
     sourceId: string;
@@ -1651,11 +1659,18 @@ export const resolveLookupBulk = async (data: {
     targetId: string | null;
     found: boolean;
   }>;
-}> =>
-  request('/lookups/resolve-bulk', {
+}> => {
+  const params = new URLSearchParams();
+  if (data.orgUnitRid !== undefined) params.set('orgUnitRid', String(data.orgUnitRid));
+  const query = params.toString() ? `?${params.toString()}` : '';
+  return request(`/lookups/resolve-bulk${query}`, {
     method: 'POST',
-    body: JSON.stringify(data)
+    body: JSON.stringify({
+      sourceIds: data.sourceIds,
+      type: data.type,
+    })
   });
+};
 
 /**
  * Reverse lookup - find source from target
@@ -1663,16 +1678,23 @@ export const resolveLookupBulk = async (data: {
 export const reverseLookup = async (data: {
   targetId: string;
   type: string;
-  tenantId?: number;
+  orgUnitRid?: number;
 }): Promise<{
   targetId: string;
   sourceIds: string[];
   found: boolean;
-}> =>
-  request('/lookups/reverse', {
+}> => {
+  const params = new URLSearchParams();
+  if (data.orgUnitRid !== undefined) params.set('orgUnitRid', String(data.orgUnitRid));
+  const query = params.toString() ? `?${params.toString()}` : '';
+  return request(`/lookups/reverse${query}`, {
     method: 'POST',
-    body: JSON.stringify(data)
+    body: JSON.stringify({
+      targetId: data.targetId,
+      type: data.type,
+    })
   });
+};
 
 /**
  * Get lookup statistics
@@ -1695,21 +1717,25 @@ export const getLookupTypes = async (): Promise<{ types: string[] }> => {
  */
 export const importLookups = async (file: File, options: {
   type: string;
-  tenantId?: number;
+  orgUnitRid?: number;
   format?: 'simple' | 'detailed';
 }): Promise<LookupImportResult> => {
   const formData = new FormData();
   formData.append('file', file);
-  formData.append('type', options.type);
-  if (options.tenantId) formData.append('tenantId', options.tenantId.toString());
+  // type is sent as query param (required by backend route)
   if (options.format) formData.append('format', options.format);
 
-  let url = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api/v1'}/lookups/import`;
+  const params = new URLSearchParams();
+  params.set('type', options.type);
 
-  const orgId = getEntityParentRid();
+  const orgId = getCurrentOrgId();
   if (orgId && orgId > 0) {
-    url += `?orgId=${orgId}`;
+    params.set('orgId', String(orgId));
   }
+  if (options.orgUnitRid !== undefined) {
+    params.set('orgUnitRid', String(options.orgUnitRid));
+  }
+  const url = `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api/v1'}/lookups/import?${params.toString()}`;
 
   const response = await fetch(url, {
     method: 'POST',
@@ -1730,18 +1756,18 @@ export const importLookups = async (file: File, options: {
  */
 export const exportLookups = async (filters?: {
   type?: string;
-  tenantId?: number;
+  orgUnitRid?: number;
   isActive?: boolean;
 }): Promise<void> => {
   const params = new URLSearchParams();
 
-  const rid = getEntityParentRid();
-  if (rid && rid > 0) {
-    params.set('orgId', String(rid));
+  const orgId = getCurrentOrgId();
+  if (orgId && orgId > 0) {
+    params.set('orgId', String(orgId));
   }
 
   if (filters?.type) params.set('type', filters.type);
-  if (filters?.tenantId !== undefined) params.set('tenantId', filters.tenantId.toString());
+  if (filters?.orgUnitRid !== undefined) params.set('orgUnitRid', filters.orgUnitRid.toString());
   if (filters?.isActive !== undefined) params.set('isActive', filters.isActive.toString());
 
   const query = params.toString();
@@ -1773,9 +1799,9 @@ export const downloadLookupTemplate = async (type: string): Promise<void> => {
   const params = new URLSearchParams();
   params.set('type', type);
 
-  const rid = getEntityParentRid();
-  if (rid && rid > 0) {
-    params.set('orgId', String(rid));
+  const orgId = getCurrentOrgId();
+  if (orgId && orgId > 0) {
+    params.set('orgId', String(orgId));
   }
 
   const query = params.toString();
@@ -1806,12 +1832,19 @@ export const downloadLookupTemplate = async (type: string): Promise<void> => {
 export const testLookups = async (data: {
   lookupConfigs: any[];
   payload: Record<string, any>;
-  tenantId?: number;
-}): Promise<LookupTestResult> =>
-  request<LookupTestResult>('/lookups/test', {
+  orgUnitRid?: number;
+}): Promise<LookupTestResult> => {
+  const params = new URLSearchParams();
+  if (data.orgUnitRid !== undefined) params.set('orgUnitRid', String(data.orgUnitRid));
+  const query = params.toString() ? `?${params.toString()}` : '';
+  return request<LookupTestResult>(`/lookups/test${query}`, {
     method: 'POST',
-    body: JSON.stringify(data)
+    body: JSON.stringify({
+      lookupConfigs: data.lookupConfigs,
+      samplePayload: data.payload,
+    })
   });
+};
 
 // ==================== Admin APIs ====================
 
@@ -2028,7 +2061,8 @@ export interface AdminRateLimitItem {
   name: string;
   type: string;
   direction: string;
-  tenantId: number;
+  orgId: number;
+  tenantId?: number;
   isActive: boolean;
   rateLimits?: {
     enabled?: boolean;

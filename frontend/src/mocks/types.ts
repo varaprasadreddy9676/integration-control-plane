@@ -325,7 +325,8 @@ export interface LookupTarget {
 export interface Lookup {
   id: string;
   orgId: number;
-  tenantId: number | null;
+  orgUnitRid: number | null;
+  tenantId?: number | null;
   type: string;
   source: LookupSource;
   target: LookupTarget;

@@ -78,7 +78,7 @@ function FieldRow({ label, value, mono = false }: { label: string; value: React.
 // ---------------------------------------------------------------------------
 
 export const SettingsRoute = () => {
-  const { tenant, orgId, setManualEntityRid } = useTenant();
+  const { tenant, orgId, setManualOrgId } = useTenant();
   const { user, impersonate } = useAuth();
   const { spacing, token } = useDesignTokens();
   const colors = cssVar.legacy;
@@ -864,7 +864,7 @@ export const SettingsRoute = () => {
                           content: `Set view to org ${adminImpersonateOrgId}. Unsaved changes may be lost.`,
                           okText: 'Switch',
                           onOk: () => {
-                            setManualEntityRid(adminImpersonateOrgId);
+                            setManualOrgId(adminImpersonateOrgId);
                             messageApi.success(`Context set to org ${adminImpersonateOrgId}`);
                           }
                         });

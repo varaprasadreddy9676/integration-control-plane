@@ -169,8 +169,8 @@ export const EventAuditRoute = () => {
     setTestLoading(true);
     try {
       const payload = {
-        tenantId: Number(values.tenantId),
         orgId: Number(values.orgId),
+        orgUnitRid: Number(values.orgUnitRid),
         phone: values.phone || undefined,
         mrn: values.mrn || undefined,
         datetime: values.datetime || undefined,
@@ -232,7 +232,7 @@ export const EventAuditRoute = () => {
               onClick={() => {
                 testForm.setFieldsValue({
                   orgId: orgId || undefined,
-                  tenantId: orgId || undefined,
+                  orgUnitRid: orgId || undefined,
                   randomizeDates: false,
                   randomDaysBack: 7,
                   randomDaysForward: 7
@@ -352,16 +352,16 @@ export const EventAuditRoute = () => {
           requiredMark="optional"
         >
           <Form.Item
-            name="tenantId"
-            label="Entity RID"
-            rules={[{ required: true, message: 'Please enter entity RID' }]}
+            name="orgUnitRid"
+            label="Org Unit RID"
+            rules={[{ required: true, message: 'Please enter org unit RID' }]}
           >
             <InputNumber style={{ width: '100%' }} placeholder="e.g., 353" min={1} />
           </Form.Item>
           <Form.Item
             name="orgId"
-            label="Entity Parent RID"
-            rules={[{ required: true, message: 'Please enter entity parent RID' }]}
+            label="Org ID"
+            rules={[{ required: true, message: 'Please enter org ID' }]}
           >
             <InputNumber style={{ width: '100%' }} placeholder="e.g., 353" min={1} />
           </Form.Item>

@@ -83,7 +83,7 @@ export const FlowBuilderListRoute: React.FC = () => {
           direction,
           mode,
           isActive: integration.isActive ?? true,
-          orgId: integration.orgId || integration.tenantId || 100,
+          orgId: integration.orgId || 100,
           targetUrl: integration.targetUrl,
           eventType: integration.eventType,
           deliveryMode: integration.deliveryMode,

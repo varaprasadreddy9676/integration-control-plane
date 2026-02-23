@@ -331,7 +331,7 @@ return {
     if (!integrationConfig) return '';
     const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api/v1';
     const base = apiBase.replace(/\/$/, '');
-    const orgId = integrationConfig.tenantId || integrationConfig.orgId;
+    const orgId = integrationConfig.orgId;
     const url = `${base}/integrations/${encodeURIComponent(integrationConfig.type)}?orgId=${orgId}`;
     const httpMethod = (integrationConfig.httpMethod || 'POST').toUpperCase();
     const headers: string[] = [];

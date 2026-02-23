@@ -1,6 +1,6 @@
 import { mockDashboard, mockDeliveryLogs, mockTenantByRid, mockIntegrations } from './data';
 import type { DashboardSummary, DeliveryLog, TenantInfo, IntegrationConfig } from './types';
-import { getEntityParentRid } from '../services/api';
+import { getCurrentOrgId } from '../services/api';
 
 let integrationsState = [...mockIntegrations];
 let deliveryLogState = [...mockDeliveryLogs];
@@ -9,7 +9,7 @@ const simulateLatency = async <T>(value: T, delay = 200): Promise<T> =>
   new Promise((resolve) => setTimeout(() => resolve(value), delay));
 
 export const getTenantInfo = async (): Promise<TenantInfo> => {
-  const orgId = getEntityParentRid() ?? 100;
+  const orgId = getCurrentOrgId() ?? 100;
   const tenant = mockTenantByRid[orgId] ?? mockTenantByRid[100];
   return simulateLatency(tenant);
 };

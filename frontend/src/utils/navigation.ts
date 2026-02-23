@@ -42,7 +42,7 @@ export const useNavigateWithParams = () => {
  * Helper to build URLs with orgId preserved
  * Useful for Link components or manual URL construction
  */
-export const buildUrlWithEntityParentRid = (path: string): string => {
+export const buildUrlWithOrgId = (path: string): string => {
   const currentParams = new URLSearchParams(window.location.search);
   const orgId = currentParams.get('orgId');
 

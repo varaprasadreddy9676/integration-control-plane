@@ -5,7 +5,7 @@ import type { EventAuditRecord } from '../../../mocks/types';
 import { cssVar, useDesignTokens, withAlpha, spacingToNumber } from '../../../design-system/utils';
 import { useThemeMode } from '../../../app/theme-provider';
 import { formatDateTime, formatDateTimeWithSeconds } from '../../../utils/format';
-import { useNavigateWithParams, buildUrlWithEntityParentRid } from '../../../utils/navigation';
+import { useNavigateWithParams, buildUrlWithOrgId } from '../../../utils/navigation';
 
 const { Text, Title } = Typography;
 
@@ -208,7 +208,7 @@ export const EventAuditDrawer = ({ event, open, onClose }: EventAuditDrawerProps
                     {delivery.deliveryLogIds.map((logId) => (
                       <a
                         key={logId}
-                        href={buildUrlWithEntityParentRid(`/logs/${logId}`)}
+                        href={buildUrlWithOrgId(`/logs/${logId}`)}
                         target="_blank"
                         rel="noreferrer"
                         style={{ fontSize: 12 }}

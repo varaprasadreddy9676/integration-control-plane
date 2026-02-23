@@ -85,7 +85,7 @@ export const InboundIntegrationsRoute = ({ hideHeader = false, isActive = true }
     if (!integration) return '';
     const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api/v1';
     const base = apiBase.replace(/\/$/, '');
-    const orgId = integration.tenantId || integration.orgId;
+    const orgId = integration.orgId;
     const url = `${base}/integrations/${encodeURIComponent(integration.type)}?orgId=${orgId}`;
     const httpMethod = (integration.httpMethod || 'POST').toUpperCase();
     const headers: string[] = [];

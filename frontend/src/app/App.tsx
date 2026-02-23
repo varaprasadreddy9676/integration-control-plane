@@ -79,7 +79,7 @@ import { FlowBuilderListRoute } from '../features/flowBuilder/routes/FlowBuilder
 import { LoginRoute } from '../features/auth/LoginRoute';
 import { TenantLoadingState } from '../components/common/TenantLoadingState';
 import { ToastHost } from '../components/common/ToastHost';
-import { EntityParamGuard } from '../components/EntityParamGuard';
+import { OrgContextGuard } from '../components/OrgContextGuard';
 import { cssVar, useDesignTokens, spacingToNumber } from '../design-system/utils';
 import { listAdminOrgSummaries, getLogStatsSummary } from '../services/api';
 import { isFeatureEnabled } from '../utils/featureFlags';
@@ -94,7 +94,7 @@ export const App = () => {
   const isMobile = !screens.md;
   const location = useLocation();
   const navigate = useNavigateWithParams();
-  const { tenant, isLoading, error, orgId, setManualEntityRid, clearEntityRid } = useTenant();
+  const { tenant, isLoading, error, orgId, setManualOrgId, clearOrgId } = useTenant();
   const { isAuthenticated, user, exitImpersonation, logout } = useAuth();
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
   const isAdmin = user?.role === 'ADMIN';
@@ -661,7 +661,7 @@ export const App = () => {
                         okText: 'Clear',
                         okButtonProps: { danger: true },
                         cancelText: 'Cancel',
-                        onOk: () => clearEntityRid()
+                        onOk: () => clearOrgId()
                       });
                       return;
                     }
@@ -675,7 +675,7 @@ export const App = () => {
                       content: `Switch context to Org ${value}? Unsaved changes may be lost.`,
                       okText: 'Switch',
                       cancelText: 'Cancel',
-                      onOk: () => setManualEntityRid(Number(value))
+                      onOk: () => setManualOrgId(Number(value))
                     });
                   }}
                 />
@@ -874,9 +874,9 @@ export const App = () => {
     return <Navigate to="/" replace />;
   }
 
-  // Use EntityParamGuard to handle missing orgId with friendly UI
+  // Use OrgContextGuard to handle missing orgId with friendly UI
   return (
-    <EntityParamGuard>
+    <OrgContextGuard>
       {canSkipTenant ? (
         renderShell()
       ) : isLoading || !tenant ? (
@@ -884,6 +884,6 @@ export const App = () => {
       ) : (
         renderShell()
       )}
-    </EntityParamGuard>
+    </OrgContextGuard>
   );
 };

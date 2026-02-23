@@ -52,7 +52,7 @@ export function flowToPayload(flowState: FlowState, orgId: number): BackendInteg
   const payload: BackendIntegrationPayload = {
     name: flowState.name,
     direction,
-    tenantId: orgId,
+    orgId,
     isActive: flowState.isActive ?? true,
   };
 
@@ -430,7 +430,7 @@ export function validatePayload(payload: BackendIntegrationPayload): { isValid: 
     errors.push('Integration direction is required');
   }
 
-  if (!payload.tenantId) {
+  if (!payload.orgId) {
     errors.push('Organization ID is required');
   }
 

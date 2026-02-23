@@ -445,7 +445,7 @@ export interface BackendIntegrationPayload {
   type?: string; // For INBOUND integrations and OUTBOUND event type
   eventType?: string; // Backward compatibility for outbound
   direction: 'INBOUND' | 'OUTBOUND';
-  tenantId: number;
+  orgId: number;
   targetUrl?: string;
   httpMethod?: HttpMethod;
   headers?: Record<string, string>;

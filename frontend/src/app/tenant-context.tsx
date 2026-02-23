@@ -2,18 +2,17 @@ import { createContext, useContext, useMemo, useState, useEffect, useCallback } 
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useLocation } from 'react-router-dom';
 import type { ReactNode } from 'react';
-import { getTenantInfo, setEntityParentRid } from '../services/api';
+import { getTenantInfo, setCurrentOrgId } from '../services/api';
 import type { TenantInfo } from '../mocks/types';
 import { useAuth } from './auth-context';
-import { isGlobalRole } from '../utils/permissions';
 
 interface TenantContextValue {
   tenant?: TenantInfo;
   orgId: number;
   isLoading: boolean;
   error?: string;
-  setManualEntityRid: (rid: number) => void;
-  clearEntityRid: () => void;
+  setManualOrgId: (orgId: number) => void;
+  clearOrgId: () => void;
 }
 
 const TenantContext = createContext<TenantContextValue | undefined>(undefined);
@@ -27,10 +26,10 @@ const LEGACY_STORAGE_KEY = 'integration_gateway_entity_rid';
  * 2. SessionStorage (persists across refresh in same tab)
  * 3. LocalStorage (persists across tabs/sessions - fallback)
  */
-const getEntityParentRid = (): number => {
+const resolveOrgIdFromContext = (): number => {
   // 1. Try URL parameter first (highest priority)
   const params = new URLSearchParams(window.location.search);
-  const fromUrl = Number(params.get('orgId') || params.get('entityparentrid') || '0');
+  const fromUrl = Number(params.get('orgId') || '0');
   if (Number.isFinite(fromUrl) && fromUrl > 0) {
     // Found in URL - save to storage for future refreshes
     sessionStorage.setItem(STORAGE_KEY, fromUrl.toString());
@@ -67,38 +66,38 @@ const getEntityParentRid = (): number => {
 /**
  * Save orgId to both storages
  */
-const saveEntityParentRid = (rid: number) => {
-  sessionStorage.setItem(STORAGE_KEY, rid.toString());
-  localStorage.setItem(STORAGE_KEY, rid.toString());
+const saveOrgId = (orgId: number) => {
+  sessionStorage.setItem(STORAGE_KEY, orgId.toString());
+  localStorage.setItem(STORAGE_KEY, orgId.toString());
   // Keep legacy key during transition window
-  sessionStorage.setItem(LEGACY_STORAGE_KEY, rid.toString());
-  localStorage.setItem(LEGACY_STORAGE_KEY, rid.toString());
-  setEntityParentRid(rid);
+  sessionStorage.setItem(LEGACY_STORAGE_KEY, orgId.toString());
+  localStorage.setItem(LEGACY_STORAGE_KEY, orgId.toString());
+  setCurrentOrgId(orgId);
 };
 
 export const TenantProvider = ({ children }: { children: ReactNode }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
-  const [orgId, setEntityRid] = useState(() => {
-    const rid = getEntityParentRid();
-    if (rid > 0) {
-      setEntityParentRid(rid);
+  const [orgId, setOrgId] = useState(() => {
+    const resolvedOrgId = resolveOrgIdFromContext();
+    if (resolvedOrgId > 0) {
+      setCurrentOrgId(resolvedOrgId);
     } else {
-      setEntityParentRid(null);
+      setCurrentOrgId(null);
     }
-    return rid;
+    return resolvedOrgId;
   });
 
   // If user is org-scoped, ensure orgId matches their user.orgId
   // This prevents stale orgId from localStorage when switching users
   useEffect(() => {
     if (user?.orgId && Number.isFinite(user.orgId)) {
-      const current = getEntityParentRid();
+      const current = resolveOrgIdFromContext();
       // Update orgId if missing OR if it doesn't match the user's orgId
       if (!current || current <= 0 || current !== user.orgId) {
-        saveEntityParentRid(user.orgId);
-        setEntityRid(user.orgId);
+        saveOrgId(user.orgId);
+        setOrgId(user.orgId);
       }
     }
   }, [user?.orgId]);
@@ -111,7 +110,7 @@ export const TenantProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (orgId > 0 && location.pathname !== '/') {
       const params = new URLSearchParams(location.search);
-      const urlRid = params.get('orgId') || params.get('entityparentrid');
+      const urlRid = params.get('orgId');
 
       // If URL doesn't have orgId, add it
       if (!urlRid) {
@@ -123,29 +122,28 @@ export const TenantProvider = ({ children }: { children: ReactNode }) => {
   }, [orgId, location.pathname, location.search, navigate]);
 
   // Function to manually set orgId (for recovery/development)
-  const setManualEntityRid = useCallback((rid: number) => {
-    if (Number.isFinite(rid) && rid > 0) {
-      saveEntityParentRid(rid);
-      setEntityRid(rid);
+  const setManualOrgId = useCallback((nextOrgId: number) => {
+    if (Number.isFinite(nextOrgId) && nextOrgId > 0) {
+      saveOrgId(nextOrgId);
+      setOrgId(nextOrgId);
 
       // Update URL
       const params = new URLSearchParams(location.search);
-      params.set('orgId', rid.toString());
+      params.set('orgId', nextOrgId.toString());
       navigate(`${location.pathname}?${params.toString()}`, { replace: true });
     }
   }, [location.search, location.pathname, navigate]);
 
-  const clearEntityRid = useCallback(() => {
+  const clearOrgId = useCallback(() => {
     sessionStorage.removeItem(STORAGE_KEY);
     sessionStorage.removeItem(LEGACY_STORAGE_KEY);
     localStorage.removeItem(STORAGE_KEY);
     localStorage.removeItem(LEGACY_STORAGE_KEY);
-    setEntityParentRid(null);
-    setEntityRid(0);
+    setCurrentOrgId(null);
+    setOrgId(0);
 
     const params = new URLSearchParams(location.search);
     params.delete('orgId');
-    params.delete('entityparentrid');
     const query = params.toString();
     navigate(query ? `${location.pathname}?${query}` : location.pathname, { replace: true });
   }, [location.search, location.pathname, navigate]);
@@ -165,10 +163,10 @@ export const TenantProvider = ({ children }: { children: ReactNode }) => {
       orgId,
       isLoading,
       error: !shouldFetchTenant && orgId === 0 ? 'Missing orgId parameter' : undefined,
-      setManualEntityRid,
-      clearEntityRid
+      setManualOrgId,
+      clearOrgId
     };
-  }, [data, orgId, isLoading, shouldFetchTenant, setManualEntityRid, clearEntityRid]);
+  }, [data, orgId, isLoading, shouldFetchTenant, setManualOrgId, clearOrgId]);
 
   return <TenantContext.Provider value={value}>{children}</TenantContext.Provider>;
 };

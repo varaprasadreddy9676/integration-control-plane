@@ -5,7 +5,6 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../app/auth-context';
 import { useTenant } from '../app/tenant-context';
 import { useDesignTokens } from '../design-system/utils';
-import { isGlobalRole } from '../utils/permissions';
 import { useQuery } from '@tanstack/react-query';
 import { listAdminOrgSummaries } from '../services/api';
 
@@ -17,9 +16,9 @@ const { Title, Text, Paragraph } = Typography;
  *
  * SUPER_ADMIN can access admin routes without orgId, but needs to select an org for org-specific routes.
  */
-export const EntityParamGuard = ({ children }: { children: React.ReactNode }) => {
+export const OrgContextGuard = ({ children }: { children: React.ReactNode }) => {
   const { shadows } = useDesignTokens();
-  const { orgId, error, setManualEntityRid } = useTenant();
+  const { orgId, setManualOrgId } = useTenant();
   const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -95,7 +94,7 @@ export const EntityParamGuard = ({ children }: { children: React.ReactNode }) =>
                 }))}
                 onChange={(value) => {
                   if (value) {
-                    setManualEntityRid(Number(value));
+                    setManualOrgId(Number(value));
                   }
                 }}
                 showSearch
@@ -124,14 +123,14 @@ export const EntityParamGuard = ({ children }: { children: React.ReactNode }) =>
     );
   }
 
-  const handleSetEntityRid = () => {
-    const rid = Number(inputValue);
-    if (!Number.isFinite(rid) || rid <= 0) {
+  const handleSetOrgId = () => {
+    const orgIdValue = Number(inputValue);
+    if (!Number.isFinite(orgIdValue) || orgIdValue <= 0) {
       setInputError('Please enter a valid positive number');
       return;
     }
     setInputError('');
-    setManualEntityRid(rid);
+    setManualOrgId(orgIdValue);
   };
 
   const handleReload = () => {
@@ -158,10 +157,10 @@ export const EntityParamGuard = ({ children }: { children: React.ReactNode }) =>
           <div style={{ textAlign: 'center' }}>
             <InfoCircleOutlined style={{ fontSize: 64, color: '#667eea', marginBottom: 16 }} />
             <Title level={3} style={{ marginBottom: 8 }}>
-              Missing Entity Parameter
+              Missing Organization Context
             </Title>
             <Text type="secondary">
-              This application requires an entity identifier to function
+              This application requires an organization identifier to function
             </Text>
           </div>
 
@@ -204,17 +203,17 @@ export const EntityParamGuard = ({ children }: { children: React.ReactNode }) =>
               {/* Option 1: Manual Input (for development/testing) */}
               <div>
                 <Text type="secondary" style={{ fontSize: 13, display: 'block', marginBottom: 8 }}>
-                  Option 1: Enter Entity RID manually (for development/testing)
+                  Option 1: Enter Org ID manually (for development/testing)
                 </Text>
                 <Space.Compact style={{ width: '100%' }}>
                   <Input
-                    placeholder="Enter entity parent RID (e.g., 33)"
+                    placeholder="Enter org ID (e.g., 33)"
                     value={inputValue}
                     onChange={(e) => {
                       setInputValue(e.target.value);
                       setInputError('');
                     }}
-                    onPressEnter={handleSetEntityRid}
+                    onPressEnter={handleSetOrgId}
                     status={inputError ? 'error' : ''}
                     type="number"
                     size="large"
@@ -222,7 +221,7 @@ export const EntityParamGuard = ({ children }: { children: React.ReactNode }) =>
                   <Button
                     type="primary"
                     size="large"
-                    onClick={handleSetEntityRid}
+                    onClick={handleSetOrgId}
                   >
                     Continue
                   </Button>

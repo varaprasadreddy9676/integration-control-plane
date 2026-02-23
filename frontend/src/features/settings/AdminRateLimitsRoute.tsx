@@ -84,8 +84,8 @@ export const AdminRateLimitsRoute = () => {
     },
     {
       title: 'Org ID',
-      dataIndex: 'tenantId',
-      key: 'tenantId',
+      dataIndex: 'orgId',
+      key: 'orgId',
       width: 100
     },
     {

@@ -44,14 +44,14 @@ export const LookupDetailRoute = () => {
         sourceLabel: lookup.source.label,
         targetId: lookup.target.id,
         targetLabel: lookup.target.label,
-        tenantId: lookup.tenantId,
+        orgUnitRid: lookup.orgUnitRid,
         isActive: lookup.isActive
       });
     } else if (!isEditMode) {
       // Set defaults for new lookup
       form.setFieldsValue({
         isActive: true,
-        tenantId: null
+        orgUnitRid: null
       });
     }
   }, [lookup, isEditMode, form]);
@@ -73,7 +73,7 @@ export const LookupDetailRoute = () => {
           id: values.targetId,
           label: values.targetLabel || undefined
         },
-        tenantId: values.tenantId || null,
+        orgUnitRid: values.orgUnitRid || null,
         isActive: values.isActive
       };
 
@@ -204,14 +204,14 @@ export const LookupDetailRoute = () => {
 
           <Divider orientation="left">Configuration</Divider>
 
-          {/* Entity RID */}
+          {/* Org Unit RID */}
           <Form.Item
-            name="tenantId"
-            label="Entity Override"
-            extra="Leave empty for parent-level mapping, or specify entity RID for entity-specific override"
+            name="orgUnitRid"
+            label="Org Unit Override"
+            extra="Leave empty for parent-level mapping, or specify an org unit RID for unit-specific override"
           >
             <Select
-              placeholder="Parent Level (applies to all entities)"
+              placeholder="Parent Level (applies to all org units)"
               allowClear
               options={[
                 { label: 'Parent Level (default)', value: null },
