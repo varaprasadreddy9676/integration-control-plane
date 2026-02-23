@@ -33,8 +33,39 @@ class SecureVM {
   async run(code) {
     return new Promise((resolve, reject) => {
       try {
-        // Create frozen sandbox context to prevent prototype pollution
-        const context = this._createSecureContext(this.sandbox);
+        // Track timers created by the script so we can cancel them when the VM finishes.
+        // This prevents leaked event-loop handles when a script is rejected due to timeout
+        // but still has live timers outstanding (e.g. setTimeout(resolve, 70000)).
+        const pendingTimers = new Set();
+        const pendingIntervals = new Set();
+
+        const wrappedSetTimeout = (fn, ms, ...args) => {
+          const id = setTimeout(fn, ms, ...args);
+          pendingTimers.add(id);
+          return id;
+        };
+        const wrappedClearTimeout = (id) => {
+          pendingTimers.delete(id);
+          clearTimeout(id);
+        };
+        const wrappedSetInterval = (fn, ms, ...args) => {
+          const id = setInterval(fn, ms, ...args);
+          pendingIntervals.add(id);
+          return id;
+        };
+        const wrappedClearInterval = (id) => {
+          pendingIntervals.delete(id);
+          clearInterval(id);
+        };
+
+        // Create frozen sandbox context, overriding timer globals with tracked wrappers
+        const context = this._createSecureContext({
+          ...this.sandbox,
+          setTimeout: wrappedSetTimeout,
+          clearTimeout: wrappedClearTimeout,
+          setInterval: wrappedSetInterval,
+          clearInterval: wrappedClearInterval,
+        });
 
         // Wrap code in strict mode and async function
         const wrappedCode = this.allowAsync
@@ -54,6 +85,11 @@ class SecureVM {
           if (settled) return;
           settled = true;
           clearTimeout(timeoutHandle);
+          // Cancel any timers/intervals the script left running
+          for (const id of pendingTimers) clearTimeout(id);
+          for (const id of pendingIntervals) clearInterval(id);
+          pendingTimers.clear();
+          pendingIntervals.clear();
           fn(value);
         };
         const timeoutHandle = setTimeout(() => {

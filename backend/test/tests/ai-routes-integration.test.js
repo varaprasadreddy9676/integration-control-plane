@@ -64,7 +64,7 @@ function buildTestApp() {
   app.use(express.json());
   app.use((req, _res, next) => {
     req.user = { id: 'u-1', role: 'ADMIN' };
-    req.entityParentRid = Number(req.query.entityParentRid || req.query.orgId || 84);
+    req.orgId = Number(req.query.orgId || 84);
     next();
   });
   app.use('/ai', aiRouter);
@@ -107,7 +107,7 @@ describe('AI Routes Integration', () => {
     );
 
     const response = await request(app)
-      .post('/ai/chat?entityParentRid=84')
+      .post('/ai/chat?orgId=84')
       .send({
         messages: [{ role: 'user', content: 'Create integration' }],
         context: { page: 'integrations' }
@@ -129,7 +129,7 @@ describe('AI Routes Integration', () => {
     mockAIService.checkRateLimit.mockResolvedValue({ usage: 100, limit: 100, allowed: false });
 
     const response = await request(app)
-      .post('/ai/chat?entityParentRid=84')
+      .post('/ai/chat?orgId=84')
       .send({ messages: [{ role: 'user', content: 'Hi' }] });
 
     expect(response.status).toBe(429);
@@ -140,7 +140,7 @@ describe('AI Routes Integration', () => {
 
   it('rejects invalid chat payloads', async () => {
     const response = await request(app)
-      .post('/ai/chat?entityParentRid=84')
+      .post('/ai/chat?orgId=84')
       .send({ messages: [{ role: 'system', content: 123 }] });
 
     expect(response.status).toBe(400);
@@ -151,7 +151,7 @@ describe('AI Routes Integration', () => {
     mockAIService.isAvailable.mockResolvedValue(false);
 
     const response = await request(app)
-      .post('/ai/chat?entityParentRid=84')
+      .post('/ai/chat?orgId=84')
       .send({ messages: [{ role: 'user', content: 'Create integration' }] });
 
     expect(response.status).toBe(403);
@@ -162,7 +162,7 @@ describe('AI Routes Integration', () => {
   it('returns default ai-config when no entity config is saved', async () => {
     mockAIConfigData.getAIConfig.mockResolvedValue(null);
 
-    const response = await request(app).get('/ai-config?entityParentRid=84');
+    const response = await request(app).get('/ai-config?orgId=84');
 
     expect(response.status).toBe(200);
     expect(response.body.success).toBe(true);
@@ -172,7 +172,7 @@ describe('AI Routes Integration', () => {
 
   it('validates provider/model mismatch in ai-config update', async () => {
     const response = await request(app)
-      .put('/ai-config?entityParentRid=84')
+      .put('/ai-config?orgId=84')
       .send({ provider: 'openai', model: 'claude-3-opus-20240229' });
 
     expect(response.status).toBe(400);
@@ -182,7 +182,7 @@ describe('AI Routes Integration', () => {
 
   it('returns validation error for unsupported provider', async () => {
     const response = await request(app)
-      .put('/ai-config?entityParentRid=84')
+      .put('/ai-config?orgId=84')
       .send({ provider: 'unsupported-vendor' });
 
     expect(response.status).toBe(400);
@@ -193,7 +193,7 @@ describe('AI Routes Integration', () => {
     mockAIConfigData.getProviderConfig.mockResolvedValue(null);
 
     const response = await request(app)
-      .post('/ai-config/test?entityParentRid=84')
+      .post('/ai-config/test?orgId=84')
       .send({});
 
     expect(response.status).toBe(400);
@@ -215,7 +215,7 @@ describe('AI Routes Integration', () => {
 
     mockIntegrationsCollection.findOne.mockResolvedValue({
       _id: { toString: () => integrationId },
-      tenantId: 84,
+      orgId: 84,
       direction: 'OUTBOUND',
       transformation: { script: "const x = payload.patient.name; return { x };" },
       transformationMode: 'SCRIPT'
@@ -231,7 +231,7 @@ describe('AI Routes Integration', () => {
     });
 
     const response = await request(app)
-      .post('/ai/diagnose-log-fix?entityParentRid=84')
+      .post('/ai/diagnose-log-fix?orgId=84')
       .send({ logId });
 
     expect(response.status).toBe(200);
@@ -252,14 +252,14 @@ describe('AI Routes Integration', () => {
     });
     mockIntegrationsCollection.findOne.mockResolvedValue({
       _id: { toString: () => integrationId },
-      tenantId: 84,
+      orgId: 84,
       direction: 'OUTBOUND',
       transformation: { script: "return { x: payload.x };" },
       transformationMode: 'SCRIPT'
     });
 
     const response = await request(app)
-      .post('/ai/apply-log-fix?entityParentRid=84')
+      .post('/ai/apply-log-fix?orgId=84')
       .send({
         logId,
         integrationId,
