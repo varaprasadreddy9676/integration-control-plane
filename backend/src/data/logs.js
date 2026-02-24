@@ -274,16 +274,24 @@ async function streamLogsForExport(orgId, filters = {}, onLog, options = {}) {
       let count = 0;
       cursor = db
         .collection('execution_logs')
-        .find(query)
+        .find(query, { noCursorTimeout: true })
         .sort({ createdAt: -1 })
-        .batchSize(100) // Process 100 documents at a time for memory efficiency
-        .noCursorTimeout(); // Prevent cursor timeout for large exports
+        .batchSize(100); // Process 100 documents at a time for memory efficiency
 
       for await (const doc of cursor) {
         if (options.shouldStop && options.shouldStop()) {
           break;
         }
         const logEntry = mapLogFromMongo(doc);
+        if (options.includeFullResponseBody) {
+          const fullBody = doc?.response?.body;
+          if (fullBody !== undefined) {
+            logEntry.responseBody = fullBody;
+          }
+        }
+        if (options.includeResponseObject) {
+          logEntry.response = doc?.response || null;
+        }
         await onLog(logEntry);
         count++;
       }
@@ -321,6 +329,18 @@ async function getLogById(orgId, id) {
       if (!logDoc) return undefined;
 
       const mappedLog = mapLogFromMongo(logDoc);
+      mappedLog.request = logDoc.request || {
+        url: mappedLog.targetUrl,
+        method: mappedLog.httpMethod,
+        headers: mappedLog.requestHeaders || {},
+        body: mappedLog.requestPayload || {},
+        query: mappedLog.requestQuery || {},
+      };
+      mappedLog.response = logDoc.response || {
+        statusCode: mappedLog.responseStatus,
+        headers: {},
+        body: mappedLog.responseBody || null,
+      };
 
       // Fetch integration config for enhanced UI (curl command generation)
       try {
@@ -428,8 +448,11 @@ async function recordLog(orgId, logPayload) {
         .filter(Boolean)
         .join(' ');
 
-      // If an existing log ID is provided (retries or execution logger), update instead of inserting a new document
-      // The ID can be either a MongoDB ObjectId (for retries) or a traceId string (from execution logger)
+      // If a previous log reference exists, update it instead of inserting a new document.
+      // Preference order:
+      // 1) explicit id (ObjectId or traceId)
+      // 2) explicit traceId
+      // 3) correlationId mapped to traceId/correlationId
       let existingLogId = null;
       let queryField = '_id';
       if (logPayload.id) {
@@ -443,6 +466,12 @@ async function recordLog(orgId, logPayload) {
           existingLogId = logPayload.id;
           queryField = 'traceId';
         }
+      } else if (typeof logPayload.traceId === 'string' && logPayload.traceId.trim()) {
+        existingLogId = logPayload.traceId.trim();
+        queryField = 'traceId';
+      } else if (typeof logPayload.correlationId === 'string' && logPayload.correlationId.trim()) {
+        existingLogId = logPayload.correlationId.trim();
+        queryField = 'correlationOrTraceId';
       }
       const __KEEP___KEEP_integrationConfig__Id__Obj = mongodb.toObjectId(integrationConfigId);
       if (existingLogId) {
@@ -499,8 +528,9 @@ async function recordLog(orgId, logPayload) {
           orgUnitRid: logPayload.orgUnitRid || logPayload.entityRid || normalizedOrgId,
           targetUrl: logPayload.targetUrl,
           httpMethod: logPayload.httpMethod,
-          'request.url': logPayload.targetUrl,
-          'request.method': logPayload.httpMethod,
+          'request.url': logPayload.requestUrl || logPayload.targetUrl,
+          'request.method': logPayload.requestMethod || logPayload.httpMethod,
+          'request.query': logPayload.requestQuery || {},
           correlationId: logPayload.correlationId || null,
           traceId: logPayload.traceId || logPayload.correlationId || null,
           'request.headers': logPayload.requestHeaders || {},
@@ -535,6 +565,11 @@ async function recordLog(orgId, logPayload) {
         const updateQuery =
           queryField === 'traceId'
             ? { traceId: existingLogId, orgId: normalizedOrgId }
+            : queryField === 'correlationOrTraceId'
+            ? {
+                orgId: normalizedOrgId,
+                $or: [{ traceId: existingLogId }, { correlationId: existingLogId }],
+              }
             : { _id: existingLogId, orgId: normalizedOrgId };
 
         const updateResult = await db.collection('execution_logs').updateOne(updateQuery, { $set: updateDoc });
@@ -642,8 +677,9 @@ async function recordLog(orgId, logPayload) {
         requestHeaders: logPayload.requestHeaders || null,
         searchableText,
         request: {
-          url: logPayload.targetUrl,
-          method: logPayload.httpMethod,
+          url: logPayload.requestUrl || logPayload.targetUrl,
+          method: logPayload.requestMethod || logPayload.httpMethod,
+          query: logPayload.requestQuery || {},
           headers: logPayload.requestHeaders || {},
           body: logPayload.requestPayload || {},
         },

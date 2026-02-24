@@ -231,18 +231,16 @@ export const LogsRoute = () => {
       };
 
   const handleExportCsv = async () => {
-    const hide = msgApi.loading('Exporting logs...', 0);
     try {
+      const { onProgress, finish } = createExportProgress('Export CSV');
       await exportLogsToCsv({
         status: statusFilter,
         integrationId: integrationFilter,
         search: search || undefined,
         dateRange: resolvedDateRange || undefined
-      });
-      hide();
-      msgApi.success('Logs exported successfully');
+      }, { onProgress });
+      finish('Export complete');
     } catch (error) {
-      hide();
       const errorMessage = error instanceof Error ? error.message : 'Failed to export logs';
       msgApi.error(errorMessage);
     }
@@ -453,19 +451,20 @@ export const LogsRoute = () => {
   const performExport = async (exportType: 'all' | 'selected' | 'filtered', format: 'csv' | 'json', filters: any, count: number) => {
     try {
       setExportLoading(true);
+      const { onProgress, finish } = createExportProgress(`Export ${format.toUpperCase()}`);
 
       if (exportType === 'selected') {
         // Server-side export for selected logs
-        await exportSelectedLogs(selectedRowKeys as string[], format);
-        msgApi.success(`Exported ${count} log(s) as ${format.toUpperCase()}`);
+        await exportSelectedLogs(selectedRowKeys as string[], format, { onProgress });
+        finish(`Exported ${count} log(s)`);
       } else {
         // For all/filtered, use backend export
         if (format === 'csv') {
-          await exportLogsToCsv(exportType === 'all' ? {} : filters);
+          await exportLogsToCsv(exportType === 'all' ? {} : filters, { onProgress });
         } else {
-          await exportLogsToJson(exportType === 'all' ? {} : filters);
+          await exportLogsToJson(exportType === 'all' ? {} : filters, { onProgress });
         }
-        msgApi.success(`Exported ${count} log(s) as ${format.toUpperCase()}`);
+        finish(`Exported ${count} log(s)`);
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to export logs';
@@ -489,6 +488,67 @@ export const LogsRoute = () => {
     }).catch(() => {
       msgApi.error('Failed to copy');
     });
+  };
+
+  const createExportProgress = (label: string) => {
+    const key = `export-${Date.now()}`;
+    const startedAt = Date.now();
+    msgApi.open({ key, type: 'loading', content: `${label}: queued`, duration: 0 });
+
+    const formatBytes = (value: number) => {
+      if (!Number.isFinite(value) || value <= 0) return '';
+      const units = ['B', 'KB', 'MB', 'GB'];
+      let idx = 0;
+      let size = value;
+      while (size >= 1024 && idx < units.length - 1) {
+        size /= 1024;
+        idx += 1;
+      }
+      return `${size.toFixed(size >= 10 || idx === 0 ? 0 : 1)} ${units[idx]}`;
+    };
+
+    const formatEta = (processed: number, total: number) => {
+      const elapsedSec = (Date.now() - startedAt) / 1000;
+      if (!Number.isFinite(elapsedSec) || elapsedSec <= 0 || processed <= 0 || total <= processed) {
+        return '';
+      }
+      const rate = processed / elapsedSec;
+      if (!Number.isFinite(rate) || rate <= 0) return '';
+      const remainingSec = Math.max(0, Math.round((total - processed) / rate));
+      const mins = Math.floor(remainingSec / 60);
+      const secs = remainingSec % 60;
+      if (mins <= 0) return `${secs}s`;
+      return `${mins}m ${secs}s`;
+    };
+
+    const onProgress = (progress: { status: string; processedRecords?: number; totalRecords?: number; fileSizeBytes?: number }) => {
+      const total = progress.totalRecords ?? 0;
+      const processed = progress.processedRecords ?? 0;
+      const statusLabel = progress.status === 'PROCESSING'
+        ? 'Processing'
+        : progress.status === 'COMPLETED'
+          ? 'Finalizing'
+          : progress.status === 'FAILED'
+            ? 'Failed'
+            : 'Queued';
+      const countLabel = total > 0 ? `${processed}/${total}` : processed > 0 ? `${processed}` : '';
+      const sizeLabel = progress.fileSizeBytes ? formatBytes(progress.fileSizeBytes) : '';
+      const etaLabel = formatEta(processed, total);
+      const etaDisplay = !etaLabel && sizeLabel ? 'eta unknown' : etaLabel ? `eta ${etaLabel}` : '';
+      const extraLabel = [sizeLabel && `size ${sizeLabel}`, etaDisplay].filter(Boolean).join(' · ');
+      msgApi.open({
+        key,
+        type: 'loading',
+        content: `${label}: ${statusLabel}${countLabel ? ` (${countLabel})` : ''}${extraLabel ? ` · ${extraLabel}` : ''}`,
+        duration: 0
+      });
+    };
+
+    const finish = (message: string, isError = false) => {
+      msgApi.open({ key, type: isError ? 'error' : 'success', content: message, duration: 2 });
+    };
+
+    return { onProgress, finish };
   };
 
   // Quick status filter handler
@@ -548,8 +608,8 @@ export const LogsRoute = () => {
               ]
             }}
           >
-            <Button icon={<DownloadOutlined />} loading={exportLoading} size="small">
-              {exportLoading ? 'Exporting...' : exportLabel}
+            <Button icon={<DownloadOutlined />} disabled={exportLoading} size="small">
+              {exportLabel}
             </Button>
           </Dropdown>
         }
@@ -663,8 +723,8 @@ export const LogsRoute = () => {
                   ]
                 }}
               >
-                <Button size="small" icon={<DownloadOutlined />} loading={exportLoading}>
-                  {exportLoading ? 'Exporting...' : 'Export'}
+                <Button size="small" icon={<DownloadOutlined />} disabled={exportLoading}>
+                  Export
                 </Button>
               </Dropdown>
               <Button size="small" danger icon={<DeleteOutlined />} onClick={handleBulkDelete}>
@@ -936,7 +996,11 @@ export const LogsRoute = () => {
               const fullLog = expandedLogDetails[record.id] || record;
               const isLoading = loadingDetails[record.id];
               const curlCommand = fullLog.__KEEP_integrationConfig__
-                ? generateCurlCommand(fullLog.__KEEP_integrationConfig__, fullLog.requestPayload, fullLog.requestHeaders)
+                ? generateCurlCommand(fullLog.__KEEP_integrationConfig__, fullLog.requestPayload, fullLog.requestHeaders, {
+                    direction: fullLog.direction,
+                    request: (fullLog as any).request,
+                    orgId: (fullLog as any).orgId
+                  })
                 : null;
               const isCommunicationLog = fullLog.httpMethod === 'COMMUNICATION' || fullLog.direction === 'COMMUNICATION';
               const integrationConfig = fullLog.__KEEP_integrationConfig__;

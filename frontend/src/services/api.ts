@@ -541,7 +541,8 @@ export const getAlertCenterLogs = async (filters?: {
   return response.logs || [];
 };
 
-export const exportAlertCenterLogsToJson = async (filters?: {
+export const exportAlertCenterLogsToJson = async (
+  filters?: {
   status?: string;
   channel?: string;
   type?: string;
@@ -549,7 +550,9 @@ export const exportAlertCenterLogsToJson = async (filters?: {
   startDate?: string;
   endDate?: string;
   limit?: number;
-}): Promise<void> => {
+},
+  options?: LogExportOptions
+): Promise<void> => {
   const params = new URLSearchParams();
   if (filters?.status) params.set('status', filters.status);
   if (filters?.channel) params.set('channel', filters.channel);
@@ -558,6 +561,7 @@ export const exportAlertCenterLogsToJson = async (filters?: {
   if (filters?.startDate) params.set('startDate', filters.startDate);
   if (filters?.endDate) params.set('endDate', filters.endDate);
   if (filters?.limit) params.set('limit', String(filters.limit));
+  params.set('async', 'true');
   const query = params.toString();
   const url = `${API_BASE_URL}/alert-center/export/json${query ? `?${query}` : ''}`;
 
@@ -565,22 +569,15 @@ export const exportAlertCenterLogsToJson = async (filters?: {
     headers: buildAuthHeaders()
   });
 
-  if (!response.ok) {
-    throw new Error(`Export failed: ${response.statusText}`);
-  }
-
-  const blob = await response.blob();
-  const downloadUrl = window.URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = downloadUrl;
-  link.download = `alert-center-${new Date().toISOString().split('T')[0]}.json`;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  window.URL.revokeObjectURL(downloadUrl);
+  await handleLogExportResponse(
+    response,
+    `alert-center-${new Date().toISOString().split('T')[0]}.json`,
+    options
+  );
 };
 
-export const exportAlertCenterLogsToCsv = async (filters?: {
+export const exportAlertCenterLogsToCsv = async (
+  filters?: {
   status?: string;
   channel?: string;
   type?: string;
@@ -588,7 +585,9 @@ export const exportAlertCenterLogsToCsv = async (filters?: {
   startDate?: string;
   endDate?: string;
   limit?: number;
-}): Promise<void> => {
+},
+  options?: LogExportOptions
+): Promise<void> => {
   const params = new URLSearchParams();
   if (filters?.status) params.set('status', filters.status);
   if (filters?.channel) params.set('channel', filters.channel);
@@ -597,6 +596,7 @@ export const exportAlertCenterLogsToCsv = async (filters?: {
   if (filters?.startDate) params.set('startDate', filters.startDate);
   if (filters?.endDate) params.set('endDate', filters.endDate);
   if (filters?.limit) params.set('limit', String(filters.limit));
+  params.set('async', 'true');
   const query = params.toString();
   const url = `${API_BASE_URL}/alert-center/export/csv${query ? `?${query}` : ''}`;
 
@@ -604,19 +604,11 @@ export const exportAlertCenterLogsToCsv = async (filters?: {
     headers: buildAuthHeaders()
   });
 
-  if (!response.ok) {
-    throw new Error(`Export failed: ${response.statusText}`);
-  }
-
-  const blob = await response.blob();
-  const downloadUrl = window.URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = downloadUrl;
-  link.download = `alert-center-${new Date().toISOString().split('T')[0]}.csv`;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  window.URL.revokeObjectURL(downloadUrl);
+  await handleLogExportResponse(
+    response,
+    `alert-center-${new Date().toISOString().split('T')[0]}.csv`,
+    options
+  );
 };
 
 export const getAlertCenterStatus = async (): Promise<{
@@ -945,7 +937,8 @@ export const getEventAuditCheckpoints = async (source?: string): Promise<any[]> 
 export const getEventAuditGaps = async (source: string, hoursBack: number = 24): Promise<any> =>
   request(`/events/gaps?source=${encodeURIComponent(source)}&hoursBack=${hoursBack}`);
 
-export const exportEventAuditToCsv = async (filters?: {
+export const exportEventAuditToCsv = async (
+  filters?: {
   status?: string;
   eventType?: string;
   source?: string;
@@ -954,13 +947,17 @@ export const exportEventAuditToCsv = async (filters?: {
   endDate?: string;
   limit?: number;
   timeoutMs?: number;
-}): Promise<void> => {
+},
+  options?: LogExportOptions
+): Promise<void> => {
   const params = new URLSearchParams();
 
   const orgId = getCurrentOrgId();
   if (orgId && orgId > 0) {
     params.set('orgId', String(orgId));
   }
+  // Route exports through background jobs to keep the UI responsive.
+  params.set('async', 'true');
 
   if (filters?.status) params.set('status', filters.status);
   if (filters?.eventType) params.set('eventType', filters.eventType);
@@ -970,6 +967,7 @@ export const exportEventAuditToCsv = async (filters?: {
   if (filters?.endDate) params.set('endDate', filters.endDate);
   if (filters?.limit) params.set('limit', String(filters.limit));
   if (filters?.timeoutMs) params.set('timeoutMs', String(filters.timeoutMs));
+  params.set('async', 'true');
 
   const query = params.toString();
   const url = `${API_BASE_URL}/events/export${query ? `?${query}` : ''}`;
@@ -978,29 +976,110 @@ export const exportEventAuditToCsv = async (filters?: {
     headers: buildAuthHeaders()
   });
 
-  if (!response.ok) {
-    throw new Error(`Export failed: ${response.statusText}`);
-  }
+  await handleLogExportResponse(
+    response,
+    `event-audit-${new Date().toISOString().split('T')[0]}.csv`,
+    options
+  );
+};
 
+type LogExportFormat = 'csv' | 'json';
+
+type LogExportFilters = {
+  status?: string;
+  integrationId?: string;
+  search?: string;
+  dateRange?: [string, string];
+  direction?: string;
+  triggerType?: string;
+};
+
+type LogExportJobStatus = 'QUEUED' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+
+type LogExportJobResponse = {
+  jobId: string;
+  status: LogExportJobStatus;
+  format: LogExportFormat;
+  totalRecords: number;
+  processedRecords: number;
+  fileSizeBytes: number;
+  fileName?: string | null;
+  errorMessage?: string | null;
+  statusPath?: string;
+  downloadPath?: string;
+};
+
+type LogExportProgress = {
+  status: LogExportJobStatus;
+  processedRecords?: number;
+  totalRecords?: number;
+  fileSizeBytes?: number;
+};
+
+type LogExportOptions = {
+  onProgress?: (progress: LogExportProgress) => void;
+};
+
+const parseFileNameFromDisposition = (contentDisposition: string | null, fallbackName: string): string => {
+  if (!contentDisposition) return fallbackName;
+  const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utf8Match?.[1]) {
+    try {
+      return decodeURIComponent(utf8Match[1]);
+    } catch {
+      return utf8Match[1];
+    }
+  }
+  const basicMatch = contentDisposition.match(/filename="?([^"]+)"?/i);
+  return basicMatch?.[1] || fallbackName;
+};
+
+const downloadResponseBlob = async (response: Response, fallbackName: string): Promise<void> => {
   const blob = await response.blob();
+  const contentDisposition = response.headers.get('content-disposition');
+  const filename = parseFileNameFromDisposition(contentDisposition, fallbackName);
   const downloadUrl = window.URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = downloadUrl;
-  link.download = `event-audit-${new Date().toISOString().split('T')[0]}.csv`;
+  link.download = filename;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
   window.URL.revokeObjectURL(downloadUrl);
 };
 
-export const exportLogsToCsv = async (filters?: { status?: string; integrationId?: string; search?: string; dateRange?: [string, string]; direction?: string; triggerType?: string }): Promise<void> => {
+const appendOrgIdParam = (url: string): string => {
+  const orgId = getCurrentOrgId();
+  if (!orgId || orgId <= 0) return url;
+  if (url.includes('orgId=')) return url;
+  const separator = url.includes('?') ? '&' : '?';
+  return `${url}${separator}orgId=${orgId}`;
+};
+
+const normalizeExportJobUrl = (pathOrUrl: string): string => {
+  if (!pathOrUrl) return pathOrUrl;
+  let fullUrl;
+  if (/^https?:\/\//i.test(pathOrUrl)) {
+    fullUrl = pathOrUrl;
+  } else {
+    try {
+      fullUrl = new URL(pathOrUrl, API_BASE_URL).toString();
+    } catch {
+      fullUrl = `${API_BASE_URL}${pathOrUrl}`;
+    }
+  }
+  return appendOrgIdParam(fullUrl);
+};
+
+const buildLogExportParams = (filters?: LogExportFilters): URLSearchParams => {
   const params = new URLSearchParams();
 
-  // Add orgId - CRITICAL for multi-tenant filtering
   const orgId = getCurrentOrgId();
   if (orgId && orgId > 0) {
     params.set('orgId', String(orgId));
   }
+  // Route exports through background jobs to keep the UI responsive.
+  params.set('async', 'true');
 
   if (filters?.status) params.set('status', filters.status);
   if (filters?.integrationId) params.set('integrationId', filters.integrationId);
@@ -1011,6 +1090,94 @@ export const exportLogsToCsv = async (filters?: { status?: string; integrationId
     params.set('startDate', filters.dateRange[0]);
     params.set('endDate', filters.dateRange[1]);
   }
+  return params;
+};
+
+const buildLogExportJobUrl = (jobId: string, suffix: '' | '/download' = ''): string => {
+  const params = new URLSearchParams();
+  const orgId = getCurrentOrgId();
+  if (orgId && orgId > 0) {
+    params.set('orgId', String(orgId));
+  }
+  const query = params.toString();
+  return `${API_BASE_URL}/logs/export/jobs/${encodeURIComponent(jobId)}${suffix}${query ? `?${query}` : ''}`;
+};
+
+const waitForExportJobCompletion = async (
+  statusUrl: string,
+  options?: LogExportOptions
+): Promise<LogExportJobResponse> => {
+  const timeoutMs = 30 * 60 * 1000; // 30 minutes
+  const pollEveryMs = 1500;
+  const startedAt = Date.now();
+
+  while (true) {
+    const response = await fetch(statusUrl, {
+      headers: buildAuthHeaders()
+    });
+    if (!response.ok) {
+      throw new Error(`Export job status check failed: ${response.statusText}`);
+    }
+    const job = await response.json() as LogExportJobResponse;
+    options?.onProgress?.({
+      status: job.status,
+      processedRecords: job.processedRecords,
+      totalRecords: job.totalRecords,
+      fileSizeBytes: job.fileSizeBytes
+    });
+    if (job.status === 'COMPLETED') {
+      return job;
+    }
+    if (job.status === 'FAILED') {
+      throw new Error(job.errorMessage || 'Export job failed');
+    }
+    if (Date.now() - startedAt > timeoutMs) {
+      throw new Error('Export job timed out');
+    }
+    await sleep(pollEveryMs);
+  }
+};
+
+const handleLogExportResponse = async (
+  response: Response,
+  fallbackFileName: string,
+  options?: LogExportOptions
+): Promise<void> => {
+  if (response.status === 202) {
+    const queuedJob = await response.json() as LogExportJobResponse;
+    options?.onProgress?.({
+      status: queuedJob.status,
+      processedRecords: queuedJob.processedRecords,
+      totalRecords: queuedJob.totalRecords,
+      fileSizeBytes: queuedJob.fileSizeBytes
+    });
+    const statusUrl = queuedJob.statusPath
+      ? normalizeExportJobUrl(queuedJob.statusPath)
+      : buildLogExportJobUrl(queuedJob.jobId);
+    const downloadUrl = queuedJob.downloadPath
+      ? normalizeExportJobUrl(queuedJob.downloadPath)
+      : buildLogExportJobUrl(queuedJob.jobId, '/download');
+    const completedJob = await waitForExportJobCompletion(statusUrl, options);
+    const downloadResponse = await fetch(downloadUrl, {
+      headers: buildAuthHeadersNoContentType()
+    });
+    if (!downloadResponse.ok) {
+      throw new Error(`Export download failed: ${downloadResponse.statusText}`);
+    }
+    await downloadResponseBlob(downloadResponse, completedJob.fileName || fallbackFileName);
+    return;
+  }
+
+  if (!response.ok) {
+    throw new Error(`Export failed: ${response.statusText}`);
+  }
+
+  options?.onProgress?.({ status: 'COMPLETED' });
+  await downloadResponseBlob(response, fallbackFileName);
+};
+
+export const exportLogsToCsv = async (filters?: LogExportFilters, options?: LogExportOptions): Promise<void> => {
+  const params = buildLogExportParams(filters);
   const query = params.toString();
   const url = `${API_BASE_URL}/logs/export${query ? `?${query}` : ''}`;
 
@@ -1018,19 +1185,11 @@ export const exportLogsToCsv = async (filters?: { status?: string; integrationId
     headers: buildAuthHeaders()
   });
 
-  if (!response.ok) {
-    throw new Error(`Export failed: ${response.statusText}`);
-  }
-
-  const blob = await response.blob();
-  const downloadUrl = window.URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = downloadUrl;
-  link.download = `integration-logs-${new Date().toISOString().split('T')[0]}.csv`;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  window.URL.revokeObjectURL(downloadUrl);
+  await handleLogExportResponse(
+    response,
+    `integration-logs-${new Date().toISOString().split('T')[0]}.csv`,
+    options
+  );
 };
 
 export const insertTestNotificationQueueEvents = async (input: {
@@ -1053,12 +1212,17 @@ export const insertTestNotificationQueueEvents = async (input: {
 };
 
 // Export selected delivery logs by IDs (server-side)
-export const exportSelectedLogs = async (ids: string[], format: 'csv' | 'json' = 'json'): Promise<void> => {
+export const exportSelectedLogs = async (
+  ids: string[],
+  format: 'csv' | 'json' = 'json',
+  options?: LogExportOptions
+): Promise<void> => {
   const params = new URLSearchParams();
   const orgId = getCurrentOrgId();
   if (orgId && orgId > 0) {
     params.set('orgId', String(orgId));
   }
+  params.set('async', 'true');
 
   const query = params.toString();
   const url = `${API_BASE_URL}/logs/export/selected${query ? `?${query}` : ''}`;
@@ -1069,39 +1233,15 @@ export const exportSelectedLogs = async (ids: string[], format: 'csv' | 'json' =
     body: JSON.stringify({ ids, format })
   });
 
-  if (!response.ok) {
-    throw new Error(`Export failed: ${response.statusText}`);
-  }
-
-  const blob = await response.blob();
-  const downloadUrl = window.URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = downloadUrl;
-  link.download = `integration-logs-selected-${ids.length}-${new Date().toISOString().split('T')[0]}.${format}`;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  window.URL.revokeObjectURL(downloadUrl);
+  await handleLogExportResponse(
+    response,
+    `integration-logs-selected-${ids.length}-${new Date().toISOString().split('T')[0]}.${format}`,
+    options
+  );
 };
 
-export const exportLogsToJson = async (filters?: { status?: string; integrationId?: string; search?: string; dateRange?: [string, string]; direction?: string; triggerType?: string }): Promise<void> => {
-  const params = new URLSearchParams();
-
-  // Add orgId - CRITICAL for multi-tenant filtering
-  const orgId = getCurrentOrgId();
-  if (orgId && orgId > 0) {
-    params.set('orgId', String(orgId));
-  }
-
-  if (filters?.status) params.set('status', filters.status);
-  if (filters?.integrationId) params.set('integrationId', filters.integrationId);
-  if (filters?.search) params.set('search', filters.search);
-  if (filters?.direction) params.set('direction', filters.direction);
-  if (filters?.triggerType) params.set('triggerType', filters.triggerType);
-  if (filters?.dateRange) {
-    params.set('startDate', filters.dateRange[0]);
-    params.set('endDate', filters.dateRange[1]);
-  }
+export const exportLogsToJson = async (filters?: LogExportFilters, options?: LogExportOptions): Promise<void> => {
+  const params = buildLogExportParams(filters);
   const query = params.toString();
   const url = `${API_BASE_URL}/logs/export/json${query ? `?${query}` : ''}`;
 
@@ -1109,19 +1249,11 @@ export const exportLogsToJson = async (filters?: { status?: string; integrationI
     headers: buildAuthHeaders()
   });
 
-  if (!response.ok) {
-    throw new Error(`Export failed: ${response.statusText}`);
-  }
-
-  const blob = await response.blob();
-  const downloadUrl = window.URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = downloadUrl;
-  link.download = `integration-logs-${new Date().toISOString().split('T')[0]}.json`;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  window.URL.revokeObjectURL(downloadUrl);
+  await handleLogExportResponse(
+    response,
+    `integration-logs-${new Date().toISOString().split('T')[0]}.json`,
+    options
+  );
 };
 
 // System logs
@@ -1189,19 +1321,23 @@ export const getSystemLogs = async (params?: {
 };
 
 // Export system logs as JSON
-export const exportSystemLogsToJson = async (filters?: {
+export const exportSystemLogsToJson = async (
+  filters?: {
   level?: string;
   search?: string;
   errorCategory?: string;
   pollId?: string;
   limit?: number;
-}): Promise<void> => {
+},
+  options?: LogExportOptions
+): Promise<void> => {
   const params = new URLSearchParams();
   if (filters?.level) params.set('level', filters.level);
   if (filters?.search) params.set('search', filters.search);
   if (filters?.errorCategory) params.set('errorCategory', filters.errorCategory);
   if (filters?.pollId) params.set('pollId', filters.pollId);
   if (filters?.limit) params.set('limit', filters.limit.toString());
+  params.set('async', 'true');
 
   const query = params.toString();
   const url = `${API_BASE_URL}/system-logs/export/json${query ? `?${query}` : ''}`;
@@ -1210,35 +1346,31 @@ export const exportSystemLogsToJson = async (filters?: {
     headers: buildAuthHeaders()
   });
 
-  if (!response.ok) {
-    throw new Error(`Export failed: ${response.statusText}`);
-  }
-
-  const blob = await response.blob();
-  const downloadUrl = window.URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = downloadUrl;
-  link.download = `system-logs-${new Date().toISOString().split('T')[0]}.json`;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  window.URL.revokeObjectURL(downloadUrl);
+  await handleLogExportResponse(
+    response,
+    `system-logs-${new Date().toISOString().split('T')[0]}.json`,
+    options
+  );
 };
 
 // Export system logs as CSV
-export const exportSystemLogsToCsv = async (filters?: {
+export const exportSystemLogsToCsv = async (
+  filters?: {
   level?: string;
   search?: string;
   errorCategory?: string;
   pollId?: string;
   limit?: number;
-}): Promise<void> => {
+},
+  options?: LogExportOptions
+): Promise<void> => {
   const params = new URLSearchParams();
   if (filters?.level) params.set('level', filters.level);
   if (filters?.search) params.set('search', filters.search);
   if (filters?.errorCategory) params.set('errorCategory', filters.errorCategory);
   if (filters?.pollId) params.set('pollId', filters.pollId);
   if (filters?.limit) params.set('limit', filters.limit.toString());
+  params.set('async', 'true');
 
   const query = params.toString();
   const url = `${API_BASE_URL}/system-logs/export/csv${query ? `?${query}` : ''}`;
@@ -1247,19 +1379,11 @@ export const exportSystemLogsToCsv = async (filters?: {
     headers: buildAuthHeaders()
   });
 
-  if (!response.ok) {
-    throw new Error(`Export failed: ${response.statusText}`);
-  }
-
-  const blob = await response.blob();
-  const downloadUrl = window.URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = downloadUrl;
-  link.download = `system-logs-${new Date().toISOString().split('T')[0]}.csv`;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  window.URL.revokeObjectURL(downloadUrl);
+  await handleLogExportResponse(
+    response,
+    `system-logs-${new Date().toISOString().split('T')[0]}.csv`,
+    options
+  );
 };
 
 // Clear all system logs (with archive)

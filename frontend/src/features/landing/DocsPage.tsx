@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { ThemeProvider } from '../../hooks/useTheme';
 import { useTheme } from '../../hooks/useTheme';
 import { Sun, Moon, ArrowLeft, Menu, X } from 'lucide-react';
@@ -15,12 +16,28 @@ import emailNotifications from './docs/email-notifications.md?raw';
 import failureAlerts from './docs/failure-alerts.md?raw';
 import rbac from './docs/rbac.md?raw';
 import analyticsReports from './docs/analytics-reports.md?raw';
+import deadLetterQueue from './docs/dead-letter-queue.md?raw';
+import lookupTables from './docs/lookup-tables.md?raw';
+import aiAssistant from './docs/ai-assistant.md?raw';
+import webhookSecurity from './docs/webhook-security.md?raw';
+import versioning from './docs/versioning.md?raw';
+import eventSources from './docs/event-sources.md?raw';
+import bulkOperations from './docs/bulk-operations.md?raw';
+import alertCenter from './docs/alert-center.md?raw';
 
 const docs = [
   { slug: 'outbound-delivery',   title: 'Outbound Event Delivery', content: outboundDelivery },
   { slug: 'inbound-proxy',       title: 'Inbound API Proxy',       content: inboundProxy },
   { slug: 'scheduled-automation',title: 'Scheduled Automation',    content: scheduledAutomation },
   { slug: 'data-transformation', title: 'Data Transformation',     content: dataTransformation },
+  { slug: 'dead-letter-queue',   title: 'Dead Letter Queue',       content: deadLetterQueue },
+  { slug: 'webhook-security',    title: 'Webhook Security',        content: webhookSecurity },
+  { slug: 'lookup-tables',       title: 'Lookup Tables',           content: lookupTables },
+  { slug: 'versioning',          title: 'Versioning & Templates',  content: versioning },
+  { slug: 'ai-assistant',        title: 'AI Assistant',            content: aiAssistant },
+  { slug: 'event-sources',       title: 'Event Sources',           content: eventSources },
+  { slug: 'bulk-operations',     title: 'Bulk Operations',         content: bulkOperations },
+  { slug: 'alert-center',        title: 'Alert Center',            content: alertCenter },
   { slug: 'email-notifications', title: 'Email Notifications',     content: emailNotifications },
   { slug: 'failure-alerts',      title: 'Failure Alerts',          content: failureAlerts },
   { slug: 'rbac',                title: 'Role-Based Access Control', content: rbac },
@@ -221,7 +238,7 @@ function DocsPageContent() {
       >
         <div style={{ maxWidth: 780 }}>
           <div className="docs-content">
-            <ReactMarkdown>{currentDoc.content}</ReactMarkdown>
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{currentDoc.content}</ReactMarkdown>
           </div>
 
           {/* Prev / Next */}

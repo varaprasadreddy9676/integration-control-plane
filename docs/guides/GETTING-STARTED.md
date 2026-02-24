@@ -146,7 +146,7 @@ backend/logs/
 ```bash
 tail -f backend/logs/gateway.log         # Real-time
 grep -i error backend/logs/gateway.log   # Search errors
-pm2 logs medics-gateway                  # If using PM2
+pm2 logs integration-gateway                  # If using PM2
 docker compose logs -f gateway           # If using Docker
 ```
 
@@ -158,7 +158,7 @@ find backend/logs/ -mtime +7 -delete     # Delete old logs
 ```
 
 ### Automatic rotation
-Create `/etc/logrotate.d/medics-gateway`:
+Create `/etc/logrotate.d/integration-gateway`:
 ```bash
 /path/to/integration-control-plane/backend/logs/*.log {
     daily
@@ -174,10 +174,10 @@ Create `/etc/logrotate.d/medics-gateway`:
 
 ### PM2 (Recommended)
 ```bash
-pm2 restart medics-gateway    # Restart
-pm2 reload medics-gateway     # Zero-downtime reload
-pm2 stop medics-gateway       # Stop
-pm2 start medics-gateway      # Start
+pm2 restart integration-gateway    # Restart
+pm2 reload integration-gateway     # Zero-downtime reload
+pm2 stop integration-gateway       # Stop
+pm2 start integration-gateway      # Start
 pm2 status                    # Check status
 ```
 
@@ -190,10 +190,10 @@ docker compose down && docker compose up -d  # Full restart
 
 ### systemd
 ```bash
-sudo systemctl restart medics-gateway
-sudo systemctl stop medics-gateway
-sudo systemctl start medics-gateway
-sudo systemctl status medics-gateway
+sudo systemctl restart integration-gateway
+sudo systemctl stop integration-gateway
+sudo systemctl start integration-gateway
+sudo systemctl status integration-gateway
 ```
 
 ### Manual

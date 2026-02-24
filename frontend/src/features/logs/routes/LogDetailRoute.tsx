@@ -98,7 +98,13 @@ export const LogDetailRoute = () => {
   ]);
 
   // Generate curl command using actual request headers (unredacted for debugging)
-  const generateCurlCommand = (config: any, payload: any, requestHeaders?: any, direction?: string) => {
+  const generateCurlCommand = (
+    config: any,
+    payload: any,
+    requestHeaders?: any,
+    direction?: string,
+    requestSnapshot?: { url?: string | null; method?: string | null; query?: Record<string, unknown> }
+  ) => {
     if (!payload) return '';
 
     const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api/v1';
@@ -107,9 +113,25 @@ export const LogDetailRoute = () => {
     let httpMethod: string;
 
     if (direction === 'INBOUND') {
-      // For inbound requests, reconstruct the gateway endpoint URL
-      targetUrl = `${apiBase}/integrations/${config?.type || 'integration'}?orgId=${orgId}`;
-      httpMethod = 'POST';
+      const requestUrl = typeof requestSnapshot?.url === 'string' && requestSnapshot.url.trim()
+        ? requestSnapshot.url.trim()
+        : `/api/v1/integrations/${config?.type || 'integration'}?orgId=${orgId}`;
+
+      if (/^https?:\/\//i.test(requestUrl)) {
+        targetUrl = requestUrl;
+      } else {
+        const apiOrigin = (() => {
+          try {
+            return new URL(apiBase).origin;
+          } catch {
+            return '';
+          }
+        })();
+        const normalizedPath = requestUrl.startsWith('/') ? requestUrl : `/${requestUrl}`;
+        targetUrl = `${apiOrigin}${normalizedPath}`;
+      }
+
+      httpMethod = String(requestSnapshot?.method || 'GET').toUpperCase();
     } else {
       targetUrl = config?.targetUrl || '';
       httpMethod = config?.httpMethod || 'POST';
@@ -117,7 +139,21 @@ export const LogDetailRoute = () => {
 
     let curl = `curl --location '${targetUrl}'`;
 
-    if (requestHeaders && typeof requestHeaders === 'object') {
+    if (direction === 'INBOUND') {
+      const gatewayApiKey = import.meta.env.VITE_API_KEY || 'YOUR_API_KEY';
+      curl += ` \\\n  --header 'X-API-Key: ${gatewayApiKey}'`;
+
+      if (config?.inboundAuthType === 'BEARER') {
+        curl += ` \\\n  --header 'Authorization: Bearer <INBOUND_TOKEN>'`;
+      } else if (config?.inboundAuthType === 'BASIC') {
+        curl += ` \\\n  --header 'Authorization: Basic <BASE64_USER_PASS>'`;
+      } else if (config?.inboundAuthType === 'API_KEY' && config?.inboundAuthConfig?.headerName) {
+        const headerName = String(config.inboundAuthConfig.headerName);
+        if (headerName.toLowerCase() !== 'x-api-key') {
+          curl += ` \\\n  --header '${headerName}: <INBOUND_API_KEY>'`;
+        }
+      }
+    } else if (requestHeaders && typeof requestHeaders === 'object') {
       Object.entries(requestHeaders).forEach(([key, value]) => {
         if (!SKIP_HEADERS.has(key.toLowerCase())) {
           curl += ` \\\n  --header '${key}: ${value}'`;
@@ -137,7 +173,9 @@ export const LogDetailRoute = () => {
       }
     }
 
-    curl += ` \\\n  --data-raw '${JSON.stringify(payload, null, 2)}'`;
+    if (httpMethod !== 'GET') {
+      curl += ` \\\n  --data-raw '${JSON.stringify(payload, null, 2)}'`;
+    }
 
     return curl;
   };
@@ -1034,7 +1072,11 @@ export const LogDetailRoute = () => {
                       <Button
                         size="small"
                         icon={<CopyOutlined />}
-                        onClick={() => copyToClipboard(generateCurlCommand(integration, data.requestPayload, data.requestHeaders, data.direction))}
+                        onClick={() =>
+                          copyToClipboard(
+                            generateCurlCommand(integration, data.requestPayload, data.requestHeaders, data.direction, data.request)
+                          )
+                        }
                         style={{ position: 'absolute', top: 8, right: 8, zIndex: 1 }}
                       >
                         Copy cURL
@@ -1054,7 +1096,7 @@ export const LogDetailRoute = () => {
                           fontFamily: 'Monaco, Consolas, "Courier New", monospace'
                         }}
                       >
-                        {generateCurlCommand(integration, data.requestPayload, data.requestHeaders, data.direction)}
+                        {generateCurlCommand(integration, data.requestPayload, data.requestHeaders, data.direction, data.request)}
                       </pre>
                     </div>
                   </div>

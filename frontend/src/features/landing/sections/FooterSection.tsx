@@ -239,7 +239,7 @@ export default function FooterSection({ onLoginClick }: FooterSectionProps) {
               style={{ borderColor: 'var(--card-border)' }}
             >
               <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-                © {new Date().getFullYear()} Integration Gateway — MIT Licensed, open source.
+                © {new Date().getFullYear()} Integration Gateway — AGPL v3, open source.
               </p>
               <div className="flex items-center gap-6">
                 {['Privacy Policy', 'Terms of Service'].map((label) => (

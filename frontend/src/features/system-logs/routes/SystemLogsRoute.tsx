@@ -237,6 +237,7 @@ export default function SystemLogsRoute() {
         errorCategory: errorCategoryFilter || undefined,
         pollId: pollIdFilter || undefined
       };
+      const { onProgress, finish } = createExportProgress(`Export ${format.toUpperCase()}`);
 
       if (exportType === 'selected') {
         if (selectedRowKeys.length === 0) {
@@ -252,20 +253,20 @@ export default function SystemLogsRoute() {
         // Server-side export with poll ID filter
         const pollIdList = selectedPollIds.join(',');
         if (format === 'csv') {
-          await exportSystemLogsToCsv({ ...filters, pollId: pollIdList });
+          await exportSystemLogsToCsv({ ...filters, pollId: pollIdList }, { onProgress });
         } else {
-          await exportSystemLogsToJson({ ...filters, pollId: pollIdList });
+          await exportSystemLogsToJson({ ...filters, pollId: pollIdList }, { onProgress });
         }
-        msgApi.success(`Exported ${selectedRowKeys.length} poll cycle(s) as ${format.toUpperCase()}`);
+        finish(`Exported ${selectedRowKeys.length} poll cycle(s)`);
       } else {
         // For all/filtered, use backend export
         if (format === 'csv') {
-          await exportSystemLogsToCsv(exportType === 'all' ? {} : filters);
+          await exportSystemLogsToCsv(exportType === 'all' ? {} : filters, { onProgress });
         } else {
-          await exportSystemLogsToJson(exportType === 'all' ? {} : filters);
+          await exportSystemLogsToJson(exportType === 'all' ? {} : filters, { onProgress });
         }
         const count = exportType === 'filtered' && hasActiveFilters ? pollGroups.length : logs.length;
-        msgApi.success(`Exported ${count} log(s) as ${format.toUpperCase()}`);
+        finish(`Exported ${count} log(s)`);
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to export logs';
@@ -301,9 +302,10 @@ export default function SystemLogsRoute() {
   const handleDownloadPollCycle = async (group: PollGroupRow) => {
     try {
       setExportLoading(true);
+      const { onProgress, finish } = createExportProgress('Download JSON');
       // Use server-side export with specific poll ID
-      await exportSystemLogsToJson({ pollId: group.pollId });
-      msgApi.success(`Downloaded poll cycle ${group.pollId} as JSON`);
+      await exportSystemLogsToJson({ pollId: group.pollId }, { onProgress });
+      finish(`Downloaded poll cycle ${group.pollId}`);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to download poll cycle';
       msgApi.error(errorMessage);
@@ -332,6 +334,67 @@ export default function SystemLogsRoute() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const createExportProgress = (label: string) => {
+    const key = `export-${Date.now()}`;
+    const startedAt = Date.now();
+    msgApi.open({ key, type: 'loading', content: `${label}: queued`, duration: 0 });
+
+    const formatBytes = (value: number) => {
+      if (!Number.isFinite(value) || value <= 0) return '';
+      const units = ['B', 'KB', 'MB', 'GB'];
+      let idx = 0;
+      let size = value;
+      while (size >= 1024 && idx < units.length - 1) {
+        size /= 1024;
+        idx += 1;
+      }
+      return `${size.toFixed(size >= 10 || idx === 0 ? 0 : 1)} ${units[idx]}`;
+    };
+
+    const formatEta = (processed: number, total: number) => {
+      const elapsedSec = (Date.now() - startedAt) / 1000;
+      if (!Number.isFinite(elapsedSec) || elapsedSec <= 0 || processed <= 0 || total <= processed) {
+        return '';
+      }
+      const rate = processed / elapsedSec;
+      if (!Number.isFinite(rate) || rate <= 0) return '';
+      const remainingSec = Math.max(0, Math.round((total - processed) / rate));
+      const mins = Math.floor(remainingSec / 60);
+      const secs = remainingSec % 60;
+      if (mins <= 0) return `${secs}s`;
+      return `${mins}m ${secs}s`;
+    };
+
+    const onProgress = (progress: { status: string; processedRecords?: number; totalRecords?: number; fileSizeBytes?: number }) => {
+      const total = progress.totalRecords ?? 0;
+      const processed = progress.processedRecords ?? 0;
+      const statusLabel = progress.status === 'PROCESSING'
+        ? 'Processing'
+        : progress.status === 'COMPLETED'
+          ? 'Finalizing'
+          : progress.status === 'FAILED'
+            ? 'Failed'
+            : 'Queued';
+      const countLabel = total > 0 ? `${processed}/${total}` : processed > 0 ? `${processed}` : '';
+      const sizeLabel = progress.fileSizeBytes ? formatBytes(progress.fileSizeBytes) : '';
+      const etaLabel = formatEta(processed, total);
+      const etaDisplay = !etaLabel && sizeLabel ? 'eta unknown' : etaLabel ? `eta ${etaLabel}` : '';
+      const extraLabel = [sizeLabel && `size ${sizeLabel}`, etaDisplay].filter(Boolean).join(' · ');
+      msgApi.open({
+        key,
+        type: 'loading',
+        content: `${label}: ${statusLabel}${countLabel ? ` (${countLabel})` : ''}${extraLabel ? ` · ${extraLabel}` : ''}`,
+        duration: 0
+      });
+    };
+
+    const finish = (message: string, isError = false) => {
+      msgApi.open({ key, type: isError ? 'error' : 'success', content: message, duration: 2 });
+    };
+
+    return { onProgress, finish };
   };
 
   useEffect(() => {
@@ -428,11 +491,10 @@ export default function SystemLogsRoute() {
                 size="small"
                 icon={<DownloadOutlined />}
                 onClick={() => handleDownloadPollCycle(group)}
-                loading={exportLoading}
                 disabled={exportLoading}
                 style={{ borderRadius: borderRadius.full }}
               >
-                {exportLoading ? 'Downloading...' : 'Download JSON'}
+                Download JSON
               </Button>
             </Space>
           </div>
@@ -955,8 +1017,8 @@ export default function SystemLogsRoute() {
                     ]
                   }}
                 >
-                  <Button icon={<DownloadOutlined />} loading={exportLoading} size="small">
-                    {exportLoading ? 'Exporting...' : 'Export logs'}
+                  <Button icon={<DownloadOutlined />} disabled={exportLoading} size="small">
+                    Export logs
                   </Button>
                 </Dropdown>
                 <Button

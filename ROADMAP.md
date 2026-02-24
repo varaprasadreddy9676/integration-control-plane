@@ -603,4 +603,4 @@ Features are prioritized based on:
 
 **Maintainers**: Integration Gateway Core Team
 
-**License**: MIT
+**License**: AGPL v3.0

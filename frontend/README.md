@@ -9,9 +9,9 @@ React + TypeScript console for managing bi-directional integrations, scheduled b
 ## Quick Start
 1. **Install dependencies**: `npm install`
 2. **Configure `.env`** (copy from `.env.example`):
-   - `VITE_API_BASE_URL` - Backend API URL (e.g., `http://localhost:4000/api/v1`)
-   - `VITE_API_KEY` - Tenant API key from backend
-   - `VITE_DEFAULT_ENTITY_PARENT_RID` - Default tenant/entity RID
+   - `VITE_API_BASE_URL` - Backend API URL (e.g., `http://localhost:3545/api/v1`)
+   - `VITE_API_KEY` - API key matching `security.apiKey` in backend config
+   - `VITE_APP_NAME` - Display name (optional, default: Integration Gateway)
 3. **Run dev server**: `npm run dev`
 4. **Build for production**: `npm run build`
 
@@ -19,12 +19,16 @@ React + TypeScript console for managing bi-directional integrations, scheduled b
 
 ### Tech Stack
 - **Frontend**: React 18, TypeScript 5, Vite 5
-- **UI Library**: Ant Design 5 (enterprise-grade components)
+- **UI Libraries**: Ant Design 5 + Shadcn/RadixUI + TailwindCSS
 - **Routing**: React Router 6
-- **State Management**: TanStack Query (React Query) for server state
-- **HTTP Client**: Fetch API with custom request wrapper
-- **Code Editor**: Monaco Editor (VS Code editor component)
-- **Styling**: Ant Design + custom design tokens
+- **State Management**: TanStack Query 5 (server state) + React Context (auth/tenant/theme)
+- **Forms**: React Hook Form + @hookform/resolvers
+- **HTTP Client**: Axios with interceptors (auth, token refresh, retry)
+- **Code Editor**: Monaco Editor (SQL, JS, MongoDB queries)
+- **Charts**: Recharts
+- **Animations**: Framer Motion + GSAP
+- **Flows**: ReactFlow (visual workflow builder)
+- **Linting**: Biome (not ESLint/Prettier)
 
 ### Project Structure
 ```
@@ -114,13 +118,26 @@ frontend/
 ### 5. Admin
 - **Organization Management**: CRUD operations for orgs and org units
 - **User Management**: Create users, assign roles, manage permissions
+- **Storage Stats**: Database collection size and storage usage
+- **Portal Embedding**: Generate magic links for iframe-embeddable webhook portal
 - **Rate Limit Configuration**: Global and per-tenant rate limits
 - **Audit Logs**: Track all admin actions
 
 ### 6. Settings
-- **API Key Management**: Create, view, revoke API keys
+- **Event Source Settings**: Configure MySQL, Kafka, and HTTP Push per org
+- **MySQL Pool Settings**: Runtime-configurable connection pool limits
 - **Tenant Context**: View current tenant information
 - **UI Configuration**: Customize available features per tenant
+
+### 7. Additional Features
+- **Integration Versioning**: Full version history with diff view
+- **Lookup Tables**: Import/export via XLSX, reverse lookup, statistics
+- **Integration Templates**: Reusable configs with one-click deploy
+- **Visual Flow Builder**: Drag-and-drop workflow creation (ReactFlow)
+- **Bulk Operations**: XLSX import/export, bulk enable/disable
+- **Alert Center**: Categorized alerts with trends and statistics
+- **Analytics**: Time-series performance metrics and event analytics
+- **AI Assistant**: Chat interface with 4 AI provider support per org
 
 ## Integration Configuration UI
 
@@ -244,24 +261,19 @@ npm run preview
 
 ### Environment Variables
 ```bash
-# .env.development
-VITE_API_BASE_URL=http://localhost:4000/api/v1
-VITE_API_KEY=your-dev-api-key
-VITE_DEFAULT_ENTITY_PARENT_RID=648
-
-# .env.production
-VITE_API_BASE_URL=https://api.production.com/api/v1
-VITE_API_KEY=your-prod-api-key
-VITE_DEFAULT_ENTITY_PARENT_RID=648
+# .env (copy from .env.example)
+VITE_API_BASE_URL=http://localhost:3545/api/v1
+VITE_API_KEY=your-api-key
+VITE_APP_NAME=Integration Gateway
+VITE_APP_VERSION=2.0.0
 ```
 
 ### Code Style
 - **TypeScript**: Strict mode enabled
-- **Formatting**: Prettier (automatic on save)
-- **Linting**: ESLint with React + TypeScript rules
+- **Formatting + Linting**: Biome (not Prettier or ESLint) — run `npm run check:fix` to auto-fix
 - **Naming**: camelCase for variables, PascalCase for components
 - **Components**: Functional components with hooks
-- **State Management**: React Query for server state, useState for local state
+- **State Management**: TanStack Query for server state, useState/Context for local state
 
 ### Performance Optimizations
 - **Code Splitting**: Route-based lazy loading
@@ -402,7 +414,7 @@ refactor: extract cron builder to separate component
 
 ## License
 
-Proprietary - Internal use only
+[GNU Affero General Public License v3.0](../LICENSE)
 
 ## Support
 

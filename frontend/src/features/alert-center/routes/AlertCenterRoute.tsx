@@ -263,6 +263,67 @@ export const AlertCenterRoute = () => {
     }
   };
 
+  const createExportProgress = (label: string) => {
+    const key = `export-${Date.now()}`;
+    const startedAt = Date.now();
+    msgApi.open({ key, type: 'loading', content: `${label}: queued`, duration: 0 });
+
+    const formatBytes = (value: number) => {
+      if (!Number.isFinite(value) || value <= 0) return '';
+      const units = ['B', 'KB', 'MB', 'GB'];
+      let idx = 0;
+      let size = value;
+      while (size >= 1024 && idx < units.length - 1) {
+        size /= 1024;
+        idx += 1;
+      }
+      return `${size.toFixed(size >= 10 || idx === 0 ? 0 : 1)} ${units[idx]}`;
+    };
+
+    const formatEta = (processed: number, total: number) => {
+      const elapsedSec = (Date.now() - startedAt) / 1000;
+      if (!Number.isFinite(elapsedSec) || elapsedSec <= 0 || processed <= 0 || total <= processed) {
+        return '';
+      }
+      const rate = processed / elapsedSec;
+      if (!Number.isFinite(rate) || rate <= 0) return '';
+      const remainingSec = Math.max(0, Math.round((total - processed) / rate));
+      const mins = Math.floor(remainingSec / 60);
+      const secs = remainingSec % 60;
+      if (mins <= 0) return `${secs}s`;
+      return `${mins}m ${secs}s`;
+    };
+
+    const onProgress = (progress: { status: string; processedRecords?: number; totalRecords?: number; fileSizeBytes?: number }) => {
+      const total = progress.totalRecords ?? 0;
+      const processed = progress.processedRecords ?? 0;
+      const statusLabel = progress.status === 'PROCESSING'
+        ? 'Processing'
+        : progress.status === 'COMPLETED'
+          ? 'Finalizing'
+          : progress.status === 'FAILED'
+            ? 'Failed'
+            : 'Queued';
+      const countLabel = total > 0 ? `${processed}/${total}` : processed > 0 ? `${processed}` : '';
+      const sizeLabel = progress.fileSizeBytes ? formatBytes(progress.fileSizeBytes) : '';
+      const etaLabel = formatEta(processed, total);
+      const etaDisplay = !etaLabel && sizeLabel ? 'eta unknown' : etaLabel ? `eta ${etaLabel}` : '';
+      const extraLabel = [sizeLabel && `size ${sizeLabel}`, etaDisplay].filter(Boolean).join(' · ');
+      msgApi.open({
+        key,
+        type: 'loading',
+        content: `${label}: ${statusLabel}${countLabel ? ` (${countLabel})` : ''}${extraLabel ? ` · ${extraLabel}` : ''}`,
+        duration: 0
+      });
+    };
+
+    const finish = (message: string, isError = false) => {
+      msgApi.open({ key, type: isError ? 'error' : 'success', content: message, duration: 2 });
+    };
+
+    return { onProgress, finish };
+  };
+
   const handleRefresh = async () => {
     try {
       await refetch();
@@ -285,12 +346,13 @@ export const AlertCenterRoute = () => {
         startDate: dateRange?.[0],
         endDate: dateRange?.[1]
       };
+      const { onProgress, finish } = createExportProgress(`Export ${format.toUpperCase()}`);
       if (format === 'csv') {
-        await exportAlertCenterLogsToCsv(filters);
+        await exportAlertCenterLogsToCsv(filters, { onProgress });
       } else {
-        await exportAlertCenterLogsToJson(filters);
+        await exportAlertCenterLogsToJson(filters, { onProgress });
       }
-      msgApi.success(`Exported alert logs as ${format.toUpperCase()}`);
+      finish('Export complete');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to export logs';
       msgApi.error(errorMessage);
@@ -383,8 +445,8 @@ export const AlertCenterRoute = () => {
                 ]
               }}
             >
-              <Button icon={<DownloadOutlined />} loading={exportLoading} size="small">
-                {exportLoading ? 'Exporting...' : 'Export logs'}
+              <Button icon={<DownloadOutlined />} disabled={exportLoading} size="small">
+                Export logs
               </Button>
             </Dropdown>
             <Button icon={<ReloadOutlined />} onClick={handleRefresh} loading={isFetching} size="small">

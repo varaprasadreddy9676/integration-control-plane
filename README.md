@@ -232,28 +232,43 @@ Default local values in `frontend/.env`:
 
 ## Current UI Areas
 
-The frontend includes routes/pages for:
+The frontend has 21 feature modules:
 
-- Dashboard
-- Integrations (all, inbound detail, optional flow builder)
-- Scheduled integrations and scheduled jobs
-- Logs, event audit, DLQ, alert center, system logs
-- Event catalog, templates, lookup tables, bulk operations, versions
-- AI assistant and AI settings
-- Organization settings and event source settings
-- Admin org directory, users, roles, rate limits, audit logs, user activity, permissions
+| Module | Description |
+|--------|-------------|
+| `dashboard` | KPI cards, delivery trends, latency, errors, inbound, scheduled, outbound tabs |
+| `integrations` | Outbound integration management, detail view, editor, HMAC signing |
+| `inbound-integrations` | Inbound integration configuration and detail pages |
+| `scheduled` | Scheduled integration (DELAYED/RECURRING) management |
+| `scheduled-jobs` | CRON/interval batch job config with visual cron builder |
+| `logs` | Delivery log viewer with advanced filtering and cURL export |
+| `events` | Event management, event detail, bulk import |
+| `dlq` | Dead letter queue management, bulk retry |
+| `lookups` | Lookup table CRUD, import/export via XLSX, statistics |
+| `templates` | Reusable integration template library |
+| `versions` | Integration version history with diff view |
+| `bulk` | Bulk operations (import, export, batch updates) |
+| `alert-center` | Alert management, categories, statistics |
+| `ai` | AI assistant chat interface with AI-powered suggestions |
+| `ai-settings` | Per-org AI provider configuration (OpenAI, Claude, GLM, Kimi) |
+| `flowBuilder` | Visual drag-and-drop workflow builder (ReactFlow) |
+| `settings` | Org settings, event source settings, MySQL pool settings |
+| `admin` | Super admin: org/user management, storage stats, magic link portal embed |
+| `system-logs` | System-level logging and debugging |
+| `help` | In-app help and lookup guide |
+| `landing` | Public landing page |
 
-## API Route Groups
+## API Route Groups (30 total)
 
-Mounted in backend under `config.api.basePrefix` (default `/api/v1`):
+Mounted under `/api/v1`:
 
-- `/auth`, `/users`, `/admin`
+- `/auth`, `/users`, `/roles`, `/admin`, `/tenant`
 - `/outbound-integrations`, `/inbound-integrations`, `/integrations`
 - `/scheduled-integrations`, `/scheduled-jobs`
-- `/events`, `/event-sources`, `/lookups`, `/templates`, `/bulk`, `/versions`
+- `/events`, `/event-sources`, `/lookups`, `/templates`, `/field-schemas`, `/bulk`, `/versions`, `/import-export`
 - `/logs`, `/execution-logs`, `/system-logs`, `/alert-center`, `/dashboard`, `/analytics`, `/dlq`
 - `/ai`, `/ai-config`
-- `/config`, `/tenant`, `/daily-reports`, `/field-schemas`, `/import-export`
+- `/config`, `/daily-reports`, `/audit`, `/client-errors`
 
 ## Security and Open-Source Hygiene
 

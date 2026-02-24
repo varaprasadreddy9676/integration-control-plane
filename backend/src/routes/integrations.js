@@ -1885,24 +1885,51 @@ function validateInboundAuth(integration, headers) {
  */
 async function logIntegration(config, status, details) {
   try {
+    const MAX_LOG_RESPONSE_BODY_CHARS = 250000;
     const requestBody = maskSensitiveData(details?.request?.body || {});
     const transformedBody = maskSensitiveData(details?.request?.transformed || requestBody);
     const responseBody = details?.upstream?.response ?? details?.response?.body ?? null;
     const errorMessage = details?.error?.message || details?.error?.error || null;
+    const requestQuery = details?.request?.query && typeof details.request.query === 'object' ? details.request.query : {};
 
     let responseBodyText = responseBody;
     if (responseBody && typeof responseBody !== 'string') {
       responseBodyText = JSON.stringify(maskSensitiveData(responseBody), null, 2);
     }
-    if (typeof responseBodyText === 'string' && responseBodyText.length > 5000) {
-      responseBodyText = responseBodyText.slice(0, 5000);
+    if (typeof responseBodyText === 'string' && responseBodyText.length > MAX_LOG_RESPONSE_BODY_CHARS) {
+      const truncatedChars = responseBodyText.length - MAX_LOG_RESPONSE_BODY_CHARS;
+      responseBodyText = `${responseBodyText.slice(0, MAX_LOG_RESPONSE_BODY_CHARS)}\n...[truncated ${truncatedChars} chars]`;
     }
+
+    const queryParams = new URLSearchParams();
+    if (!Object.prototype.hasOwnProperty.call(requestQuery, 'orgId') && config.orgId !== undefined && config.orgId !== null) {
+      queryParams.set('orgId', String(config.orgId));
+    }
+    Object.entries(requestQuery).forEach(([key, value]) => {
+      if (value === undefined || value === null) return;
+      if (Array.isArray(value)) {
+        value.forEach((v) => {
+          if (v !== undefined && v !== null) queryParams.append(key, String(v));
+        });
+        return;
+      }
+      queryParams.set(key, String(value));
+    });
+
+    const fallbackRequestUrl = `/api/v1/integrations/${encodeURIComponent(config.type)}${
+      queryParams.toString() ? `?${queryParams.toString()}` : ''
+    }`;
+    const requestUrl = details?.request?.url || fallbackRequestUrl;
+    const requestMethod =
+      details?.request?.method ||
+      (Object.keys(requestQuery).length > 0 ? 'GET' : 'POST');
 
     const normalizedStatus = status === 'TIMEOUT' ? 'FAILED' : status;
     const responseStatus =
       details?.upstream?.status || details?.response?.status || (status === 'TIMEOUT' ? 504 : null);
 
     await data.recordLog(config.orgId, {
+      id: details?.correlationId || null,
       __KEEP___KEEP_integrationConfig__Id__: config._id,
       __KEEP_integrationName__: config.name,
       eventType: config.type,
@@ -1917,11 +1944,14 @@ async function logIntegration(config, status, details) {
       requestPayload: transformedBody,
       responseBody: responseBodyText || null,
       errorMessage,
-      targetUrl: config.targetUrl,
-      httpMethod: config.httpMethod || 'POST',
+      targetUrl: details?.upstream?.url || config.targetUrl,
+      httpMethod: details?.upstream?.method || config.httpMethod || 'POST',
       correlationId: details?.correlationId || null,
       traceId: details?.correlationId || null,
       requestHeaders: details?.request?.headers || null,
+      requestUrl,
+      requestMethod,
+      requestQuery,
       shouldRetry: false,
     });
   } catch (error) {

@@ -1,84 +1,134 @@
 import { useRef, useLayoutEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { Send, Shield, Clock, Mail, Bell, Code2, Users, BarChart2 } from 'lucide-react';
+import { Send, Shield, Clock, Mail, Bell, Code2, Users, BarChart2, Inbox, Lock, GitBranch, Database, ArrowUpRight } from 'lucide-react';
 
 const features = [
   {
     icon: Send,
     title: 'Outbound Event Delivery',
+    docSlug: 'outbound-delivery',
     bullets: [
       'Reliable delivery to any destination',
-      'Automatic retries with dead-letter queue',
-      'Full execution trace per event',
+      'Multi-action workflows with configurable delay',
+      'HMAC-SHA256 signing with secret rotation',
     ],
   },
   {
     icon: Shield,
     title: 'Inbound API Proxy',
+    docSlug: 'inbound-proxy',
     bullets: [
       'One endpoint for all inbound traffic',
-      'Auth, validation, and transforms',
-      'Rate limits and routing rules',
+      'Bi-directional request & response transforms',
+      'Rate limits, auth validation, streaming',
     ],
   },
   {
     icon: Clock,
     title: 'Scheduled Automation',
+    docSlug: 'scheduled-automation',
     bullets: [
-      'CRON or interval-based jobs',
-      'Query databases, call APIs, pull files',
-      'Observable, retryable, repeatable',
+      'CRON or interval-based jobs with visual builder',
+      'Query MySQL, MongoDB, or HTTP APIs as source',
+      'Full execution trace per job run',
     ],
   },
   {
     icon: Code2,
     title: 'Data Transformation',
+    docSlug: 'data-transformation',
     bullets: [
-      'Field mapping with dot notation',
+      'Visual field mapping with dot notation',
       'Custom JS in a secure sandbox VM',
-      'Lookup tables for data enrichment',
+      'Lookup tables for value enrichment',
     ],
   },
   {
-    icon: Mail,
-    title: 'Email Notifications',
+    icon: Inbox,
+    title: 'Dead Letter Queue',
+    docSlug: 'dead-letter-queue',
     bullets: [
-      'SMTP-based email delivery built in',
-      'HTML email templates for reports',
-      'Scheduled failure summary emails',
+      'Auto-retry with exponential backoff',
+      'Bulk retry or individual requeue from UI',
+      'Error categorization and root cause hints',
     ],
   },
   {
-    icon: Bell,
-    title: 'Failure Alerts',
+    icon: Lock,
+    title: 'Security & Audit',
+    docSlug: 'webhook-security',
     bullets: [
-      'Auto-notify on delivery or job failure',
-      'Alert via email or Slack webhook',
-      'Configurable threshold per org',
+      'SSRF protection on all webhook targets',
+      'Full audit trail for every config change',
+      'OAuth2 token caching with auto-refresh',
     ],
   },
   {
     icon: Users,
     title: 'Role-Based Access Control',
+    docSlug: 'rbac',
     bullets: [
-      'Super Admin, Org Admin, Org User roles',
-      'Granular per-feature permissions',
-      'User activity and audit logging',
+      '7 built-in roles, 80+ granular permissions',
+      'Feature-level access per org',
+      'User activity tracking and audit logging',
     ],
   },
   {
     icon: BarChart2,
     title: 'Analytics & Reports',
+    docSlug: 'analytics-reports',
     bullets: [
       'p50 / p95 / p99 response time metrics',
       'Success and failure rate breakdowns',
       'Daily email reports, auto-scheduled',
     ],
   },
+  {
+    icon: Mail,
+    title: 'Email & Slack Notifications',
+    docSlug: 'email-notifications',
+    bullets: [
+      'SMTP, Gmail OAuth, Outlook OAuth support',
+      'HTML email templates for failure reports',
+      'Slack webhook alerts per org',
+    ],
+  },
+  {
+    icon: Bell,
+    title: 'Alert Center',
+    docSlug: 'alert-center',
+    bullets: [
+      'Categorized alerts with trend statistics',
+      'Configurable failure thresholds per org',
+      'Separate from delivery logs — ops-focused',
+    ],
+  },
+  {
+    icon: GitBranch,
+    title: 'Versioning & Templates',
+    docSlug: 'versioning',
+    bullets: [
+      'Full version history for every integration',
+      'Semantic versioning with diff view',
+      'Reusable templates with one-click deploy',
+    ],
+  },
+  {
+    icon: Database,
+    title: 'Event Sources',
+    docSlug: 'event-sources',
+    bullets: [
+      'Per-org MySQL or Kafka as event trigger',
+      'Checkpoint-based processing — no duplicates',
+      'HTTP Push adapter for inbound webhooks',
+    ],
+  },
 ];
 
 export default function FeaturesSection() {
+  const navigate = useNavigate();
   const sectionRef = useRef<HTMLElement>(null);
   const headlineRef = useRef<HTMLHeadingElement>(null);
   const subheadRef = useRef<HTMLParagraphElement>(null);
@@ -93,7 +143,7 @@ export default function FeaturesSection() {
         scrollTrigger: {
           trigger: section,
           start: 'top top',
-          end: '+=220%',
+          end: '+=260%',
           pin: true,
           scrub: 1.0,
           anticipatePin: 1,
@@ -174,34 +224,42 @@ export default function FeaturesSection() {
 
       <p
         ref={subheadRef}
-        className="text-sm lg:text-base text-center mb-5"
+        className="text-sm lg:text-base text-center mb-3"
         style={{ color: 'var(--text-secondary)' }}
       >
         One platform. Every integration. Zero missed events.
       </p>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 px-[4vw] w-full">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 px-[4vw] w-full">
         {features.map((feature, index) => (
           <div
             key={feature.title}
             ref={(el) => { cardsRef.current[index] = el; }}
-            className="glass-card p-5 flex flex-col"
+            className="glass-card p-3.5 flex flex-col cursor-pointer group"
+            onClick={() => navigate(`/docs/${feature.docSlug}`)}
+            title={`Read ${feature.title} docs`}
           >
             <div
-              className="w-9 h-9 rounded-full flex items-center justify-center mb-3 flex-shrink-0"
+              className="w-8 h-8 rounded-full flex items-center justify-center mb-2 flex-shrink-0"
               style={{ backgroundColor: 'rgba(79, 110, 247, 0.15)' }}
             >
-              <feature.icon className="w-4 h-4" style={{ color: 'var(--accent-color)' }} />
+              <feature.icon className="w-3.5 h-3.5" style={{ color: 'var(--accent-color)' }} />
             </div>
 
-            <h3
-              className="font-heading font-bold text-sm mb-2"
-              style={{ color: 'var(--text-primary)' }}
-            >
-              {feature.title}
-            </h3>
+            <div className="flex items-start justify-between mb-1.5">
+              <h3
+                className="font-heading font-bold text-sm"
+                style={{ color: 'var(--text-primary)' }}
+              >
+                {feature.title}
+              </h3>
+              <ArrowUpRight
+                className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 opacity-0 group-hover:opacity-60 transition-opacity"
+                style={{ color: 'var(--accent-color)' }}
+              />
+            </div>
 
-            <ul className="space-y-1.5">
+            <ul className="space-y-1">
               {feature.bullets.map((bullet) => (
                 <li
                   key={bullet}

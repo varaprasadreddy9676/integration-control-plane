@@ -143,6 +143,7 @@ function mapLogFromMongo(doc) {
   const responseBody = doc.responseBody ?? doc.response?.body;
   const requestHeaders = doc.requestHeaders ?? doc.request?.headers;
   const requestPayload = doc.requestPayload ?? doc.request?.body;
+  const requestQuery = doc.request?.query;
   const targetUrl = doc.targetUrl ?? doc.request?.url;
   const httpMethod = doc.httpMethod ?? doc.request?.method;
   const createdAt = doc.createdAt || doc.startedAt;
@@ -169,6 +170,7 @@ function mapLogFromMongo(doc) {
     errorMessage: doc.errorMessage,
     originalPayload: doc.originalPayload, // Original payload from notification_queue
     requestPayload, // Already an object in MongoDB
+    requestQuery,
     responseBody: responseBody || undefined,
     targetUrl,
     httpMethod,

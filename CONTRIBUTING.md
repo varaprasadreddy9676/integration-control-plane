@@ -246,11 +246,12 @@ All data is scoped by `orgId`. The middleware extracts this from JWT/API key con
 integration-control-plane/
 ├── backend/
 │   ├── src/
-│   │   ├── routes/        # Express routers (20+ files)
+│   │   ├── routes/        # Express routers (30 files)
 │   │   ├── data/          # MongoDB data access (domain modules)
 │   │   ├── services/      # Business logic + AI providers
-│   │   ├── middleware/     # Auth, RBAC, rate-limit, error handling
-│   │   ├── workers/       # Background processes
+│   │   ├── middleware/    # Auth, RBAC, rate-limit, audit, error handling
+│   │   ├── processor/     # Background worker processes
+│   │   ├── adapters/      # Event source adapters (MySQL, Kafka, HTTP Push)
 │   │   └── rbac/          # Role/permission definitions
 │   └── test/              # Jest test suite
 ├── frontend/

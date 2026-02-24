@@ -110,7 +110,7 @@ export default function OpenSourceSection() {
         className="text-base lg:text-lg text-center max-w-[52vw] mb-12"
         style={{ color: 'var(--text-secondary)' }}
       >
-        Self-host on your own servers. Audit the code. Fork it. MIT licensed—no
+        Self-host on your own servers. Audit the code. Fork it. AGPL v3 licensed—no
         hidden clauses, no usage caps.
       </p>
 
@@ -141,7 +141,7 @@ export default function OpenSourceSection() {
           </div>
         </div>
 
-        {/* MIT Licensed card */}
+        {/* AGPL v3 Licensed card */}
         <div
           ref={rightCardRef}
           className="glass-card w-full lg:w-[42vw] lg:h-[38vh] p-6"
@@ -150,17 +150,17 @@ export default function OpenSourceSection() {
             className="font-heading font-bold text-lg mb-4"
             style={{ color: 'var(--text-primary)' }}
           >
-            MIT Licensed
+            AGPL v3 Licensed
           </h3>
           <div className="code-block text-sm">
-            <span style={{ color: 'var(--text-secondary)' }}>Copyright (c) Integration Gateway Contributors</span>
+            <span style={{ color: 'var(--text-secondary)' }}>GNU Affero General Public License v3.0</span>
             <br />
             <br />
             <span style={{ color: 'var(--text-primary)' }}>
-              Permission is hereby granted, free of charge, to any person
-              obtaining a copy of this software and associated documentation
-              files (the "Software"), to deal in the Software without
-              restriction...
+              Use, modify, and distribute freely. If you run this
+              software as a network service, you must make the source
+              code available to users of that service. No vendor lock-in,
+              no proprietary forks.
             </span>
           </div>
         </div>

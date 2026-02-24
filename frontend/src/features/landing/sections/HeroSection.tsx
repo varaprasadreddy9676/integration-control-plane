@@ -162,7 +162,7 @@ export default function HeroSection({ onLoginClick }: HeroSectionProps) {
           {/* Left content */}
           <div className="w-full lg:w-[46vw] flex flex-col">
             <div ref={microLabelRef} className="micro-label mb-4 flex items-center gap-2">
-              INTEGRATION GATEWAY v2.4
+              INTEGRATION GATEWAY v2.1
               <span style={{
                 fontSize: 10,
                 fontWeight: 700,
@@ -218,7 +218,7 @@ export default function HeroSection({ onLoginClick }: HeroSectionProps) {
             <div ref={pillsRef} className="flex flex-wrap gap-3">
               <span className="trust-pill">Public Beta</span>
               <span className="trust-pill">Open source</span>
-              <span className="trust-pill">MIT License</span>
+              <span className="trust-pill">AGPL v3</span>
               <span className="trust-pill">Self-hosted</span>
               <span className="trust-pill">Multi-tenant</span>
             </div>

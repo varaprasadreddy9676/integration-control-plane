@@ -176,7 +176,7 @@ Integration Gateway is a bi-directional integration platform that connects healt
 **Transformation Service** (`transformation/`)
 - Field mapping with nested object support (dot notation)
 - Lookup resolution inline
-- Custom JavaScript execution (VM2 sandboxed)
+- Custom JavaScript execution (secure VM sandboxed)
 - Built-in transformers: `trim`, `upper`, `lower`, `date`, `default`, `lookup`
 - Depth-aware to prevent circular references
 
@@ -281,7 +281,7 @@ Integration Gateway is a bi-directional integration platform that connects healt
       - Apply variable substitution
       - Fetch data with timeout protection
       - Log data fetched (limited to 50KB)
-   b. Transform fetched data (JavaScript VM2 sandbox)
+   b. Transform fetched data (JavaScript secure VM sandbox)
       - Input: { data: <fetched data>, metadata: <job metadata> }
       - Log transformed payload
    c. Build authentication headers
@@ -439,7 +439,7 @@ Integration Gateway is a bi-directional integration platform that connects healt
 ┌─────────────────────────────────────────────────────────────────┐
 │                      Transformation                              │
 │  • SIMPLE: Field mapping + lookups + static fields               │
-│  • SCRIPT: Custom JavaScript (VM2 sandboxed)                     │
+│  • SCRIPT: Custom JavaScript (secure VM sandboxed)                     │
 │  Input: event.payload                                            │
 │  Output: transformed payload                                     │
 └───────────────────────────┬─────────────────────────────────────┘
@@ -852,7 +852,7 @@ The system supports three distinct integration patterns:
   // Transformation (JavaScript only)
   transformation: {
     mode: 'SCRIPT',
-    script: string  // JavaScript code executed in VM2 sandbox
+    script: string  // JavaScript code executed in secure VM sandbox
   },
 
   // Outbound authentication (to target API)
