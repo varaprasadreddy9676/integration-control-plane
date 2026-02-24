@@ -3099,3 +3099,62 @@ export const testEventSourceConnection = async (
  */
 export const getEventSourceColumns = async (orgId: number): Promise<EventSourceColumnsResult> =>
   request(`/event-sources/${orgId}/columns`);
+
+// ---------------------------------------------------------------------------
+// Admin MySQL shared pool
+// ---------------------------------------------------------------------------
+
+export interface MysqlPoolConfig {
+  host: string;
+  port?: number;
+  user: string;
+  password: string;
+  database: string;
+  connectionLimit?: number;
+  queueLimit?: number;
+}
+
+export const getAdminMysqlPool = async (): Promise<{ config: MysqlPoolConfig; isConfigured: boolean }> =>
+  request('/admin/mysql-pool');
+
+export const updateAdminMysqlPool = async (
+  config: MysqlPoolConfig
+): Promise<{ success: boolean; message: string }> =>
+  request('/admin/mysql-pool', { method: 'PUT', body: JSON.stringify(config) });
+
+export const testAdminMysqlPool = async (config: MysqlPoolConfig): Promise<EventSourceTestResult> =>
+  request('/admin/mysql-pool/test', { method: 'POST', body: JSON.stringify(config) });
+
+// ---------------------------------------------------------------------------
+// Admin Storage Stats
+// ---------------------------------------------------------------------------
+
+export interface CollectionStat {
+  name: string;
+  label: string;
+  count: number;
+  dataSize: number;
+  storageSize: number;
+  indexSize: number;
+  totalSize: number;
+  avgObjSize: number;
+  percentOfTotal: number;
+}
+
+export interface StorageStats {
+  db: {
+    dataSize: number;
+    storageSize: number;
+    indexSize: number;
+    objects: number;
+    collections: number;
+    avgObjSize: number;
+  };
+  collections: CollectionStat[];
+  /** true when the caller is ORG_ADMIN — storage sizes are platform-wide, counts are org-scoped */
+  isOrgView?: boolean;
+  generatedAt: string;
+}
+
+export const getAdminStorageStats = async (): Promise<StorageStats> =>
+  request('/admin/storage-stats');

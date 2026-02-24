@@ -10,7 +10,7 @@ interface TenantContextValue {
   tenant?: TenantInfo;
   orgId: number;
   isLoading: boolean;
-  error?: string;
+  error?: Error | null;
   setManualOrgId: (orgId: number) => void;
   clearOrgId: () => void;
 }
@@ -151,10 +151,12 @@ export const TenantProvider = ({ children }: { children: ReactNode }) => {
   // Load tenant info when orgId is set (for all roles, including SUPER_ADMIN when they switch orgs)
   const shouldFetchTenant = orgId > 0;
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error: queryError } = useQuery({
     queryKey: ['tenant', orgId],
     queryFn: () => getTenantInfo(),
-    enabled: shouldFetchTenant
+    enabled: shouldFetchTenant,
+    retry: 1, // Don't retry indefinitely if the server is offline
+    refetchOnWindowFocus: false,
   });
 
   const value = useMemo<TenantContextValue>(() => {
@@ -162,11 +164,11 @@ export const TenantProvider = ({ children }: { children: ReactNode }) => {
       tenant: data,
       orgId,
       isLoading,
-      error: !shouldFetchTenant && orgId === 0 ? 'Missing orgId parameter' : undefined,
+      error: queryError || (!shouldFetchTenant && orgId === 0 ? new Error('Missing orgId parameter') : null),
       setManualOrgId,
       clearOrgId
     };
-  }, [data, orgId, isLoading, shouldFetchTenant, setManualOrgId, clearOrgId]);
+  }, [data, orgId, isLoading, queryError, shouldFetchTenant, setManualOrgId, clearOrgId]);
 
   return <TenantContext.Provider value={value}>{children}</TenantContext.Provider>;
 };

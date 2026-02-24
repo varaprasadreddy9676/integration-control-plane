@@ -30,7 +30,8 @@ import {
   CloudServerOutlined,
   AuditOutlined,
   BarChartOutlined,
-  IdcardOutlined
+  IdcardOutlined,
+  PieChartOutlined
 } from '@ant-design/icons';
 import { useLocation, Routes, Route, Navigate } from 'react-router-dom';
 import { useNavigateWithParams } from '../utils/navigation';
@@ -54,9 +55,11 @@ import { UserManagementRoute } from '../features/settings/UserManagementRoute';
 import { AdminRateLimitsRoute } from '../features/settings/AdminRateLimitsRoute';
 import { AuditLogsRoute } from '../features/admin/AuditLogsRoute';
 import { UserActivityRoute } from '../features/admin/UserActivityRoute';
+import { StorageStatsRoute } from '../features/admin/StorageStatsRoute';
 import { OrgDirectoryRoute } from '../features/admin/OrgDirectoryRoute';
 import { AISettingsRoute } from '../features/ai-settings/AISettingsRoute';
 import { EventSourceSettingsRoute } from '../features/settings/EventSourceSettingsRoute';
+import { MysqlPoolSettingsRoute } from '../features/settings/MysqlPoolSettingsRoute';
 import { AIAssistantRoute } from '../features/ai/AIAssistantRoute';
 import { AIChatDrawer } from '../components/ai/AIChatDrawer';
 import { PermissionsDemoRoute } from '../features/admin/PermissionsDemoRoute';
@@ -78,6 +81,7 @@ import { FlowBuilderRoute } from '../features/flowBuilder/routes/FlowBuilderRout
 import { FlowBuilderListRoute } from '../features/flowBuilder/routes/FlowBuilderListRoute';
 import { LoginRoute } from '../features/auth/LoginRoute';
 import { TenantLoadingState } from '../components/common/TenantLoadingState';
+import { ServerOfflineState } from '../components/common/ServerOfflineState';
 import { ToastHost } from '../components/common/ToastHost';
 import { OrgContextGuard } from '../components/OrgContextGuard';
 import { cssVar, useDesignTokens, spacingToNumber } from '../design-system/utils';
@@ -288,15 +292,17 @@ export const App = () => {
           { key: '/admin/rate-limits', icon: <LineChartOutlined />, label: 'Rate Limits' },
           { key: '/admin/audit-logs', icon: <AuditOutlined />, label: 'Audit Logs' },
           { key: '/admin/user-activity', icon: <BarChartOutlined />, label: 'User Activity' },
+          { key: '/admin/storage', icon: <PieChartOutlined />, label: 'Storage & Usage' },
           { key: '/admin/permissions', icon: <IdcardOutlined />, label: 'My Permissions' }
         ]
       });
     } else if (isOrgAdmin) {
-      // ORG_ADMIN: can see their team's activity and own permissions
+      // ORG_ADMIN: can see their team's activity, storage stats, and own permissions
       groups.push({
         label: 'Team',
         items: [
           { key: '/admin/user-activity', icon: <BarChartOutlined />, label: 'User Activity' },
+          { key: '/admin/storage', icon: <PieChartOutlined />, label: 'Storage & Usage' },
           { key: '/admin/permissions', icon: <IdcardOutlined />, label: 'My Permissions' }
         ]
       });
@@ -832,6 +838,7 @@ export const App = () => {
                   <Route path="/ai-settings" element={<AISettingsRoute />} />
                   <Route path="/settings" element={<SettingsRoute />} />
                   <Route path="/settings/event-source" element={<EventSourceSettingsRoute />} />
+                  <Route path="/settings/mysql-pool" element={<MysqlPoolSettingsRoute />} />
                   <Route path="/admin/users" element={<UserManagementRoute />} />
                   <Route path="/admin/orgs" element={<OrgDirectoryRoute />} />
                   <Route path="/admin/roles" element={<RoleManagementRoute />} />
@@ -839,6 +846,7 @@ export const App = () => {
                   <Route path="/admin/rate-limits" element={<AdminRateLimitsRoute />} />
                   <Route path="/admin/audit-logs" element={<AuditLogsRoute />} />
                   <Route path="/admin/user-activity" element={<UserActivityRoute />} />
+                  <Route path="/admin/storage" element={<StorageStatsRoute />} />
                   <Route path="/help" element={<HelpRoute />} />
                   <Route path="/help/lookup-guide" element={<LookupGuideRoute />} />
                   <Route path="*" element={<Navigate to="/dashboard" replace />} />
@@ -874,11 +882,12 @@ export const App = () => {
     return <Navigate to="/" replace />;
   }
 
-  // Use OrgContextGuard to handle missing orgId with friendly UI
   return (
     <OrgContextGuard>
       {canSkipTenant ? (
         renderShell()
+      ) : error ? (
+        <ServerOfflineState />
       ) : isLoading || !tenant ? (
         <TenantLoadingState variant="loading" title="Preparing tenant" description="Loading tenant context" />
       ) : (

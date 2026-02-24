@@ -228,4 +228,42 @@ async function getConnection(retries = 2) {
   }
 }
 
-module.exports = { query, ping, isConfigured, getConnection, getPool };
+/**
+ * Reinitialize the MySQL pool with new credentials at runtime.
+ * Merges newDbConfig into config.db, closes the existing pool,
+ * creates a fresh one, and pings it to verify the credentials.
+ * Returns { success: true } or { success: false, error: string }.
+ */
+async function reinitPool(newDbConfig) {
+  try {
+    // Merge into shared config in-place so every require('../config') caller sees it
+    if (!config.db) config.db = {};
+    Object.assign(config.db, newDbConfig);
+
+    // Close old pool
+    if (pool) {
+      try {
+        await pool.end();
+        log('info', 'Old MySQL pool closed for reinit');
+      } catch (err) {
+        log('warn', 'Error closing pool during reinit', { error: err.message });
+      }
+    }
+    pool = null;
+
+    // Create new pool and ping
+    pool = createPoolWithHandlers();
+    await pool.execute('SELECT 1 as ok');
+    log('info', 'MySQL pool reinitialized and verified', {
+      host: config.db.host,
+      db: config.db.database,
+    });
+    return { success: true };
+  } catch (err) {
+    log('error', 'MySQL pool reinit failed', { error: err.message });
+    pool = null;
+    return { success: false, error: err.message };
+  }
+}
+
+module.exports = { query, ping, isConfigured, getConnection, getPool, reinitPool };

@@ -82,6 +82,10 @@ async function applyRuntimeConfig() {
     if (typeof stored.frontendUrl === 'string') {
       config.frontendUrl = stored.frontendUrl;
     }
+    if (stored.db && typeof stored.db === 'object') {
+      const db = require('../db');
+      await db.reinitPool(stored.db);
+    }
   } catch (err) {
     log('warn', 'Could not apply runtime config from MongoDB — using config.json values', {
       error: err.message,
@@ -89,4 +93,22 @@ async function applyRuntimeConfig() {
   }
 }
 
-module.exports = { getSystemConfig, updateSystemConfig, applyRuntimeConfig };
+/**
+ * Get the stored MySQL shared pool credentials.
+ * Password is always masked as '****' before returning.
+ */
+async function getMysqlPoolConfig() {
+  const stored = await getSystemConfig();
+  if (!stored?.db) return null;
+  const { password: _p, ...rest } = stored.db;
+  return { ...rest, password: stored.db.password ? '****' : '' };
+}
+
+/**
+ * Persist new MySQL shared pool credentials to MongoDB system_config.
+ */
+async function upsertMysqlPoolConfig(credentials) {
+  await updateSystemConfig({ db: credentials });
+}
+
+module.exports = { getSystemConfig, updateSystemConfig, applyRuntimeConfig, getMysqlPoolConfig, upsertMysqlPoolConfig };

@@ -1,65 +1,118 @@
-const fs = require('fs');
+'use strict';
+
 const path = require('path');
+const fs = require('fs');
 const morgan = require('morgan');
+const { createLogger, format, transports } = require('winston');
+const DailyRotateFile = require('winston-daily-rotate-file');
 
 let db = null;
 
-// Set database instance (called after MongoDB connects)
 function setDb(database) {
   db = database;
 }
 
+// Ensure logs directory exists
 const logDir = path.join(__dirname, '..', 'logs');
 if (!fs.existsSync(logDir)) {
   fs.mkdirSync(logDir, { recursive: true });
 }
 
-const accessLogStream = fs.createWriteStream(path.join(logDir, 'access.log'), { flags: 'a' });
-const appLogStream = fs.createWriteStream(path.join(logDir, 'app.log'), { flags: 'a' });
-
-function write(line) {
-  appLogStream.write(`${line}\n`);
+// Read logging config — loaded lazily to avoid circular-dependency issues
+// at module evaluation time. Falls back to safe defaults if config is unavailable.
+let loggingCfg = { level: 'info', maxSize: '20m', maxFiles: '14d', compress: true };
+try {
+  const cfg = require('./config');
+  loggingCfg = { ...loggingCfg, ...cfg.logging };
+} catch (_) {
+  // config not available (e.g. test environment with full mock) — use defaults
 }
 
-function closeLogStreams() {
-  try {
-    accessLogStream.end();
-    appLogStream.end();
-  } catch (_err) {
-    // Swallow close errors in test/teardown paths
-  }
+// LOG_LEVEL env var always wins over config file
+const logLevel = process.env.LOG_LEVEL || loggingCfg.level;
+
+// ── Shared format: timestamp + JSON ──────────────────────────────────────────
+const jsonFormat = format.combine(
+  format.timestamp(),
+  format.json(),
+);
+
+// ── App logger (app-YYYY-MM-DD.log) ──────────────────────────────────────────
+const appFileTransport = new DailyRotateFile({
+  dirname: logDir,
+  filename: 'app-%DATE%.log',
+  datePattern: 'YYYY-MM-DD',
+  maxSize: loggingCfg.maxSize,
+  maxFiles: loggingCfg.maxFiles,
+  zippedArchive: loggingCfg.compress,
+  format: jsonFormat,
+});
+
+const appLogger = createLogger({
+  level: logLevel,
+  transports: [appFileTransport],
+});
+
+// Console mirror in non-production
+if (process.env.NODE_ENV !== 'production') {
+  appLogger.add(
+    new transports.Console({
+      format: format.combine(
+        format.timestamp(),
+        format.colorize(),
+        format.printf(({ timestamp, level, message, meta = {} }) => {
+          const correlationId = meta.correlationId || meta.traceId || meta.requestId;
+          const prefix = correlationId ? `[${String(correlationId).substring(0, 12)}] ` : '';
+          const metaStr = Object.keys(meta).length ? JSON.stringify(meta) : '';
+          return `[${timestamp}] ${prefix}[${level}] ${message}${metaStr ? ` ${metaStr}` : ''}`;
+        }),
+      ),
+    }),
+  );
 }
 
+// ── Access logger (access-YYYY-MM-DD.log) ────────────────────────────────────
+const accessFileTransport = new DailyRotateFile({
+  dirname: logDir,
+  filename: 'access-%DATE%.log',
+  datePattern: 'YYYY-MM-DD',
+  maxSize: loggingCfg.maxSize,
+  maxFiles: loggingCfg.maxFiles,
+  zippedArchive: loggingCfg.compress,
+  // Write the raw morgan string as-is (no JSON wrapping for access logs)
+  format: format.printf(({ message }) => message),
+});
+
+const accessLogger = createLogger({
+  level: 'http',
+  levels: { ...require('winston').config.npm.levels, http: 3 },
+  transports: [accessFileTransport],
+});
+
+// Morgan writes via accessLogger so rotation applies to access logs too
+const requestLogger = morgan(
+  ':date[iso] :method :url :status :res[content-length] - :response-time ms',
+  { stream: { write: (msg) => accessLogger.http(msg.trim()) } },
+);
+
+// ── Public API ────────────────────────────────────────────────────────────────
+
+/**
+ * Write a structured log entry.
+ * Preserves the same shape as before: { timestamp, level, message, meta }.
+ */
 function log(level, message, meta = {}) {
-  const payload = {
-    timestamp: new Date().toISOString(),
-    level,
-    message,
-    meta,
-  };
-
-  // Extract correlation ID or request ID if present in meta for better visibility
-  const correlationId = meta.correlationId || meta.traceId || meta.requestId;
-
-  const line = JSON.stringify(payload);
-  write(line);
-  if (process.env.NODE_ENV !== 'production') {
-    // Mirror to console in dev for faster feedback, include correlation/request ID if present
-    const prefix = correlationId ? `[${correlationId.substring(0, 12)}]` : '';
-    console.log(`[${payload.timestamp}] ${prefix} [${level}] ${message}`, Object.keys(meta).length ? meta : '');
-  }
+  appLogger.log({ level, message, meta });
 }
 
+/**
+ * Log an error to app log AND persist to MongoDB error_logs (30-day TTL).
+ */
 async function logError(err, context = {}) {
   const message = err.message || 'Unhandled error';
 
-  // Log to app.log (24 hours)
-  log('error', message, {
-    ...context,
-    stack: err.stack,
-  });
+  log('error', message, { ...context, stack: err.stack });
 
-  // Also save to MongoDB (30 days) if available
   if (db) {
     try {
       await db.collection('error_logs').insertOne({
@@ -79,8 +132,16 @@ async function logError(err, context = {}) {
   }
 }
 
-const requestLogger = morgan(':date[iso] :method :url :status :res[content-length] - :response-time ms', {
-  stream: accessLogStream,
-});
+/**
+ * Graceful shutdown — flush and close all log transports.
+ */
+function closeLogStreams() {
+  try {
+    appLogger.end();
+    accessLogger.end();
+  } catch (_) {
+    // Swallow close errors in test/teardown paths
+  }
+}
 
 module.exports = { log, logError, requestLogger, setDb, closeLogStreams };

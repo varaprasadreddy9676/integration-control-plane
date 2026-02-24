@@ -790,6 +790,16 @@ export const SettingsRoute = () => {
               >
                 Event Source Configuration
               </Button>
+              {isAdmin && (
+                <Button
+                  block
+                  icon={<DatabaseOutlined />}
+                  onClick={() => navigate('/settings/mysql-pool')}
+                  style={{ textAlign: 'left', justifyContent: 'flex-start' }}
+                >
+                  MySQL Shared Pool
+                </Button>
+              )}
               <Button
                 block
                 icon={<TeamOutlined />}

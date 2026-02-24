@@ -28,6 +28,12 @@ const { sanitizeMysqlSourceConfig } = require('../utils/mysql-safety');
 const router = express.Router();
 
 const ALLOWED_TYPES = ['mysql', 'kafka', 'http_push'];
+const REQUIRED_MYSQL_MAPPING_FIELDS = Object.freeze([
+  { key: 'id', label: 'Row ID' },
+  { key: 'orgId', label: 'Org ID' },
+  { key: 'eventType', label: 'Event Type' },
+  { key: 'payload', label: 'Payload' },
+]);
 
 // ---------------------------------------------------------------------------
 // Org-scoping helper
@@ -186,10 +192,33 @@ router.put(
       });
     }
 
+    if (sourceConfig !== undefined && (sourceConfig === null || typeof sourceConfig !== 'object' || Array.isArray(sourceConfig))) {
+      return res.status(400).json({
+        error: 'config must be a non-null object',
+        code: 'VALIDATION_ERROR',
+      });
+    }
+
     // Snapshot before-state for the audit diff
     const before = await eventSourceData.getConfigForOrg(orgId).catch(() => null);
 
     const effectiveConfig = type === 'mysql' ? sanitizeMysqlSourceConfig(sourceConfig || {}) : sourceConfig || {};
+
+    if (type === 'mysql') {
+      const mapping = effectiveConfig.columnMapping || {};
+      const missingFields = REQUIRED_MYSQL_MAPPING_FIELDS.filter(({ key }) => {
+        const value = mapping[key];
+        return typeof value !== 'string' || value.trim().length === 0;
+      });
+
+      if (missingFields.length > 0) {
+        return res.status(400).json({
+          code: 'VALIDATION_ERROR',
+          error: missingFields.map(({ label }) => `${label} column is required`).join(', '),
+          missingFields: missingFields.map(({ key }) => key),
+        });
+      }
+    }
 
     const result = await eventSourceData.upsertConfig(orgId, { type, config: effectiveConfig });
 

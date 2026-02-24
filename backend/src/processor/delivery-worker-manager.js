@@ -5,8 +5,8 @@
  * Each org can have a different source type (mysql, kafka, http_push)
  * configured in the event_source_configs MongoDB collection.
  *
- * For orgs with no explicit config, a global default from
- * config.eventSource.type can be used if configured.
+ * For orgs with no explicit config, a global default can be applied
+ * only when config.eventSource.applyGlobalDefaultToAllOrgs === true.
  *
  * Refresh cycle: every refreshIntervalMs the manager checks for new orgs
  * or config changes and starts/stops adapters accordingly.
@@ -31,6 +31,7 @@ class DeliveryWorkerManager {
     this.adapters = new Map();
     this.refreshTimer = null;
     this.globalSourceType = config.eventSource?.type || null;
+    this.applyGlobalDefaultToAllOrgs = config.eventSource?.applyGlobalDefaultToAllOrgs === true;
   }
 
   // ---------------------------------------------------------------------------
@@ -38,7 +39,10 @@ class DeliveryWorkerManager {
   // ---------------------------------------------------------------------------
 
   async start() {
-    log('info', 'DeliveryWorkerManager starting', { globalSourceType: this.globalSourceType });
+    log('info', 'DeliveryWorkerManager starting', {
+      globalSourceType: this.globalSourceType,
+      applyGlobalDefaultToAllOrgs: this.applyGlobalDefaultToAllOrgs,
+    });
 
     await this._syncAdapters();
 
@@ -100,6 +104,10 @@ class DeliveryWorkerManager {
 
     const configByOrg = new Map(explicitConfigs.map((c) => [c.orgId, c]));
 
+    if (this.globalSourceType && !this.applyGlobalDefaultToAllOrgs) {
+      log('debug', 'Global eventSource.type is configured but not auto-applied to orgs without explicit configs');
+    }
+
     // 3. Determine desired state (orgId → effective config)
     const desired = new Map();
     for (const org of orgs) {
@@ -109,8 +117,9 @@ class DeliveryWorkerManager {
       const explicit = configByOrg.get(orgId);
       if (explicit) {
         desired.set(orgId, { type: explicit.type, sourceConfig: explicit.config || {} });
-      } else if (this.globalSourceType) {
-        // Use optional global default when configured
+      } else if (this.globalSourceType && this.applyGlobalDefaultToAllOrgs) {
+        // Optional legacy behavior: auto-apply global default to orgs
+        // without an explicit per-org config.
         desired.set(orgId, { type: this.globalSourceType, sourceConfig: this._globalSourceConfig() });
       }
     }

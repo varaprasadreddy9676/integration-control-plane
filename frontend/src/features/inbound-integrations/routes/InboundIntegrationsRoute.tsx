@@ -65,6 +65,7 @@ export const InboundIntegrationsRoute = ({ hideHeader = false, isActive = true }
   const [curlIntegration, setCurlIntegration] = useState<any>(null);
   const [curlApiKey, setCurlApiKey] = useState('');
   const [curlInboundKey, setCurlInboundKey] = useState('');
+  const [curlQueryParams, setCurlQueryParams] = useState<Array<{ name: string; value: string }>>([]);
   const defaultApiKey = import.meta.env.VITE_API_KEY || '';
 
   // Test email modal state
@@ -81,16 +82,116 @@ export const InboundIntegrationsRoute = ({ hideHeader = false, isActive = true }
     resetDeps: [searchQuery, statusFilter]
   });
 
-  const buildInboundCurl = (integration: any, options?: { apiKey?: string; inboundKey?: string }) => {
+  const inferCurlQueryParams = (integration: any) => {
+    if (!integration) return [];
+    const httpMethod = (integration.httpMethod || 'POST').toUpperCase();
+    if (httpMethod !== 'GET') return [];
+
+    const extractQueryParamsFromTemplate = (template?: string) => {
+      const params = new Set<string>();
+      if (!template || typeof template !== 'string') return params;
+      const re = /\{\{\s*query\.([A-Za-z_][A-Za-z0-9_]*)\s*\}\}/g;
+      let match = re.exec(template);
+      while (match) {
+        params.add(match[1]);
+        match = re.exec(template);
+      }
+      return params;
+    };
+
+    const addDestructuredKeys = (params: Set<string>, source: string) => {
+      source
+        .split(',')
+        .map((part) => part.trim())
+        .forEach((part) => {
+          if (!part) return;
+          const withoutDefault = part.replace(/=.*$/, '').trim();
+          const withoutSpread = withoutDefault.replace(/^\.\.\./, '').trim();
+          const key = withoutSpread.split(':')[0]?.trim();
+          if (key && /^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) {
+            params.add(key);
+          }
+        });
+    };
+
+    const extractQueryParamsFromScript = (script?: string) => {
+      const params = new Set<string>();
+      if (!script || typeof script !== 'string') return params;
+
+      const dotPatterns = [/\b(?:context|ctx)(?:\s*\?\.)?\s*\.\s*query(?:\s*\?\.)?\s*\.\s*([A-Za-z_][A-Za-z0-9_]*)/g, /\bquery(?:\s*\?\.)?\s*\.\s*([A-Za-z_][A-Za-z0-9_]*)/g];
+      for (const pattern of dotPatterns) {
+        let match = pattern.exec(script);
+        while (match) {
+          params.add(match[1]);
+          match = pattern.exec(script);
+        }
+      }
+
+      const destructurePatterns = [/\{([^}]+)\}\s*=\s*(?:context|ctx)\s*\.\s*query\b/g, /\{([^}]+)\}\s*=\s*query\b/g];
+      for (const pattern of destructurePatterns) {
+        let match = pattern.exec(script);
+        while (match) {
+          addDestructuredKeys(params, match[1]);
+          match = pattern.exec(script);
+        }
+      }
+
+      return params;
+    };
+
+    const orgId = integration.orgId;
+    const paramNames = new Set<string>();
+    extractQueryParamsFromTemplate(integration.targetUrl).forEach((param) => paramNames.add(param));
+    extractQueryParamsFromScript(integration.requestTransformation?.script).forEach((param) => paramNames.add(param));
+
+    if ((paramNames.has('entityName') || paramNames.has('identifier')) && !paramNames.has('entityId')) {
+      paramNames.add('entityId');
+    }
+    paramNames.delete('orgId');
+
+    const defaultSampleValue = (name: string) => {
+      if (name === 'entityId') return String(orgId ?? 84);
+      if (name === 'entityName') return 'PAPPAMPATTI';
+      if (name === 'identifier') return 'SEHPAP-3045';
+      return `sample_${name}`;
+    };
+
+    const preferredOrder = ['entityId', 'entityName', 'identifier'];
+    const orderedNames = Array.from(paramNames).sort((a, b) => {
+      const aIdx = preferredOrder.indexOf(a);
+      const bIdx = preferredOrder.indexOf(b);
+      if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx;
+      if (aIdx !== -1) return -1;
+      if (bIdx !== -1) return 1;
+      return a.localeCompare(b);
+    });
+
+    return orderedNames.map((name) => ({ name, value: defaultSampleValue(name) }));
+  };
+
+  const buildInboundCurl = (
+    integration: any,
+    options?: { apiKey?: string; inboundKey?: string; queryParams?: Record<string, string> }
+  ) => {
     if (!integration) return '';
     const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api/v1';
     const base = apiBase.replace(/\/$/, '');
-    const orgId = integration.orgId;
-    const url = `${base}/integrations/${encodeURIComponent(integration.type)}?orgId=${orgId}`;
     const httpMethod = (integration.httpMethod || 'POST').toUpperCase();
+    const orgId = integration.orgId;
     const headers: string[] = [];
     const apiKey = options?.apiKey?.trim();
     const inboundKey = options?.inboundKey?.trim();
+    const inferredParams = inferCurlQueryParams(integration);
+
+    const queryEntries: Array<[string, string]> = [['orgId', String(orgId ?? 84)]];
+    if (httpMethod === 'GET') {
+      inferredParams.forEach((param) => {
+        const customValue = options?.queryParams?.[param.name];
+        queryEntries.push([param.name, customValue ?? param.value]);
+      });
+    }
+    const queryString = new URLSearchParams(queryEntries).toString();
+    const url = `${base}/integrations/${encodeURIComponent(integration.type)}?${queryString}`;
 
     if (integration.inboundAuthType === 'API_KEY') {
       const headerName = (integration.inboundAuthConfig?.headerName || 'x-api-key').toLowerCase();
@@ -147,12 +248,14 @@ export const InboundIntegrationsRoute = ({ hideHeader = false, isActive = true }
     setCurlIntegration(integration);
     setCurlApiKey(defaultApiKey);
     setCurlInboundKey('');
+    setCurlQueryParams(inferCurlQueryParams(integration));
     setCurlModalOpen(true);
   };
 
   const handleConfirmCopyCurl = () => {
     if (!curlIntegration) return;
-    const curl = buildInboundCurl(curlIntegration, { apiKey: curlApiKey, inboundKey: curlInboundKey });
+    const queryParams = Object.fromEntries(curlQueryParams.map((param) => [param.name, param.value]));
+    const curl = buildInboundCurl(curlIntegration, { apiKey: curlApiKey, inboundKey: curlInboundKey, queryParams });
     if (!curl) return;
     navigator.clipboard.writeText(curl).then(() => {
       messageApi.success('Curl command copied');
@@ -641,6 +744,25 @@ export const InboundIntegrationsRoute = ({ hideHeader = false, isActive = true }
               value={curlInboundKey}
               onChange={(e) => setCurlInboundKey(e.target.value)}
             />
+          )}
+          {curlQueryParams.length > 0 && (
+            <>
+              <Divider style={{ margin: '8px 0' }} />
+              <Text type="secondary">Sample query parameters (editable):</Text>
+              {curlQueryParams.map((param) => (
+                <Input
+                  key={param.name}
+                  addonBefore={param.name}
+                  value={param.value}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setCurlQueryParams((prev) =>
+                      prev.map((item) => (item.name === param.name ? { ...item, value } : item))
+                    );
+                  }}
+                />
+              ))}
+            </>
           )}
         </Space>
       </Modal>

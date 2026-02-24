@@ -37,6 +37,9 @@ const defaultConfig = {
     // Optional global default. Leave unset to rely only on per-org
     // configuration from event_source_configs.
     type: undefined,
+    // Safety default: do not auto-apply global defaults to every org
+    // unless explicitly enabled.
+    applyGlobalDefaultToAllOrgs: false,
   },
   kafka: {
     brokers: ['localhost:9092'],
@@ -82,6 +85,12 @@ const defaultConfig = {
     watchdogIntervalMs: 300000, // 5 minutes
     stuckThresholdMs: 300000, // 5 minutes
   },
+  logging: {
+    level: process.env.LOG_LEVEL || 'info', // override via LOG_LEVEL env var
+    maxSize: '20m',       // rotate when file hits 20 MB
+    maxFiles: '14d',      // keep 14 days of rotated files
+    compress: true,       // gzip rotated files
+  },
   // NOTE: Event types are now managed in MongoDB 'event_types' collection (56 events)
   // Do not specify eventTypes here - use the populate-event-types.js script instead
 };
@@ -112,6 +121,7 @@ const merged = {
   worker: { ...defaultConfig.worker, ...(fileConfig.worker || {}) },
   scheduler: { ...defaultConfig.scheduler, ...(fileConfig.scheduler || {}) },
   eventAudit: { ...defaultConfig.eventAudit, ...(fileConfig.eventAudit || {}) },
+  logging: { ...defaultConfig.logging, ...(fileConfig.logging || {}) },
   // communicationServiceUrl and frontendUrl: file overrides default if present
   communicationServiceUrl: fileConfig.communicationServiceUrl || defaultConfig.communicationServiceUrl,
   frontendUrl: fileConfig.frontendUrl || defaultConfig.frontendUrl,

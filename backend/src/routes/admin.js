@@ -146,7 +146,149 @@ const isValidPhone = (value) => {
   return /^[+]?[\d\s().-]{6,20}$/.test(normalized);
 };
 
-// All admin routes require SUPER_ADMIN or ADMIN role
+// ---------------------------------------------------------------------------
+// Storage stats — accessible to SUPER_ADMIN, ADMIN, and ORG_ADMIN
+// Must be registered before the blanket SUPER_ADMIN/ADMIN guard below
+// ---------------------------------------------------------------------------
+
+const COLLECTION_LABELS = {
+  integration_configs:    'Integrations',
+  execution_logs:         'Execution Logs',
+  delivery_attempts:      'Delivery Attempts',
+  failed_deliveries:      'Failed Deliveries',
+  dlq:                    'Dead Letter Queue',
+  pending_events:         'Pending Events',
+  processed_events:       'Processed Events',
+  lookups:                'Lookup Tables',
+  organizations:          'Organizations',
+  org_units:              'Org Units',
+  users:                  'Users',
+  scheduled_job_logs:     'Scheduled Job Logs',
+  scheduled_integrations: 'Scheduled Integrations',
+  scheduler_state:        'Scheduler State',
+  audit_logs:             'Audit Logs',
+  alert_center_logs:      'Alert Center Logs',
+  integration_templates:  'Integration Templates',
+  event_audit:            'Event Audit',
+  event_types:            'Event Types',
+  event_source_configs:   'Event Source Configs',
+  source_checkpoints:     'Source Checkpoints',
+  system_config:          'System Config',
+  admin_audit:            'Admin Audit',
+  rate_limits:            'Rate Limits',
+  ui_config:              'UI Config',
+  worker_checkpoint:      'Worker Checkpoint',
+  ai_configs:             'AI Configs',
+  ai_interactions:        'AI Interactions',
+};
+
+// Collections that carry orgId — visible to ORG_ADMIN with per-org counts
+const ORG_SCOPED_COLLECTIONS = new Set([
+  'integration_configs', 'execution_logs', 'delivery_attempts', 'failed_deliveries',
+  'dlq', 'pending_events', 'processed_events', 'lookups', 'scheduled_job_logs',
+  'scheduled_integrations', 'audit_logs', 'alert_center_logs', 'event_audit',
+  'event_types', 'event_source_configs', 'source_checkpoints', 'ai_configs',
+  'ai_interactions',
+]);
+
+// Cache is keyed by 'global' (SUPER_ADMIN/ADMIN) or orgId (ORG_ADMIN)
+const _storageStatsCaches = new Map();
+const STORAGE_STATS_TTL_MS = 60_000;
+
+function _getCached(key) {
+  const entry = _storageStatsCaches.get(key);
+  if (entry && Date.now() - entry.at < STORAGE_STATS_TTL_MS) return entry.data;
+  return null;
+}
+
+function _setCached(key, data) {
+  _storageStatsCaches.set(key, { data, at: Date.now() });
+}
+
+router.get(
+  '/storage-stats',
+  auth.requireRole(['SUPER_ADMIN', 'ADMIN', 'ORG_ADMIN']),
+  asyncHandler(async (req, res) => {
+    const isOrgAdmin = req.user?.role === 'ORG_ADMIN';
+    const orgId = req.user?.orgId ?? null;
+    const cacheKey = isOrgAdmin ? `org:${orgId}` : 'global';
+
+    const cached = _getCached(cacheKey);
+    if (cached) return res.json(cached);
+
+    const db = await mongodb.getDbSafe();
+
+    const [dbStats, collectionList] = await Promise.all([
+      db.command({ dbStats: 1 }),
+      db.listCollections().toArray(),
+    ]);
+
+    // ORG_ADMIN sees only org-scoped collections; others see all
+    const userCollections = collectionList.filter(c =>
+      !c.name.startsWith('system.') &&
+      (isOrgAdmin ? ORG_SCOPED_COLLECTIONS.has(c.name) : true)
+    );
+
+    const results = await Promise.allSettled(
+      userCollections.map(c => db.command({ collStats: c.name }))
+    );
+
+    // For ORG_ADMIN: replace global document counts with per-org counts
+    const orgCounts = isOrgAdmin
+      ? await Promise.allSettled(
+          userCollections.map(c => db.collection(c.name).countDocuments({ orgId }))
+        )
+      : null;
+
+    const totalStorageSize = results.reduce((sum, r) =>
+      r.status === 'fulfilled' ? sum + (r.value.storageSize || 0) : sum, 0);
+
+    const collections = results
+      .map((r, i) => {
+        if (r.status !== 'fulfilled') return null;
+        const s = r.value;
+        const name = userCollections[i].name;
+        const orgCount = orgCounts?.[i]?.status === 'fulfilled' ? orgCounts[i].value : (s.count ?? 0);
+        return {
+          name,
+          label: COLLECTION_LABELS[name] ?? name,
+          count: isOrgAdmin ? orgCount : (s.count ?? 0),
+          dataSize: s.size ?? 0,
+          storageSize: s.storageSize ?? 0,
+          indexSize: s.totalIndexSize ?? 0,
+          totalSize: (s.storageSize ?? 0) + (s.totalIndexSize ?? 0),
+          avgObjSize: Math.round(s.avgObjSize ?? 0),
+          percentOfTotal: totalStorageSize
+            ? +((s.storageSize ?? 0) / totalStorageSize * 100).toFixed(1)
+            : 0,
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => b.storageSize - a.storageSize);
+
+    const payload = {
+      db: {
+        dataSize:    dbStats.dataSize    ?? 0,
+        storageSize: dbStats.storageSize ?? 0,
+        indexSize:   dbStats.indexSize   ?? 0,
+        objects:     isOrgAdmin
+          ? collections.reduce((s, c) => s + c.count, 0)
+          : (dbStats.objects ?? 0),
+        collections: collections.length,
+        avgObjSize:  Math.round(dbStats.avgObjSize ?? 0),
+      },
+      collections,
+      // Signals to the frontend that storage sizes are platform-wide, not org-scoped
+      isOrgView: isOrgAdmin,
+      generatedAt: new Date().toISOString(),
+    };
+
+    _setCached(cacheKey, payload);
+    res.json(payload);
+  })
+);
+
+// All other admin routes require SUPER_ADMIN or ADMIN role
 router.use(auth.requireRole(['SUPER_ADMIN', 'ADMIN']));
 
 // GET /api/v1/admin/users
@@ -1445,6 +1587,102 @@ router.patch(
 
     await auditConfig.systemConfigUpdated(req, { before: stored, after: patch });
     res.json({ message: 'Config updated and applied immediately.' });
+  })
+);
+
+// GET /api/v1/admin/mysql-pool
+router.get(
+  '/mysql-pool',
+  asyncHandler(async (_req, res) => {
+    const systemConfigData = require('../data/system-config');
+    const cfg = await systemConfigData.getMysqlPoolConfig();
+    res.json({
+      config: cfg || {},
+      isConfigured: !!cfg?.host,
+    });
+  })
+);
+
+// PUT /api/v1/admin/mysql-pool
+router.put(
+  '/mysql-pool',
+  asyncHandler(async (req, res) => {
+    const { host, user, password, database, port, connectionLimit, queueLimit } = req.body || {};
+
+    if (!host || typeof host !== 'string') throw new ValidationError('host is required');
+    if (!user || typeof user !== 'string') throw new ValidationError('user is required');
+    if (!password || typeof password !== 'string') throw new ValidationError('password is required');
+    if (!database || typeof database !== 'string') throw new ValidationError('database is required');
+
+    const credentials = {
+      host: String(host).trim(),
+      port: port ? Number(port) : 3306,
+      user: String(user).trim(),
+      password: String(password),
+      database: String(database).trim(),
+    };
+    if (connectionLimit !== undefined) credentials.connectionLimit = Math.min(20, Math.max(1, Number(connectionLimit)));
+    if (queueLimit !== undefined) credentials.queueLimit = Math.min(200, Math.max(0, Number(queueLimit)));
+
+    const systemConfigData = require('../data/system-config');
+    const before = await systemConfigData.getMysqlPoolConfig();
+
+    await systemConfigData.upsertMysqlPoolConfig(credentials);
+
+    const db = require('../db');
+    const result = await db.reinitPool(credentials);
+
+    if (!result.success) {
+      // Roll back the saved config? Leave it — admin can correct and retry.
+      return res.status(400).json({ success: false, error: result.error });
+    }
+
+    await auditConfig.systemConfigUpdated(req, {
+      before,
+      after: { ...credentials, password: '****' },
+    });
+
+    res.json({ success: true, message: 'MySQL pool reconfigured and connected.' });
+  })
+);
+
+// POST /api/v1/admin/mysql-pool/test
+router.post(
+  '/mysql-pool/test',
+  asyncHandler(async (req, res) => {
+    const { host, user, password, database, port, connectionLimit, queueLimit } = req.body || {};
+
+    if (!host || typeof host !== 'string') throw new ValidationError('host is required');
+    if (!user || typeof user !== 'string') throw new ValidationError('user is required');
+    if (!password || typeof password !== 'string') throw new ValidationError('password is required');
+    if (!database || typeof database !== 'string') throw new ValidationError('database is required');
+
+    // Direct connection test — do not use event-source-tester which requires
+    // a full event source config (table, columnMapping, etc.).
+    const mysql = require('mysql2/promise');
+    let pool;
+    try {
+      pool = mysql.createPool({
+        host: String(host).trim(),
+        port: port ? Number(port) : 3306,
+        user: String(user).trim(),
+        password: String(password),
+        database: String(database).trim(),
+        connectionLimit: 2,
+        waitForConnections: true,
+        connectTimeout: 10000,
+      });
+      const conn = await pool.getConnection();
+      await conn.query('SELECT 1');
+      conn.release();
+      res.json({ success: true, message: `Connected to ${String(database).trim()} on ${String(host).trim()} successfully.` });
+    } catch (err) {
+      res.json({ success: false, error: err.message, code: err.code || 'CONNECTION_FAILED' });
+    } finally {
+      if (pool) {
+        try { await pool.end(); } catch (_) {}
+      }
+    }
   })
 );
 

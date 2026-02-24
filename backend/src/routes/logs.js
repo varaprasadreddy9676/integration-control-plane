@@ -311,12 +311,16 @@ router.get(
 
       // Helper function to escape CSV cells
       const escapeCsvCell = (cell) => {
-        const str = String(cell);
-        // Escape quotes and wrap in quotes if contains comma, newline, or quote
-        if (str.includes(',') || str.includes('\n') || str.includes('"')) {
-          return `"${str.replace(/"/g, '""')}"`;
+        if (cell == null) return '';
+        // Serialize objects (e.g. responseBody stored as object in MongoDB)
+        const str = typeof cell === 'object' ? JSON.stringify(cell) : String(cell);
+        // Replace newlines with a space — raw newlines inside cells create phantom
+        // blank rows in Excel because Excel can't distinguish them from row boundaries
+        const sanitized = str.replace(/\r\n/g, ' ').replace(/[\r\n]/g, ' ');
+        if (sanitized.includes(',') || sanitized.includes('"')) {
+          return `"${sanitized.replace(/"/g, '""')}"`;
         }
-        return str;
+        return sanitized;
       };
 
       // Helper function to generate curl command
@@ -342,11 +346,11 @@ router.get(
         return curl;
       };
 
-      // Write CSV header row
+      // Write CSV header row — use \r\n (RFC 4180) so Excel treats it as a row boundary
       const headerWritten = await writeWithBackpressure(
         req,
         res,
-        `${headers.map(escapeCsvCell).join(',')}\n`,
+        `${headers.map(escapeCsvCell).join(',')}\r\n`,
         isAborted
       );
       if (!headerWritten) {
@@ -396,19 +400,19 @@ router.get(
             logEntry.eventType,
             flowLabel,
             logEntry.status,
-            logEntry.responseStatus || 'N/A',
-            logEntry.responseTimeMs || 'N/A',
-            logEntry.attemptCount,
-            integration?.targetUrl || 'N/A',
-            integration?.httpMethod || 'N/A',
+            logEntry.responseStatus ?? 'N/A',
+            logEntry.responseTimeMs ?? 'N/A',
+            logEntry.attemptCount ?? 0,
+            integration?.targetUrl ?? 'N/A',
+            integration?.httpMethod ?? 'N/A',
             generateCurlCommand(integration, logEntry.requestPayload),
-            JSON.stringify(logEntry.requestPayload || {}),
-            logEntry.responseBody || 'N/A',
-            logEntry.errorMessage || 'No error',
+            logEntry.requestPayload,   // escapeCsvCell serializes objects
+            logEntry.responseBody,     // escapeCsvCell serializes objects + sanitizes newlines
+            logEntry.errorMessage ?? '',
           ];
 
           // Write row to stream with backpressure handling
-          const canContinue = await writeWithBackpressure(req, res, `${row.map(escapeCsvCell).join(',')}\n`, isAborted);
+          const canContinue = await writeWithBackpressure(req, res, `${row.map(escapeCsvCell).join(',')}\r\n`, isAborted);
           if (!canContinue) return;
 
           exportCount++;
@@ -519,6 +523,16 @@ router.post(
           'Error Message',
         ];
 
+        const escapeCsvCell = (cell) => {
+          if (cell == null) return '';
+          const str = typeof cell === 'object' ? JSON.stringify(cell) : String(cell);
+          const sanitized = str.replace(/\r\n/g, ' ').replace(/[\r\n]/g, ' ');
+          if (sanitized.includes(',') || sanitized.includes('"')) {
+            return `"${sanitized.replace(/"/g, '""')}"`;
+          }
+          return sanitized;
+        };
+
         const csvRows = logs.map((logEntry) => {
           const integration = integrationCache.get(logEntry.__KEEP___KEEP_integrationConfig__Id__);
           const flowLabel =
@@ -532,31 +546,21 @@ router.post(
             logEntry.eventType,
             flowLabel,
             logEntry.status,
-            logEntry.responseStatus || 'N/A',
-            logEntry.responseTimeMs || 'N/A',
-            logEntry.attemptCount,
-            integration?.targetUrl || 'N/A',
-            integration?.httpMethod || 'N/A',
-            JSON.stringify(logEntry.requestPayload || {}),
-            logEntry.responseBody || 'N/A',
-            logEntry.errorMessage || 'No error',
+            logEntry.responseStatus ?? 'N/A',
+            logEntry.responseTimeMs ?? 'N/A',
+            logEntry.attemptCount ?? 0,
+            integration?.targetUrl ?? 'N/A',
+            integration?.httpMethod ?? 'N/A',
+            logEntry.requestPayload,
+            logEntry.responseBody,
+            logEntry.errorMessage ?? '',
           ];
         });
 
         const csvContent = [
-          headers.join(','),
-          ...csvRows.map((row) =>
-            row
-              .map((cell) => {
-                const str = String(cell);
-                if (str.includes(',') || str.includes('\n') || str.includes('"')) {
-                  return `"${str.replace(/"/g, '""')}"`;
-                }
-                return str;
-              })
-              .join(',')
-          ),
-        ].join('\n');
+          headers.map(escapeCsvCell).join(','),
+          ...csvRows.map((row) => row.map(escapeCsvCell).join(',')),
+        ].join('\r\n');
 
         const filename = `integration-logs-selected-${logs.length}-${new Date().toISOString().split('T')[0]}.csv`;
         res.setHeader('Content-Type', 'text/csv; charset=utf-8');

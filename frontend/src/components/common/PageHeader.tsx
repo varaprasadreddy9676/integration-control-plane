@@ -2,6 +2,7 @@ import { Breadcrumb, Space, Tag, Typography, Divider, Grid } from 'antd';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { cssVar, useDesignTokens, withAlpha, spacingToNumber } from '../../design-system/utils';
+import { buildUrlWithOrgId } from '../../utils/navigation';
 
 interface Crumb {
   label: string;
@@ -29,7 +30,7 @@ export const PageHeader = ({ title, description, breadcrumb, actions, statusChip
         <Breadcrumb
           style={{ marginBottom: spacing[2], color: cssVar.text.secondary }}
           items={breadcrumb.map((crumb) => ({
-            title: crumb.path ? <Link to={crumb.path}>{crumb.label}</Link> : crumb.label
+            title: crumb.path ? <Link to={buildUrlWithOrgId(crumb.path)}>{crumb.label}</Link> : crumb.label
           }))}
         />
       )}

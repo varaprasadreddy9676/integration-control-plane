@@ -1,6 +1,14 @@
 import { useNavigate, NavigateOptions } from 'react-router-dom';
 import { useCallback } from 'react';
 
+const EXTERNAL_URL_PATTERN = /^(?:[a-z][a-z0-9+.-]*:)?\/\//i;
+const SPECIAL_PROTOCOL_PATTERN = /^(?:mailto:|tel:|sms:)/i;
+
+const getCurrentOrgIdFromUrl = (): string | null => {
+  const currentParams = new URLSearchParams(window.location.search);
+  return currentParams.get('orgId');
+};
+
 /**
  * Custom hook that wraps useNavigate to automatically preserve orgId query parameter
  * This ensures the parameter persists across all navigation throughout the app
@@ -14,24 +22,10 @@ export const useNavigateWithParams = () => {
       return navigate(to);
     }
 
-    // Get current orgId from URL
-    const currentParams = new URLSearchParams(window.location.search);
-    const orgId = currentParams.get('orgId');
-
-    // If there's an orgId and the target is a string path
-    if (orgId && typeof to === 'string') {
-      // Parse the target URL to check if it already has query params
-      const hasQueryParams = to.includes('?');
-      const separator = hasQueryParams ? '&' : '?';
-
-      // Don't add if it's already in the target
-      if (!to.includes('orgId=')) {
-        const newPath = `${to}${separator}orgId=${orgId}`;
-        return navigate(newPath, options);
-      }
+    if (typeof to === 'string') {
+      return navigate(buildUrlWithOrgId(to), options);
     }
 
-    // Default navigation if no orgId or already present
     return navigate(to, options);
   }, [navigate]);
 
@@ -43,16 +37,24 @@ export const useNavigateWithParams = () => {
  * Useful for Link components or manual URL construction
  */
 export const buildUrlWithOrgId = (path: string): string => {
-  const currentParams = new URLSearchParams(window.location.search);
-  const orgId = currentParams.get('orgId');
+  if (!path || EXTERNAL_URL_PATTERN.test(path) || SPECIAL_PROTOCOL_PATTERN.test(path)) {
+    return path;
+  }
 
+  const orgId = getCurrentOrgIdFromUrl();
   if (!orgId) return path;
 
-  const hasQueryParams = path.includes('?');
-  const separator = hasQueryParams ? '&' : '?';
+  const hashIndex = path.indexOf('#');
+  const hash = hashIndex >= 0 ? path.slice(hashIndex) : '';
+  const withoutHash = hashIndex >= 0 ? path.slice(0, hashIndex) : path;
 
-  // Don't add if already present
-  if (path.includes('orgId=')) return path;
+  const queryIndex = withoutHash.indexOf('?');
+  const pathname = queryIndex >= 0 ? withoutHash.slice(0, queryIndex) : withoutHash;
+  const queryString = queryIndex >= 0 ? withoutHash.slice(queryIndex + 1) : '';
 
-  return `${path}${separator}orgId=${orgId}`;
+  const params = new URLSearchParams(queryString);
+  params.set('orgId', orgId);
+
+  const rebuiltQuery = params.toString();
+  return `${pathname}${rebuiltQuery ? `?${rebuiltQuery}` : ''}${hash}`;
 };

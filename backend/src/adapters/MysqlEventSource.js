@@ -49,6 +49,16 @@ const { updateHeartbeat } = require('../worker-heartbeat');
 // via event_source_configs, configured through the admin UI.
 const REQUIRED_MAPPING_FIELDS = ['id', 'orgId', 'eventType', 'payload'];
 
+/**
+ * Normalise a filter list config value to a clean string array.
+ * Accepts: undefined/null → [], string → split on comma, array → used as-is.
+ */
+function _parseFilterList(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.map(String).map(s => s.trim()).filter(Boolean);
+  return String(value).split(',').map(s => s.trim()).filter(Boolean);
+}
+
 class MysqlEventSource extends EventSourceAdapter {
   /**
    * @param {Object} config
@@ -77,6 +87,11 @@ class MysqlEventSource extends EventSourceAdapter {
     // No hardcoded fallback — each org must declare their own schema.
     this.table = config.table;
     this.mapping = config.columnMapping || {};
+
+    // Optional row filters — if set, appended as IN(...) clauses to _fetchRows.
+    // Stored as arrays; accept comma-separated strings for backwards compat.
+    this.orgUnitIdFilter = _parseFilterList(config.orgUnitIdFilter);
+    this.eventTypeFilter  = _parseFilterList(config.eventTypeFilter);
 
     this._validateMapping();
 
@@ -196,16 +211,35 @@ class MysqlEventSource extends EventSourceAdapter {
 
     // Named params (:checkpoint, :orgId) for compatibility with namedPlaceholders pools.
     // LIMIT is inlined as a trusted integer (comes from our own config, never user input).
+    const params = { checkpoint, orgId: this.orgId };
+    const extraClauses = [];
+
+    // Optional org unit filter: AND orgUnitId_col IN (:ouFilter0, :ouFilter1, ...)
+    if (m.orgUnitId && this.orgUnitIdFilter.length > 0) {
+      const names = this.orgUnitIdFilter.map((_, i) => `:ouFilter${i}`);
+      extraClauses.push(`${m.orgUnitId} IN (${names.join(', ')})`);
+      this.orgUnitIdFilter.forEach((v, i) => { params[`ouFilter${i}`] = v; });
+    }
+
+    // Optional event type filter: AND eventType_col IN (:etFilter0, :etFilter1, ...)
+    if (m.eventType && this.eventTypeFilter.length > 0) {
+      const names = this.eventTypeFilter.map((_, i) => `:etFilter${i}`);
+      extraClauses.push(`${m.eventType} IN (${names.join(', ')})`);
+      this.eventTypeFilter.forEach((v, i) => { params[`etFilter${i}`] = v; });
+    }
+
+    const whereExtra = extraClauses.length > 0 ? `\n        AND  ${extraClauses.join('\n        AND  ')}` : '';
+
     const sql = `
       SELECT ${selects.join(', ')}
       FROM   ${this.table}
       WHERE  ${m.id} > :checkpoint
-        AND  ${m.orgId} = :orgId
+        AND  ${m.orgId} = :orgId${whereExtra}
       ORDER BY ${m.id} ASC
       LIMIT ${this.batchSize}
     `;
 
-    const [rows] = await this.pool.execute(sql, { checkpoint, orgId: this.orgId });
+    const [rows] = await this.pool.execute(sql, params);
     return rows;
   }
 

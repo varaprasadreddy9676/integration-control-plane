@@ -148,6 +148,21 @@ function buildOrgScopeQuery(orgId) {
   return { orgId };
 }
 
+function getByPath(obj, path) {
+  if (!path || !obj || typeof obj !== 'object') return undefined;
+  return path.split('.').reduce((acc, key) => (acc == null ? undefined : acc[key]), obj);
+}
+
+function resolveTargetUrlTemplate(template, context = {}) {
+  if (!template || typeof template !== 'string') return template;
+  return template.replace(/\{\{\s*([^}]+)\s*\}\}/g, (_match, rawExpr) => {
+    const expr = String(rawExpr || '').trim();
+    if (!expr) return '';
+    const value = getByPath(context, expr);
+    return value === undefined || value === null ? '' : String(value);
+  });
+}
+
 /**
  * CRUD Endpoints for Inbound Integration Management
  */
@@ -316,6 +331,20 @@ router.put('/:id([0-9a-fA-F]{24})', async (req, res) => {
     updateData.updatedAt = new Date();
 
     const db = await mongodb.getDbSafe();
+    const duplicate = await db.collection('integration_configs').findOne({
+      ...buildOrgScopeQuery(req.orgId),
+      direction: 'INBOUND',
+      type: updateData.type,
+      _id: { $ne: new ObjectId(id) },
+    });
+
+    if (duplicate) {
+      return res.status(409).json({
+        success: false,
+        error: `Inbound integration with type '${updateData.type}' already exists for this tenant`,
+      });
+    }
+
     const result = await db.collection('integration_configs').updateOne(
       {
         _id: new ObjectId(id),
@@ -973,6 +1002,22 @@ const handleInboundRuntime = async (req, res) => {
       query: queryParams,
       headers: req.headers,
     };
+    const resolvedTargetUrl = resolveTargetUrlTemplate(config.targetUrl, {
+      ...requestContext,
+      orgId: resolvedOrgId,
+      type,
+    });
+
+    if (!resolvedTargetUrl || typeof resolvedTargetUrl !== 'string') {
+      return res.status(500).json({
+        error: 'INVALID_TARGET_URL',
+        message: 'Resolved target URL is invalid',
+      });
+    }
+
+    // Declared before transform/auth error paths so logging can safely reference them.
+    let authHeaders;
+    let outboundHeaders;
 
     const basePayload = req.method === 'GET' ? queryParams : requestBody;
     let transformedRequest = basePayload;
@@ -1051,10 +1096,8 @@ const handleInboundRuntime = async (req, res) => {
     }
 
     // 4. Build auth headers for external API
-    let authHeaders;
-    let outboundHeaders;
     try {
-      authHeaders = await buildAuthHeaders(config, config.httpMethod || 'POST', config.targetUrl);
+      authHeaders = await buildAuthHeaders(config, config.httpMethod || 'POST', resolvedTargetUrl);
       outboundHeaders = {
         ...authHeaders,
         'Content-Type': 'application/json',
@@ -1140,7 +1183,7 @@ const handleInboundRuntime = async (req, res) => {
         log('info', 'Starting streaming response', {
           correlationId,
           method: config.httpMethod || 'POST',
-          url: config.targetUrl,
+          url: resolvedTargetUrl,
         });
 
         const httpStart = Date.now();
@@ -1148,7 +1191,7 @@ const handleInboundRuntime = async (req, res) => {
         // Make streaming request
         const streamResponse = await axios({
           method: config.httpMethod || 'POST',
-          url: config.targetUrl,
+          url: resolvedTargetUrl,
           headers: { ...authHeaders, 'Content-Type': 'application/json' },
           params: config.httpMethod === 'GET' ? transformedRequest : undefined,
           data: config.httpMethod !== 'GET' ? transformedRequest : undefined,
@@ -1166,7 +1209,7 @@ const handleInboundRuntime = async (req, res) => {
             metadata: {
               statusCode: streamResponse.status,
               method: config.httpMethod || 'POST',
-              url: config.targetUrl,
+              url: resolvedTargetUrl,
               streaming: true,
             },
           })
@@ -1185,7 +1228,7 @@ const handleInboundRuntime = async (req, res) => {
               transformed: transformedRequest,
             },
             upstream: {
-              url: config.targetUrl,
+              url: resolvedTargetUrl,
               method: config.httpMethod || 'POST',
               status: streamResponse.status,
               responseTime: httpDuration,
@@ -1253,7 +1296,7 @@ const handleInboundRuntime = async (req, res) => {
               transformed: maskSensitiveData(transformedRequest),
             },
             upstream: {
-              url: config.targetUrl,
+              url: resolvedTargetUrl,
               method: config.httpMethod || 'POST',
               status: streamResponse.status,
               responseTime,
@@ -1300,7 +1343,7 @@ const handleInboundRuntime = async (req, res) => {
               transformed: transformedRequest,
             },
             upstream: {
-              url: config.targetUrl,
+              url: resolvedTargetUrl,
               method: config.httpMethod || 'POST',
               status: streamResponse.status,
               responseTime: Date.now() - startTime,
@@ -1384,7 +1427,7 @@ const handleInboundRuntime = async (req, res) => {
           log('debug', 'Calling external API', {
             correlationId,
             method: config.httpMethod || 'POST',
-            url: config.targetUrl,
+            url: resolvedTargetUrl,
             timeout: config.timeoutMs || 30000,
             attempt,
             maxAttempts,
@@ -1392,7 +1435,7 @@ const handleInboundRuntime = async (req, res) => {
 
           upstreamResponse = await axios({
             method: config.httpMethod || 'POST',
-            url: config.targetUrl,
+            url: resolvedTargetUrl,
             headers: { ...authHeaders, 'Content-Type': 'application/json' },
             params: config.httpMethod === 'GET' ? transformedRequest : undefined,
             data: config.httpMethod !== 'GET' ? transformedRequest : undefined,
@@ -1418,7 +1461,7 @@ const handleInboundRuntime = async (req, res) => {
               metadata: {
                 statusCode: upstreamResponse.status,
                 method: config.httpMethod || 'POST',
-                url: config.targetUrl,
+                url: resolvedTargetUrl,
                 attempt,
                 maxAttempts,
               },
@@ -1449,7 +1492,7 @@ const handleInboundRuntime = async (req, res) => {
               durationMs: Date.now() - httpStart,
               metadata: {
                 method: config.httpMethod || 'POST',
-                url: config.targetUrl,
+                url: resolvedTargetUrl,
                 attempt,
                 maxAttempts,
               },
@@ -1502,7 +1545,7 @@ const handleInboundRuntime = async (req, res) => {
             transformed: transformedRequest,
           },
           upstream: {
-            url: config.targetUrl,
+            url: resolvedTargetUrl,
             method: config.httpMethod || 'POST',
             status: upstreamResponse.status,
             responseTime,
@@ -1581,7 +1624,7 @@ const handleInboundRuntime = async (req, res) => {
             transformed: transformedRequest,
           },
           upstream: {
-            url: config.targetUrl,
+            url: resolvedTargetUrl,
             method: config.httpMethod || 'POST',
             status: upstreamResponse.status,
             responseTime,
@@ -1626,7 +1669,7 @@ const handleInboundRuntime = async (req, res) => {
           transformed: maskSensitiveData(transformedRequest),
         },
         upstream: {
-          url: config.targetUrl,
+          url: resolvedTargetUrl,
           method: config.httpMethod || 'POST',
           status: upstreamResponse.status,
           responseTime,
@@ -1679,7 +1722,7 @@ const handleInboundRuntime = async (req, res) => {
           },
           response: { status: 504 },
           upstream: {
-            url: config.targetUrl,
+            url: resolvedTargetUrl,
             method: config.httpMethod || 'POST',
             responseTime,
           },
@@ -1725,7 +1768,7 @@ const handleInboundRuntime = async (req, res) => {
           },
           response: { status: 502 },
           upstream: {
-            url: config.targetUrl,
+            url: resolvedTargetUrl,
             method: config.httpMethod || 'POST',
             responseTime,
           },

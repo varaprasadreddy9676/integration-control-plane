@@ -41,7 +41,6 @@ import {
 } from 'antd';
 import {
   DatabaseOutlined,
-  ThunderboltOutlined,
   SaveOutlined,
   ReloadOutlined,
   CheckCircleOutlined,
@@ -60,6 +59,8 @@ import {
   upsertEventSourceConfig,
   deleteEventSourceConfig,
   testEventSourceConnection,
+  getEventSourceColumns,
+  getEventTypes,
   type ColumnMeta,
   type EventSourceTestResult
 } from '../../services/api';
@@ -117,19 +118,25 @@ const MAPPING_FIELDS = [
 
 function ColumnSelect({
   discoveredColumns,
-  placeholder
+  placeholder,
+  value,
+  onChange,
 }: {
   discoveredColumns: ColumnMeta[];
   placeholder: string;
+  value?: string | null;
+  onChange?: (...args: any[]) => void;
 }) {
   if (discoveredColumns.length === 0) {
-    return <Input placeholder={placeholder} />;
+    return <Input placeholder={placeholder} value={value ?? undefined} onChange={onChange as any} />;
   }
   return (
     <Select
       showSearch
       allowClear
       placeholder={placeholder}
+      value={value ?? undefined}
+      onChange={onChange}
       filterOption={(input, option) =>
         (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())
       }
@@ -146,12 +153,16 @@ function MysqlFields({
   useSharedPool,
   discoveredColumns,
   discovering,
-  onDiscover
+  onDiscover,
+  orgId,
+  eventTypeOptions,
 }: {
   useSharedPool: boolean;
   discoveredColumns: ColumnMeta[];
   discovering: boolean;
   onDiscover: () => void;
+  orgId: number | string | null;
+  eventTypeOptions: string[];
 }) {
   const { spacing } = useDesignTokens();
 
@@ -170,16 +181,19 @@ function MysqlFields({
         <>
           <Row gutter={16}>
             <Col span={16}>
+              {/* preserve={false} removes this field from form state when hidden,
+                  preventing required-rule validation from firing on shared pool */}
               <Form.Item
                 name="host"
                 label="Host"
+                preserve={false}
                 rules={[{ required: true, message: 'Host is required' }]}
               >
                 <Input placeholder="mysql.example.com" />
               </Form.Item>
             </Col>
             <Col span={8}>
-              <Form.Item name="port" label="Port">
+              <Form.Item name="port" label="Port" preserve={false}>
                 <InputNumber min={1} max={65535} style={{ width: '100%' }} placeholder="3306" />
               </Form.Item>
             </Col>
@@ -189,13 +203,14 @@ function MysqlFields({
               <Form.Item
                 name="user"
                 label="Username"
+                preserve={false}
                 rules={[{ required: true, message: 'Username is required' }]}
               >
                 <Input placeholder="db_user" />
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="password" label="Password">
+              <Form.Item name="password" label="Password" preserve={false}>
                 <Input.Password placeholder="••••••••" />
               </Form.Item>
             </Col>
@@ -203,6 +218,7 @@ function MysqlFields({
           <Form.Item
             name="database"
             label="Database"
+            preserve={false}
             rules={[{ required: true, message: 'Database name is required' }]}
           >
             <Input placeholder="my_database" />
@@ -264,8 +280,11 @@ function MysqlFields({
                   }
                 </Space>
               }
-              tooltip={field.description}
-              rules={field.required ? [{ required: true, message: `${field.label} column is required` }] : []}
+              tooltip={
+                field.key === 'orgId'
+                  ? `Column in your MySQL table that contains the organisation identifier. The system will automatically filter rows where this column equals your org ID${orgId ? ` (${orgId})` : ''}.`
+                  : field.description
+              }
             >
               <ColumnSelect
                 discoveredColumns={discoveredColumns}
@@ -274,6 +293,47 @@ function MysqlFields({
             </Form.Item>
           </Col>
         ))}
+      </Row>
+
+      <Divider orientation="left" style={{ fontSize: 13 }}>
+        Row Filters
+        <Tooltip title="Optionally restrict which rows are processed. Leave blank to process all rows for your org.">
+          <InfoCircleOutlined style={{ marginLeft: 6, color: cssVar.text.muted }} />
+        </Tooltip>
+      </Divider>
+
+      <Row gutter={16}>
+        <Col span={12}>
+          <Form.Item
+            name="orgUnitIdFilter"
+            label="Org Unit ID Filter"
+            tooltip="Only process rows whose Org Unit ID column value matches one of these. Enter comma-separated values (e.g. 101,205,310). Leave blank to include all org units."
+          >
+            <Input placeholder="e.g. 101, 205, 310" />
+          </Form.Item>
+        </Col>
+        <Col span={12}>
+          <Form.Item
+            name="eventTypeFilter"
+            label="Event Type Filter"
+            tooltip="Only process rows whose Event Type column value matches one of the selected types. Leave blank to process all event types."
+            getValueFromEvent={(val: string[]) => val}
+            getValueProps={(val: string | string[]) => ({
+              value: Array.isArray(val) ? val : (val ? String(val).split(',').map(s => s.trim()).filter(Boolean) : [])
+            })}
+          >
+            <Select
+              mode="multiple"
+              allowClear
+              placeholder="All event types"
+              showSearch
+              filterOption={(input, option) =>
+                (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())
+              }
+              options={eventTypeOptions.map(t => ({ value: t, label: t }))}
+            />
+          </Form.Item>
+        </Col>
       </Row>
 
       <Row gutter={16}>
@@ -507,13 +567,19 @@ function TestResultPanel({ result }: { result: EventSourceTestResult }) {
 
 export const EventSourceSettingsRoute = () => {
   const { orgId } = useTenant();
+
+  const { data: eventTypeOptions = [] } = useQuery({
+    queryKey: ['eventTypes'],
+    queryFn: getEventTypes,
+    staleTime: 300_000,
+  });
   const { message: messageApi, modal } = App.useApp();
   const { spacing } = useDesignTokens();
   const queryClient = useQueryClient();
   const [form] = Form.useForm();
 
   // Reactive form watches
-  const sourceType: string = Form.useWatch('type', form) ?? 'mysql';
+  const sourceType: string = Form.useWatch('type', form) ?? 'none';
   const useSharedPool: boolean = Form.useWatch('useSharedPool', form) ?? true;
 
   // Column discovery state
@@ -553,6 +619,14 @@ export const EventSourceSettingsRoute = () => {
     staleTime: 30_000
   });
 
+  const { data: savedColumnsResult } = useQuery({
+    queryKey: ['eventSourceColumns', orgId, currentConfig?.updatedAt, currentConfig?.config?.table],
+    queryFn: () => getEventSourceColumns(orgId),
+    enabled: !!orgId && !!currentConfig && currentConfig.type === 'mysql',
+    retry: false,
+    staleTime: 30_000,
+  });
+
   // Populate form when config loads
   useEffect(() => {
     if (currentConfig) {
@@ -564,10 +638,16 @@ export const EventSourceSettingsRoute = () => {
       setTestResult(null);
       setDiscoveredColumns([]);
     } else if (currentConfig === null) {
-      // Not configured — set sensible defaults
-      form.setFieldsValue({ type: 'mysql', useSharedPool: true });
+      // Not configured — show the "none" state by default
+      form.setFieldsValue({ type: 'none' });
     }
   }, [currentConfig, form]);
+
+  useEffect(() => {
+    if (savedColumnsResult?.success && Array.isArray(savedColumnsResult.columns)) {
+      setDiscoveredColumns(savedColumnsResult.columns);
+    }
+  }, [savedColumnsResult]);
 
   // Save mutation
   const saveMutation = useMutation({
@@ -664,7 +744,7 @@ export const EventSourceSettingsRoute = () => {
           messageApi.success('Event source configuration removed');
           queryClient.invalidateQueries({ queryKey: ['eventSourceConfig', orgId] });
           form.resetFields();
-          form.setFieldsValue({ type: 'mysql', useSharedPool: true });
+          form.setFieldsValue({ type: 'none' });
           setTestResult(null);
           setDiscoveredColumns([]);
           activityTracker.track({
@@ -757,6 +837,7 @@ export const EventSourceSettingsRoute = () => {
           >
             <Select
               options={[
+                { value: 'none',      label: 'None (no event source)' },
                 { value: 'mysql',     label: 'MySQL Polling' },
                 { value: 'kafka',     label: 'Kafka Consumer' },
                 { value: 'http_push', label: 'HTTP Push (inbound webhook)' }
@@ -768,44 +849,64 @@ export const EventSourceSettingsRoute = () => {
             />
           </Form.Item>
 
-          <Divider style={{ margin: `${spacing[2]} 0 ${spacing[3]}` }} />
+          {sourceType !== 'none' && (
+            <>
+              <Divider style={{ margin: `${spacing[2]} 0 ${spacing[3]}` }} />
 
-          {/* Source-specific fields */}
-          {sourceType === 'mysql' && (
-            <MysqlFields
-              useSharedPool={useSharedPool}
-              discoveredColumns={discoveredColumns}
-              discovering={discovering}
-              onDiscover={handleDiscoverColumns}
+              {/* Source-specific fields */}
+              {sourceType === 'mysql' && (
+                <MysqlFields
+                  useSharedPool={useSharedPool}
+                  discoveredColumns={discoveredColumns}
+                  discovering={discovering}
+                  onDiscover={handleDiscoverColumns}
+                  orgId={orgId}
+                  eventTypeOptions={eventTypeOptions}
+                />
+              )}
+              {sourceType === 'kafka' && <KafkaFields />}
+              {sourceType === 'http_push' && <HttpPushFields />}
+            </>
+          )}
+
+          {sourceType === 'none' && (
+            <Alert
+              type="info"
+              showIcon
+              message="No event source configured"
+              description="Events will not be ingested automatically. Select a source type above to configure one."
+              style={{ marginBottom: spacing[3] }}
             />
           )}
-          {sourceType === 'kafka' && <KafkaFields />}
-          {sourceType === 'http_push' && <HttpPushFields />}
 
           <Divider />
 
           {/* Action buttons */}
           <Space wrap>
-            <Tooltip title="Validates credentials, table existence, and column mapping against the live database. Nothing is saved.">
-              <Button
-                icon={<WifiOutlined />}
-                onClick={handleTest}
-                loading={testing}
-              >
-                Test Connection
-              </Button>
-            </Tooltip>
+            {sourceType !== 'none' && (
+              <Tooltip title="Validates credentials, table existence, and column mapping against the live database. Nothing is saved.">
+                <Button
+                  icon={<WifiOutlined />}
+                  onClick={handleTest}
+                  loading={testing}
+                >
+                  Test Connection
+                </Button>
+              </Tooltip>
+            )}
 
-            <PermissionGuard feature="event_source" operation="write">
-              <Button
-                type="primary"
-                icon={<SaveOutlined />}
-                onClick={handleSave}
-                loading={saveMutation.isPending}
-              >
-                Save Configuration
-              </Button>
-            </PermissionGuard>
+            {sourceType !== 'none' && (
+              <PermissionGuard feature="event_source" operation="write">
+                <Button
+                  type="primary"
+                  icon={<SaveOutlined />}
+                  onClick={handleSave}
+                  loading={saveMutation.isPending}
+                >
+                  Save Configuration
+                </Button>
+              </PermissionGuard>
+            )}
 
             {currentConfig && (
               <PermissionGuard feature="event_source" operation="delete">
@@ -814,7 +915,7 @@ export const EventSourceSettingsRoute = () => {
                   icon={<DeleteOutlined />}
                   onClick={handleDelete}
                 >
-                  Remove
+                  Remove Configuration
                 </Button>
               </PermissionGuard>
             )}
@@ -827,27 +928,14 @@ export const EventSourceSettingsRoute = () => {
               Reload
             </Button>
           </Space>
+
+          {testResult && (
+            <div style={{ marginTop: spacing[4] }}>
+              <TestResultPanel result={testResult} />
+            </div>
+          )}
         </Form>
       </Card>
-
-      {/* Test connection result */}
-      {testResult && (
-        <Card
-          size="small"
-          style={{ marginTop: spacing[3] }}
-          title={
-            <Space>
-              {testResult.success
-                ? <CheckCircleOutlined style={{ color: cssVar.success.text }} />
-                : <CloseCircleOutlined style={{ color: cssVar.error.text }} />
-              }
-              Test Result
-            </Space>
-          }
-        >
-          <TestResultPanel result={testResult} />
-        </Card>
-      )}
     </PermissionGuard>
   );
 };
