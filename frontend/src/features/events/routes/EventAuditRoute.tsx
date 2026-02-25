@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { App, Button, Card, DatePicker, Input, Select, Space, Tag, Typography, Grid, Dropdown, Modal, Form, InputNumber, Switch } from 'antd';
 import { DownloadOutlined, ReloadOutlined, EyeOutlined, UploadOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
+import { useLocation } from 'react-router-dom';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { ModernTable } from '../../../components/common/ModernTable';
 import { getEventAudit, getEventAuditById, getEventAuditStats, exportEventAuditToCsv, insertTestNotificationQueueEvents, getEventTypes } from '../../../services/api';
@@ -32,6 +33,7 @@ const skipCategoryOptions = [
 const sourceOptions = ['mysql', 'kafka', 'sqs', 'http'];
 
 export const EventAuditRoute = () => {
+  const location = useLocation();
   const { spacing, token, shadows, borderRadius } = useDesignTokens();
   const colors = cssVar.legacy;
   const { message: msgApi } = App.useApp();
@@ -98,6 +100,12 @@ export const EventAuditRoute = () => {
 
   const events = listResult?.events || [];
   const total = listResult?.total || 0;
+
+  // Refetch on navigate (sidebar click)
+  useEffect(() => {
+    refetchStats();
+    refetchEvents();
+  }, [location.key]);
 
   const { data: allEventTypes = [] } = useQuery({
     queryKey: ['event-types'],

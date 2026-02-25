@@ -34,28 +34,47 @@ export const useDeliveryModeSwitch = ({
     if (mode === current) return;
     setDeliveryModeChoice(mode);
     if (mode === 'multi' && !isMultiAction) {
-      const targetUrl = form.getFieldValue('targetUrl');
-      const httpMethod = form.getFieldValue('httpMethod') || 'POST';
-      prevSingleConfigRef.current = { targetUrl, httpMethod };
-      prevSingleTransformRef.current = {
-        mode: transformationTab,
-        script: scriptValue,
-        mappings: mappingState.mappings,
-        staticFields: mappingState.staticFields
+      const hasTransformation = transformationTab === 'SCRIPT'
+        ? scriptValue && scriptValue.trim().length > 0
+        : (mappingState.mappings.length > 0 || mappingState.staticFields.length > 0);
+
+      const doSwitch = () => {
+        const targetUrl = form.getFieldValue('targetUrl');
+        const httpMethod = form.getFieldValue('httpMethod') || 'POST';
+        prevSingleConfigRef.current = { targetUrl, httpMethod };
+        prevSingleTransformRef.current = {
+          mode: transformationTab,
+          script: scriptValue,
+          mappings: mappingState.mappings,
+          staticFields: mappingState.staticFields
+        };
+
+        const action = {
+          name: form.getFieldValue('name') ? `${form.getFieldValue('name')} Action` : 'Action 1',
+          httpMethod,
+          targetUrl: targetUrl || '',
+          transformationMode: transformationTab,
+          transformation: transformationTab === 'SCRIPT'
+            ? { script: scriptValue }
+            : { mappings: mappingState.mappings, staticFields: mappingState.staticFields }
+        };
+        form.setFieldsValue({ actions: [action] });
+        setMultiActionMode(true);
+        setActivePanels(['configuration', 'multiAction', 'authentication', 'delivery']);
       };
 
-      const action = {
-        name: form.getFieldValue('name') ? `${form.getFieldValue('name')} Action` : 'Action 1',
-        httpMethod,
-        targetUrl: targetUrl || '',
-        transformationMode: transformationTab,
-        transformation: transformationTab === 'SCRIPT'
-          ? { script: scriptValue }
-          : { mappings: mappingState.mappings, staticFields: mappingState.staticFields }
-      };
-      form.setFieldsValue({ actions: [action] });
-      setMultiActionMode(true);
-      setActivePanels(['configuration', 'multiAction', 'authentication', 'delivery']);
+      if (hasTransformation) {
+        modal.confirm({
+          title: 'Switch to multi-action delivery?',
+          content: 'Your current transformation will be moved to the first action. You can add more actions after switching.',
+          okText: 'Switch to multi-action',
+          cancelText: 'Cancel',
+          onOk: doSwitch,
+          onCancel: () => setDeliveryModeChoice(current)
+        });
+      } else {
+        doSwitch();
+      }
     }
 
     if (mode === 'single' && isMultiAction) {

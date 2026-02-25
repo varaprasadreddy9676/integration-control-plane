@@ -79,6 +79,7 @@ class MysqlEventSource extends EventSourceAdapter {
 
     this.orgId = config.orgId;
     this.pool = config.pool;
+    this.poolProvider = typeof config.poolProvider === 'function' ? config.poolProvider : null;
     this.pollIntervalMs = config.pollIntervalMs || 5000;
     this.batchSize = config.batchSize || 10;
     this.dbTimeoutMs = config.dbTimeoutMs || 30000;
@@ -239,8 +240,26 @@ class MysqlEventSource extends EventSourceAdapter {
       LIMIT ${this.batchSize}
     `;
 
-    const [rows] = await this.pool.execute(sql, params);
-    return rows;
+    const executeWithPool = async () => {
+      const activePool = this.poolProvider ? this.poolProvider() : this.pool;
+      if (!activePool || typeof activePool.execute !== 'function') {
+        throw new Error('MySQL pool is not available');
+      }
+      this.pool = activePool;
+      const [rows] = await activePool.execute(sql, params);
+      return rows;
+    };
+
+    try {
+      return await executeWithPool();
+    } catch (err) {
+      const msg = String(err?.message || '');
+      if (msg.includes('Pool is closed') && this.poolProvider) {
+        // Shared pool may have been reinitialized; retry once with latest pool.
+        return executeWithPool();
+      }
+      throw err;
+    }
   }
 
   // ---------------------------------------------------------------------------

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { App, Button, Card, Modal, Tag, Typography, Space, Input, Select, Tooltip, Badge, Empty, Divider, Alert, Collapse } from 'antd';
 import { FilterOutlined, PlusOutlined, SearchOutlined, AppstoreOutlined, BookOutlined, CodeOutlined, InfoCircleOutlined, DeleteOutlined, PlusCircleOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
@@ -9,15 +9,23 @@ import { getTemplates, createIntegrationFromTemplate } from '../../../services/a
 import type { IntegrationTemplate } from '../../../mocks/types';
 import { cssVar, useDesignTokens, withAlpha, spacingToNumber } from '../../../design-system/utils';
 import { useNavigateWithParams } from '../../../utils/navigation';
+import { useLocation } from 'react-router-dom';
 
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
 
 export const TemplatesRoute = () => {
   const navigate = useNavigateWithParams();
+  const location = useLocation();
   const { spacing, token, borderRadius, transitions } = useDesignTokens();
   const colors = cssVar.legacy;
   const { data: templates = [], isLoading, refetch } = useQuery({ queryKey: ['templates'], queryFn: getTemplates });
+
+  // Refetch on navigate (sidebar click)
+  useEffect(() => {
+    refetch();
+  }, [location.key]);
+
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [categoryFilter, setCategoryFilter] = useState<string | undefined>();
   const [selectedTemplate, setSelectedTemplate] = useState<IntegrationTemplate | null>(null);

@@ -2,6 +2,7 @@ import { useMemo, useState, useEffect } from 'react';
 import { App, Button, Card, DatePicker, Input, Select, Space, Tag, Typography, Timeline, Divider, Tabs, Grid, Dropdown, Modal, Skeleton } from 'antd';
 import { DownloadOutlined, RedoOutlined, HistoryOutlined, ReloadOutlined, ClockCircleOutlined, CheckCircleOutlined, CloseCircleOutlined, DeleteOutlined, CopyOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
+import { useSearchParams, useLocation } from 'react-router-dom';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { ModernTable } from '../../../components/common/ModernTable';
 import { StatusBadge } from '../../../components/common/StatusBadge';
@@ -44,6 +45,8 @@ export const LogsRoute = () => {
   const { message: msgApi, modal } = App.useApp();
   const screens = Grid.useBreakpoint();
   const isNarrow = !screens.md;
+  const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
   const [statusFilter, setStatusFilter] = useState<string>();
   const [integrationFilter, setIntegrationFilter] = useState<string>();
   const [eventTypeFilter, setEventTypeFilter] = useState<string>();
@@ -57,10 +60,55 @@ export const LogsRoute = () => {
   const [exportLoading, setExportLoading] = useState(false);
   const [showMoreFilters, setShowMoreFilters] = useState(false);
 
+  useEffect(() => {
+    const hasStatusParam = searchParams.has('status');
+    const statusParam = searchParams.get('status') || undefined;
+    const dateRangeParam = searchParams.get('dateRange');
+    const hasDateRangeParam = searchParams.has('dateRange');
+    const startDate = searchParams.get('startDate');
+    const endDate = searchParams.get('endDate');
+    let consumedPrefillParams = false;
+
+    if (hasStatusParam && statusParam !== statusFilter) {
+      setStatusFilter(statusParam);
+      consumedPrefillParams = true;
+    }
+
+    if (hasDateRangeParam && dateRangeParam === 'all') {
+      if (dateRange !== null) {
+        setDateRange(null);
+      }
+      consumedPrefillParams = true;
+    } else if (searchParams.has('startDate') && searchParams.has('endDate') && startDate && endDate) {
+      if (!dateRange || dateRange[0] !== startDate || dateRange[1] !== endDate) {
+        setDateRange([startDate, endDate]);
+      }
+      consumedPrefillParams = true;
+    }
+
+    // Header shortcut params should prefill once, then be removed so users
+    // can interact with filter controls without this effect forcing values back.
+    if (consumedPrefillParams) {
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.delete('status');
+      nextParams.delete('dateRange');
+      nextParams.delete('startDate');
+      nextParams.delete('endDate');
+      setSearchParams(nextParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams, statusFilter, dateRange]);
+
   // Clear selection when filters change to prevent data corruption
   useEffect(() => {
     setSelectedRowKeys([]);
   }, [statusFilter, integrationFilter, eventTypeFilter, flowFilter, search, dateRange]);
+
+  // Refetch whenever the user navigates to this page — including clicking the
+  // sidebar link while already on this route (location.key changes every time).
+  useEffect(() => {
+    refetchLogs();
+    refetchStats();
+  }, [location.key]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Pagination with auto-reset on filter changes
   const { currentPage, pageSize, getPaginationConfig } = usePaginatedTable({
@@ -808,15 +856,20 @@ export const LogsRoute = () => {
         >
           {showMoreFilters ? 'Less filters' : 'More filters'}
         </Button>
-        <div style={{ marginLeft: isNarrow ? 0 : 'auto' }}>
+        <div style={{ marginLeft: isNarrow ? 0 : 'auto', display: 'flex', alignItems: 'center', gap: spacing[2] }}>
+          {refreshInterval && (
+            <Typography.Text type="secondary" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
+              Auto-refreshing every {refreshSeconds}s
+            </Typography.Text>
+          )}
           <Button
             type="default"
-            icon={<ReloadOutlined />}
-            loading={logsFetching}
+            icon={<ReloadOutlined spin={logsFetching} />}
+            loading={false}
             onClick={() => { refetchLogs(); refetchStats(); }}
             size="small"
           >
-            Refresh
+            {logsFetching ? 'Refreshing…' : 'Refresh'}
           </Button>
         </div>
       </div>

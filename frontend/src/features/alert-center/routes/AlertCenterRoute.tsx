@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { App, Button, Card, Col, DatePicker, Descriptions, Divider, Drawer, Grid, Input, Row, Select, Space, Statistic, Tag, Typography, Skeleton, Dropdown, Collapse } from 'antd';
 import { ClearOutlined, DownloadOutlined, EyeOutlined, ReloadOutlined, SearchOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
-import { useSearchParams } from 'react-router-dom';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import dayjs from 'dayjs';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { FilterBar } from '../../../components/common/FilterBar';
@@ -42,6 +42,7 @@ export const AlertCenterRoute = () => {
         marginRight: `-${spacing[5]}`,
         paddingRight: spacing[1]
       };
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const hasDefaultedStatus = useRef(false);
   const [statusFilter, setStatusFilter] = useState<string>();
@@ -72,7 +73,7 @@ export const AlertCenterRoute = () => {
 
     if (!status && !hasDefaultedStatus.current) {
       hasDefaultedStatus.current = true;
-      setStatusFilter('SENT');
+      setStatusFilter('FAILED');
     } else {
       setStatusFilter(status);
     }
@@ -142,6 +143,11 @@ export const AlertCenterRoute = () => {
     queryFn: getTenantInfo,
     staleTime: 5 * 60 * 1000
   });
+
+  // Refetch on navigate (sidebar click)
+  useEffect(() => {
+    refetch();
+  }, [location.key]);
 
   const stats = useMemo(() => {
     return {

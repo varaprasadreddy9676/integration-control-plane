@@ -1,12 +1,11 @@
-import { useMemo } from 'react';
-import { Space, Button, Tag, Tooltip, Progress, Typography } from 'antd';
+import { useMemo, useState } from 'react';
+import { Space, Tag, Tooltip, Progress, Typography, Button } from 'antd';
 import {
   CheckCircleOutlined,
   CloseCircleOutlined,
   ExclamationCircleOutlined,
-  SaveOutlined,
-  ThunderboltOutlined,
-  EyeOutlined
+  DownOutlined,
+  UpOutlined
 } from '@ant-design/icons';
 import { cssVar, useDesignTokens, withAlpha } from '../../../../../design-system/utils';
 
@@ -22,14 +21,6 @@ interface RuleStatusBarProps {
   validationErrors: string[];
   isValid: boolean;
 
-  // Actions
-  onSave: () => void;
-  onReview?: () => void;
-  onActivate?: () => void;
-
-  // Loading states
-  isSaving: boolean;
-
   // Optional
   className?: string;
   style?: React.CSSProperties;
@@ -42,13 +33,10 @@ export const RuleStatusBar = ({
   missingRequiredCount,
   validationErrors,
   isValid,
-  onSave,
-  onReview,
-  onActivate,
-  isSaving,
   className,
   style
 }: RuleStatusBarProps) => {
+  const [showAllErrors, setShowAllErrors] = useState(false);
   const { spacing, token } = useDesignTokens();
   const colors = cssVar.legacy;
 
@@ -181,42 +169,7 @@ export const RuleStatusBar = ({
           )}
         </Space>
 
-        {/* Right: Contextual Actions */}
-        <Space size="middle">
-          {/* Save Draft - Always available */}
-          <Button
-            icon={<SaveOutlined />}
-            onClick={onSave}
-            loading={isSaving}
-            disabled={isSaving}
-          >
-            {isCreate ? 'Save Draft' : 'Save Changes'}
-          </Button>
-
-          {/* Review - Available when mostly complete */}
-          {onReview && missingRequiredCount <= 2 && (
-            <Button
-              icon={<EyeOutlined />}
-              onClick={onReview}
-              disabled={isSaving}
-            >
-              Review
-            </Button>
-          )}
-
-          {/* Activate - Available when valid and not already active */}
-          {onActivate && !isActive && isValid && missingRequiredCount === 0 && validationErrors.length === 0 && (
-            <Button
-              type="primary"
-              icon={<ThunderboltOutlined />}
-              onClick={onActivate}
-              loading={isSaving}
-              disabled={isSaving}
-            >
-              {isCreate ? 'Create & Activate' : 'Activate'}
-            </Button>
-          )}
-        </Space>
+        <span />
       </div>
 
       {/* Validation Errors List (expandable) */}
@@ -231,20 +184,28 @@ export const RuleStatusBar = ({
             border: `1px solid ${withAlpha(colors.error[200], 0.5)}`
           }}
         >
-          <Text style={{ fontSize: 12, color: colors.error[700] }}>
-            <strong>Validation errors:</strong>
-          </Text>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Text style={{ fontSize: 12, color: colors.error[700] }}>
+              <strong>Validation errors:</strong>
+            </Text>
+            {validationErrors.length > 3 && (
+              <Button
+                type="text"
+                size="small"
+                icon={showAllErrors ? <UpOutlined /> : <DownOutlined />}
+                onClick={() => setShowAllErrors(!showAllErrors)}
+                style={{ fontSize: 12, color: colors.error[500], height: 'auto', padding: '0 4px' }}
+              >
+                {showAllErrors ? 'Show less' : `+${validationErrors.length - 3} more`}
+              </Button>
+            )}
+          </div>
           <ul style={{ margin: `${spacing[1]} 0 0`, paddingLeft: spacing[4], fontSize: 12 }}>
-            {validationErrors.slice(0, 3).map((error, idx) => (
+            {(showAllErrors ? validationErrors : validationErrors.slice(0, 3)).map((error, idx) => (
               <li key={idx} style={{ color: colors.error[600] }}>
                 {error}
               </li>
             ))}
-            {validationErrors.length > 3 && (
-              <li style={{ color: colors.error[500] }}>
-                +{validationErrors.length - 3} more error{validationErrors.length - 3 > 1 ? 's' : ''}
-              </li>
-            )}
           </ul>
         </div>
       )}

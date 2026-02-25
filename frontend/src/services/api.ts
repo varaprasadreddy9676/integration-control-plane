@@ -1060,12 +1060,21 @@ const normalizeExportJobUrl = (pathOrUrl: string): string => {
   if (!pathOrUrl) return pathOrUrl;
   let fullUrl;
   if (/^https?:\/\//i.test(pathOrUrl)) {
+    // Already a fully-qualified URL — use as-is
     fullUrl = pathOrUrl;
+  } else if (pathOrUrl.startsWith('/api/v1/')) {
+    // Backend returns absolute paths like "/api/v1/logs/export/jobs/..."
+    // Using new URL('/api/v1/...', API_BASE_URL) drops the sub-path prefix because
+    // leading "/" resolves relative to the origin only, not the full base URL path.
+    // Instead, strip the "/api/v1/" prefix and resolve relative to API_BASE_URL
+    // which already ends with "/api/v1".
+    const relativePath = pathOrUrl.slice('/api/v1/'.length);
+    fullUrl = `${API_BASE_URL}/${relativePath}`;
   } else {
     try {
       fullUrl = new URL(pathOrUrl, API_BASE_URL).toString();
     } catch {
-      fullUrl = `${API_BASE_URL}${pathOrUrl}`;
+      fullUrl = `${API_BASE_URL}/${pathOrUrl.replace(/^\//, '')}`;
     }
   }
   return appendOrgIdParam(fullUrl);

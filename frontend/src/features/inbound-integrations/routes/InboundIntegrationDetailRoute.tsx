@@ -316,6 +316,25 @@ return {
   // Watch form values
   const authType = Form.useWatch('inboundAuthType', form);
 
+  // HTTP method → color mapping
+  const getMethodColor = (method: string) => {
+    const m = (method || '').toUpperCase();
+    if (m === 'GET')    return 'green';
+    if (m === 'POST')   return 'blue';
+    if (m === 'PUT')    return 'orange';
+    if (m === 'PATCH')  return 'gold';
+    if (m === 'DELETE') return 'red';
+    return 'default';
+  };
+
+  // Security posture based on auth type
+  const getSecurityPosture = (auth: string) => {
+    if (!auth || auth === 'NONE') return { label: 'Low', color: 'orange', tip: 'No authentication — any caller can invoke this endpoint' };
+    if (auth === 'API_KEY')       return { label: 'Medium', color: 'blue', tip: 'API key required' };
+    if (auth === 'BASIC')         return { label: 'Medium', color: 'blue', tip: 'Basic auth required' };
+    return { label: 'High', color: 'green', tip: 'Strong authentication configured' };
+  };
+
   // Fetch UI config
   const { data: uiConfig } = useQuery({
     queryKey: ['ui-config'],
@@ -788,6 +807,7 @@ return {
         compact
       />
 
+
       {/* Form */}
       <Form
         form={form}
@@ -1129,6 +1149,19 @@ return {
                       authTypeFieldName="inboundAuthType"
                     />
 
+                    {/* Security posture indicator */}
+                    {(() => {
+                      const posture = getSecurityPosture(authType);
+                      return (
+                        <Alert
+                          type={authType === 'NONE' ? 'warning' : 'success'}
+                          showIcon
+                          message={<>Security posture: <Text strong>{posture.label}</Text></>}
+                          description={posture.tip}
+                        />
+                      );
+                    })()}
+
                     <Divider style={{ margin: `${spacing[4]} 0` }} />
 
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -1432,6 +1465,7 @@ return {
                       description="Please review all settings before creating the integration. You can click on any tab above to make changes."
                     />
 
+
                     {/* Basic Info Summary */}
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: spacing[2], marginBottom: spacing[3] }}>
@@ -1495,7 +1529,7 @@ return {
                           </div>
                           <div style={{ display: 'flex', gap: spacing[2] }}>
                             <Text type="secondary" style={{ minWidth: 150 }}>HTTP Method:</Text>
-                            <Tag color="blue">{form.getFieldValue('httpMethod') || 'POST'}</Tag>
+                            <Tag color={getMethodColor(form.getFieldValue('httpMethod') || 'POST')}>{form.getFieldValue('httpMethod') || 'POST'}</Tag>
                           </div>
                           <div style={{ display: 'flex', gap: spacing[2] }}>
                             <Text type="secondary" style={{ minWidth: 150 }}>Timeout:</Text>
@@ -1528,6 +1562,12 @@ return {
                           <Text type="secondary" style={{ minWidth: 150 }}>Auth Type:</Text>
                           <Tag color={authType === 'NONE' ? 'default' : 'blue'}>{authType || 'NONE'}</Tag>
                         </div>
+                        <div style={{ display: 'flex', gap: spacing[2] }}>
+                          <Text type="secondary" style={{ minWidth: 150 }}>Security Posture:</Text>
+                          <Tooltip title={getSecurityPosture(authType).tip}>
+                            <Tag color={getSecurityPosture(authType).color}>{getSecurityPosture(authType).label}</Tag>
+                          </Tooltip>
+                        </div>
                       </Space>
                     </div>
 
@@ -1540,46 +1580,67 @@ return {
                         <Text strong style={{ fontSize: 16 }}>Transformations</Text>
                       </div>
                       <Space direction="vertical" size="small" style={{ width: '100%', paddingLeft: spacing[4] }}>
-                        <div style={{ display: 'flex', gap: spacing[2] }}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: spacing[2] }}>
                           <Text type="secondary" style={{ minWidth: 150 }}>
                             {form.getFieldValue('actionType') === 'COMMUNICATION' ? 'Email Content Transform:' : 'Request Transform:'}
                           </Text>
-                          <Tag color={requestTransformEnabled ? 'success' : 'default'}>
-                            {requestTransformEnabled ? 'Enabled' : 'Disabled'}
-                          </Tag>
+                          <div>
+                            <Tag color={requestTransformEnabled ? 'success' : 'default'}>
+                              {requestTransformEnabled ? 'Enabled' : 'Disabled'}
+                            </Tag>
+                            {requestTransformEnabled && requestTransformScript && (
+                              <div style={{ marginTop: spacing[1] }}>
+                                <Text code style={{ fontSize: 11, color: cssVar.text.secondary }}>
+                                  {requestTransformScript.trim().split('\n').slice(0, 2).join(' ').substring(0, 80)}…
+                                </Text>
+                              </div>
+                            )}
+                          </div>
                         </div>
                         {form.getFieldValue('actionType') !== 'COMMUNICATION' && (
-                          <div style={{ display: 'flex', gap: spacing[2] }}>
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: spacing[2] }}>
                             <Text type="secondary" style={{ minWidth: 150 }}>Response Transform:</Text>
-                            <Tag color={responseTransformEnabled ? 'success' : 'default'}>
-                              {responseTransformEnabled ? 'Enabled' : 'Disabled'}
-                            </Tag>
+                            <div>
+                              <Tag color={responseTransformEnabled ? 'success' : 'default'}>
+                                {responseTransformEnabled ? 'Enabled' : 'Disabled'}
+                              </Tag>
+                              {responseTransformEnabled && responseTransformScript && (
+                                <div style={{ marginTop: spacing[1] }}>
+                                  <Text code style={{ fontSize: 11, color: cssVar.text.secondary }}>
+                                    {responseTransformScript.trim().split('\n').slice(0, 2).join(' ').substring(0, 80)}…
+                                  </Text>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         )}
                       </Space>
                     </div>
 
-                    {/* Action Buttons */}
-                    <Divider style={{ margin: 0 }} />
-
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: spacing[3], paddingTop: spacing[3] }}>
-                      <Button
-                        size="large"
-                        onClick={() => navigate('/inbound-integrations')}
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        type="primary"
-                        size="large"
-                        icon={<SaveOutlined />}
-                        onClick={() => form.submit()}
-                        loading={isSaving}
-                        disabled={!isTabComplete('basic') || !isTabComplete('http')}
-                      >
-                        {isCreate ? 'Create Integration' : 'Save Changes'}
-                      </Button>
-                    </div>
+                    {/* Action Buttons — only shown in create mode; edit mode uses the persistent footer */}
+                    {isCreate && (
+                      <>
+                        <Divider style={{ margin: 0 }} />
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: spacing[3], paddingTop: spacing[3] }}>
+                          <Button
+                            size="large"
+                            onClick={() => navigate('/inbound-integrations')}
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            type="primary"
+                            size="large"
+                            icon={<SaveOutlined />}
+                            onClick={() => form.submit()}
+                            loading={isSaving}
+                            disabled={!isTabComplete('basic') || !isTabComplete('http')}
+                          >
+                            Create Integration
+                          </Button>
+                        </div>
+                      </>
+                    )}
                   </Space>
                 </Card>
               )
@@ -1646,6 +1707,12 @@ return {
               <Space>
                 <Button onClick={() => navigate('/inbound-integrations')}>
                   Cancel
+                </Button>
+                <Button
+                  onClick={() => setActiveTab('review')}
+                  icon={<EyeOutlined />}
+                >
+                  Review
                 </Button>
                 <Button
                   type="primary"

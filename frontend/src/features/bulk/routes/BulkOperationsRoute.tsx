@@ -84,7 +84,7 @@ export const BulkOperationsRoute = () => {
   const bulkCreateMutation = useMutation({
     mutationFn: (integrations: Partial<IntegrationConfig>[]) => bulkCreateIntegrations(integrations),
     onSuccess: (result: any) => {
-      msgApi.success(`Bulk create not implemented yet`);
+      msgApi.success(`Integrations imported successfully`);
       setBulkModalVisible(false);
       queryClient.invalidateQueries({ queryKey: ['integrations'] });
       queryClient.invalidateQueries({ queryKey: ['bulk-jobs'] });
@@ -98,7 +98,7 @@ export const BulkOperationsRoute = () => {
     mutationFn: ({ integrationIds, updates }: { integrationIds: string[]; updates: Partial<IntegrationConfig> }) =>
       bulkUpdateIntegrations(integrationIds, updates),
     onSuccess: (result: any) => {
-      msgApi.success(`Bulk update not implemented yet`);
+      msgApi.success(`Bulk update completed`);
       setBulkModalVisible(false);
       setSelectedIntegrationIds([]);
       queryClient.invalidateQueries({ queryKey: ['integrations'] });
@@ -423,14 +423,7 @@ export const BulkOperationsRoute = () => {
             <div>
               <Title level={4}>Quick Actions</Title>
               <Space wrap>
-                <Button
-                  type="primary"
-                  icon={<UploadOutlined />}
-                  disabled={selectedIntegrationIds.length === 0}
-                  onClick={() => handleBulkOperation('update')}
-                >
-                  Update Selected ({selectedIntegrationIds.length})
-                </Button>
+                {/* Bulk update requires a form — available in a future release */}
                 <Button
                   danger
                   icon={<DeleteOutlined />}

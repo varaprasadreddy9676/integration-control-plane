@@ -6,6 +6,7 @@ const { sanitizePoolConfig } = require('./utils/mysql-safety');
 let pool;
 let poolRecreating = false;
 let poolRecreationPromise = null;
+let poolVersion = 0;
 
 const isConfigured = () => Boolean(config.db?.host && config.db?.user && config.db?.database);
 
@@ -84,6 +85,8 @@ function createPoolWithHandlers() {
     // Connection limits controlled via connectionLimit + queueLimit only
   });
 
+  poolVersion += 1;
+
   // Handle pool errors
   newPool.on('error', (err) => {
     log('error', 'MySQL pool error', {
@@ -116,6 +119,10 @@ function getPool() {
     pool = createPoolWithHandlers();
   }
   return pool;
+}
+
+function getPoolVersion() {
+  return poolVersion;
 }
 
 /**
@@ -266,4 +273,4 @@ async function reinitPool(newDbConfig) {
   }
 }
 
-module.exports = { query, ping, isConfigured, getConnection, getPool, reinitPool };
+module.exports = { query, ping, isConfigured, getConnection, getPool, getPoolVersion, reinitPool };

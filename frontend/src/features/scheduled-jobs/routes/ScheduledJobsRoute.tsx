@@ -1,6 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import {
   Card,
   Space,
@@ -54,6 +54,7 @@ export const ScheduledJobsRoute = ({ hideHeader = false, isActive = true }: Sche
   const colors = cssVar.legacy;
   const screens = Grid.useBreakpoint();
   const isNarrow = !screens.md;
+  const location = useLocation();
   const orgId = searchParams.get('orgId');
 
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
@@ -61,11 +62,16 @@ export const ScheduledJobsRoute = ({ hideHeader = false, isActive = true }: Sche
   const [statusFilter, setStatusFilter] = useState<'active' | 'paused' | undefined>();
 
   // Fetch scheduled jobs
-  const { data: jobs = [], isLoading } = useQuery({
+  const { data: jobs = [], isLoading, refetch } = useQuery({
     queryKey: ['scheduled-jobs', orgId],
     queryFn: () => getAllScheduledJobs(orgId!),
     enabled: isActive
   });
+
+  // Refetch on navigate (sidebar click)
+  useEffect(() => {
+    if (isActive) refetch();
+  }, [location.key]);
 
   // Filter jobs
   const filteredJobs = useMemo(() => {

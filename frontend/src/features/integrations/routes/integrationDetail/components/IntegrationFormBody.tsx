@@ -35,7 +35,7 @@ interface IntegrationFormBodyProps {
   // RuleStatusBar props
   missingRequiredCount?: number;
   validationErrors?: string[];
-  onReview?: () => void;
+  // Activate action (shown in footer)
   onActivate?: () => void;
 }
 
@@ -65,7 +65,6 @@ export const IntegrationFormBody = ({
   sectionItems,
   missingRequiredCount = 0,
   validationErrors = [],
-  onReview,
   onActivate
 }: IntegrationFormBodyProps) => {
   // Show status bar only in create or edit mode
@@ -80,7 +79,7 @@ export const IntegrationFormBody = ({
     <Space direction="vertical" size={spacingToNumber(spacing[3])} style={{ width: '100%' }}>
       {formAlerts}
 
-      {/* Status Bar - Sticky validation and actions */}
+      {/* Status Bar - Sticky status indicator only (no action buttons) */}
       {showStatusBar && (
         <RuleStatusBar
           isCreate={isCreate}
@@ -89,10 +88,6 @@ export const IntegrationFormBody = ({
           missingRequiredCount={missingRequiredCount}
           validationErrors={validationErrors}
           isValid={isValid}
-          onSave={onSave}
-          onReview={onReview}
-          onActivate={shouldShowActivate ? onActivate : undefined}
-          isSaving={isSaving}
         />
       )}
 
@@ -125,6 +120,8 @@ export const IntegrationFormBody = ({
         spacing={spacing}
         token={token}
         colors={colors}
+        onActivate={shouldShowActivate ? onActivate : undefined}
+        showActivate={shouldShowActivate}
       />
     </Space>
   );

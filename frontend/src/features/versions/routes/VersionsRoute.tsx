@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { App, Button, Card, Tag, Typography, Space, Select, Input, Modal, Progress, Alert, Timeline, Badge, Tabs, Table } from 'antd';
 import {
   HistoryOutlined,
@@ -12,7 +12,7 @@ import {
   WarningOutlined,
   ClockCircleOutlined
 } from '@ant-design/icons';
-import { useParams } from 'react-router-dom';
+import { useLocation, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigateWithParams } from '../../../utils/navigation';
 import { PageHeader } from '../../../components/common/PageHeader';
@@ -91,6 +91,7 @@ interface CompatibilityMatrix {
 
 export const VersionsRoute = () => {
   const navigate = useNavigateWithParams();
+  const location = useLocation();
   const { __KEEP_integrationName__ } = useParams<{ __KEEP_integrationName__: string }>();
   const queryClient = useQueryClient();
   const { message: msgApi } = App.useApp();
@@ -118,7 +119,7 @@ export const VersionsRoute = () => {
   const [loading, setLoading] = useState(false);
 
   // Queries
-  const { data: versions = [], isLoading: versionsLoading } = useQuery({
+  const { data: versions = [], isLoading: versionsLoading, refetch: refetchVersions } = useQuery({
     queryKey: ['integration-versions', __KEEP_integrationName__],
     queryFn: () => getIntegrationVersions(__KEEP_integrationName__!),
     enabled: !!__KEEP_integrationName__
@@ -129,6 +130,11 @@ export const VersionsRoute = () => {
     queryFn: () => getIntegrationCompatibilityMatrix(__KEEP_integrationName__!),
     enabled: !!__KEEP_integrationName__
   });
+
+  // Refetch on navigate
+  useEffect(() => {
+    if (__KEEP_integrationName__) refetchVersions();
+  }, [location.key]);
 
   // Mutations
   const createVersionMutation = useMutation({
@@ -209,6 +215,12 @@ export const VersionsRoute = () => {
       msgApi.error(`Rollback failed: ${error.message}`);
     }
   });
+
+  // Derived state
+  const currentActiveVersion = useMemo(
+    () => versions.find(v => v.isActive) ?? versions.find(v => v.isDefault) ?? null,
+    [versions]
+  );
 
   // Helper functions
   const parseVersion = (version: string) => {
@@ -697,10 +709,30 @@ export const VersionsRoute = () => {
           />
 
           <div>
-            <Text strong>Rollback Version: {selectedVersion?.version}</Text>
+            <Space direction="vertical" size={4}>
+              {currentActiveVersion && currentActiveVersion.id !== selectedVersion?.id && (
+                <Text>
+                  <Text type="secondary">Currently active: </Text>
+                  <Text strong>{currentActiveVersion.version}</Text>
+                  {currentActiveVersion.isDefault && (
+                    <Tag style={{ marginLeft: 8, borderRadius: borderRadius.full }} color="blue">Default</Tag>
+                  )}
+                </Text>
+              )}
+              <Text>
+                <Text type="secondary">Rolling back to: </Text>
+                <Text strong>{selectedVersion?.version}</Text>
+              </Text>
+              {currentActiveVersion && currentActiveVersion.id !== selectedVersion?.id && (
+                <Text type="secondary" style={{ fontSize: 12 }}>
+                  This will make version <Text strong>{selectedVersion?.version}</Text> the active version,
+                  replacing <Text strong>{currentActiveVersion.version}</Text>.
+                </Text>
+              )}
+            </Space>
             {selectedVersion?.versionNotes && (
               <Paragraph type="secondary" style={{ marginTop: spacing[2] }}>
-                {selectedVersion.versionNotes}
+                Notes: {selectedVersion.versionNotes}
               </Paragraph>
             )}
           </div>

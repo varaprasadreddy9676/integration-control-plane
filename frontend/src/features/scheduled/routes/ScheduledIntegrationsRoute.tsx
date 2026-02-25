@@ -1,7 +1,8 @@
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback, useEffect } from 'react';
 import { App, Button, Card, Input, Select, Space, Tag, Typography, Divider, Grid, Modal, Skeleton, DatePicker } from 'antd';
 import { ClockCircleOutlined, DeleteOutlined, ReloadOutlined, CheckCircleOutlined, CloseCircleOutlined, SendOutlined, StopOutlined, DownloadOutlined, ExclamationCircleOutlined, EditOutlined, SaveOutlined, CloseOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
+import { useLocation } from 'react-router-dom';
 import { PageHeader } from '../../../components/common/PageHeader';
 import { ModernTable } from '../../../components/common/ModernTable';
 import { getScheduledIntegrations, deleteScheduledIntegration, bulkDeleteScheduledIntegrations, getIntegrations, updateScheduledIntegration } from '../../../services/api';
@@ -38,10 +39,11 @@ export const ScheduledIntegrationsRoute = () => {
   const colors = cssVar.legacy;
   const { message: msgApi, modal } = App.useApp();
   const navigate = useNavigateWithParams();
+  const location = useLocation();
   const screens = Grid.useBreakpoint();
   const isNarrow = !screens.md;
 
-  const [statusFilter, setStatusFilter] = useState<string | undefined>('PENDING'); // Default to PENDING filter
+  const [statusFilter, setStatusFilter] = useState<string | undefined>(undefined); // Default to ALL statuses so OVERDUE items are visible
   const [integrationFilter, setIntegrationFilter] = useState<string>();
   const [eventTypeFilter, setEventTypeFilter] = useState<string>();
   const [search, setSearch] = useState('');
@@ -61,6 +63,10 @@ export const ScheduledIntegrationsRoute = () => {
   });
 
   const { data: integrations = [] } = useQuery({ queryKey: ['integrations'], queryFn: getIntegrations });
+
+  useEffect(() => {
+    refetchScheduled();
+  }, [location.key]);
 
   const filtered = useMemo(() => {
     let result = scheduledIntegrations;

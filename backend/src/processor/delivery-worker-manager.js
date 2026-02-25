@@ -136,7 +136,9 @@ class DeliveryWorkerManager {
     // 5. Start adapters for new orgs; restart on config change
     for (const [orgId, { type, sourceConfig }] of desired) {
       const existing = this.adapters.get(orgId);
-      const hash = JSON.stringify({ type, sourceConfig });
+      const usesSharedPool = type === 'mysql' && (sourceConfig?.useSharedPool !== false);
+      const sharedPoolVersion = usesSharedPool ? db.getPoolVersion() : null;
+      const hash = JSON.stringify({ type, sourceConfig, sharedPoolVersion });
 
       if (existing && existing.configHash === hash) continue; // no change
 
@@ -193,6 +195,7 @@ class DeliveryWorkerManager {
         return new MysqlEventSource({
           orgId,
           pool,
+          poolProvider: safeSourceConfig.useSharedPool !== false ? () => db.getPool() : null,
           table: safeSourceConfig.table,
           columnMapping: safeSourceConfig.columnMapping, // fully declared by org via admin UI
           pollIntervalMs: safeSourceConfig.pollIntervalMs || config.worker?.intervalMs,

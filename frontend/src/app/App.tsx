@@ -706,7 +706,7 @@ export const App = () => {
                     <Button
                       type="text"
                       icon={<WarningOutlined />}
-                      onClick={() => navigate('/dlq')}
+                      onClick={() => navigate('/logs?status=FAILED&dateRange=all')}
                       aria-label={`${failedCount} failed deliveries`}
                       style={{ color: token.colorError, height: 40, width: 40 }}
                     />

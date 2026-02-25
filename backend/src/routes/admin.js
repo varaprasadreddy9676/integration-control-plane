@@ -1637,6 +1637,11 @@ router.put(
       return res.status(400).json({ success: false, error: result.error });
     }
 
+    // Restart shared-pool based MySQL event-source adapters immediately.
+    const { getDeliveryWorkerManager } = require('../processor/delivery-worker-manager');
+    const manager = getDeliveryWorkerManager();
+    await manager._syncAdapters();
+
     await auditConfig.systemConfigUpdated(req, {
       before,
       after: { ...credentials, password: '****' },

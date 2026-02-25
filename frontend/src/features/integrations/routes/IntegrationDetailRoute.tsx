@@ -570,9 +570,24 @@ const firstTime = addHours(now(), 1);
   };
 
   const handleCancelEdit = () => {
-    form.resetFields();
-    setIsEditMode(false);
-    setActivePanels([]);
+    if (form.isFieldsTouched()) {
+      modal.confirm({
+        title: 'Discard unsaved changes?',
+        content: 'You have unsaved changes. Discarding will reset all fields to their last saved values.',
+        okText: 'Discard changes',
+        okButtonProps: { danger: true },
+        cancelText: 'Keep editing',
+        onOk: () => {
+          form.resetFields();
+          setIsEditMode(false);
+          setActivePanels([]);
+        }
+      });
+    } else {
+      form.resetFields();
+      setIsEditMode(false);
+      setActivePanels([]);
+    }
   };
 
   // Collapse/Expand all handlers
@@ -805,7 +820,36 @@ const firstTime = addHours(now(), 1);
               onPanelsChange={(keys) => setActivePanels(keys)}
               onSave={() => form.submit()}
               onTest={handleTest}
-              onCancel={() => navigate('/integrations')}
+              onCancel={() => {
+                if (form.isFieldsTouched()) {
+                  modal.confirm({
+                    title: isCreate ? 'Discard draft?' : 'Discard unsaved changes?',
+                    content: isCreate
+                      ? 'Your draft will be lost. Are you sure you want to leave?'
+                      : 'You have unsaved changes. Discarding will reset all fields to their last saved values.',
+                    okText: isCreate ? 'Discard draft' : 'Discard changes',
+                    okButtonProps: { danger: true },
+                    cancelText: 'Keep editing',
+                    onOk: () => {
+                      if (isEditMode) {
+                        form.resetFields();
+                        setIsEditMode(false);
+                        setActivePanels([]);
+                      } else {
+                        navigate('/integrations');
+                      }
+                    }
+                  });
+                } else {
+                  if (isEditMode) {
+                    form.resetFields();
+                    setIsEditMode(false);
+                    setActivePanels([]);
+                  } else {
+                    navigate('/integrations');
+                  }
+                }
+              }}
               saveText={isCreate ? 'Create Event Rule' : 'Save Changes'}
               testText="Test Event Rule"
               formAlerts={
@@ -817,7 +861,6 @@ const firstTime = addHours(now(), 1);
               }
               missingRequiredCount={isMultiAction ? 0 : missingRequiredMappings}
               validationErrors={multiActionValidationErrors}
-              onReview={handleOpenReview}
               onActivate={() => {
                 form.setFieldsValue({ isActive: true });
                 form.submit();

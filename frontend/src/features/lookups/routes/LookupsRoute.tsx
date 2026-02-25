@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { App, Button, Dropdown, Modal, Select, Space, Tag, Typography, Card, Grid, Input, Switch, Checkbox, Upload, Alert } from 'antd';
 import { FilterOutlined, PlusOutlined, MoreOutlined, ReloadOutlined, SearchOutlined, CloseCircleOutlined, DownloadOutlined, UploadOutlined, DeleteOutlined, CheckOutlined, StopOutlined, DatabaseOutlined, BookOutlined } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useLocation } from 'react-router-dom';
 import { useNavigateWithParams } from '../../../utils/navigation';
 import { StatusBadge } from '../../../components/common/StatusBadge';
 import { ModernTable } from '../../../components/common/ModernTable';
@@ -21,6 +22,7 @@ import { useDesignTokens, withAlpha, spacingToNumber, cssVar } from '../../../de
 
 export const LookupsRoute = () => {
   const navigate = useNavigateWithParams();
+  const location = useLocation();
   const { spacing, token, shadows } = useDesignTokens();
   const colors = cssVar.legacy;
   const queryClient = useQueryClient();
@@ -43,6 +45,11 @@ export const LookupsRoute = () => {
   const { message: msgApi, modal } = App.useApp();
   const screens = Grid.useBreakpoint();
   const isNarrow = !screens.md;
+
+  // Refetch on navigate (sidebar click)
+  useEffect(() => {
+    refetch();
+  }, [location.key]);
 
   const lookups = lookupsData?.lookups || [];
   const types = typesData?.types || [];
@@ -96,15 +103,24 @@ export const LookupsRoute = () => {
   };
 
   // Quick toggle active/inactive
-  const onQuickToggle = async (record: Lookup, checked: boolean) => {
-    try {
-      await updateLookup(record.id, { ...record, isActive: checked });
-      msgApi.success(checked ? 'Mapping activated' : 'Mapping deactivated');
-      refetch();
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to update mapping';
-      msgApi.error(errorMessage);
-    }
+  const onQuickToggle = (record: Lookup, checked: boolean) => {
+    modal.confirm({
+      title: checked ? 'Activate this mapping?' : 'Deactivate this mapping?',
+      content: checked
+        ? 'This will make the mapping available for lookups.'
+        : 'This will make the mapping unavailable for lookups.',
+      okButtonProps: checked ? {} : { danger: true },
+      onOk: async () => {
+        try {
+          await updateLookup(record.id, { ...record, isActive: checked });
+          msgApi.success(checked ? 'Mapping activated' : 'Mapping deactivated');
+          refetch();
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Failed to update mapping';
+          msgApi.error(errorMessage);
+        }
+      }
+    });
   };
 
   // Bulk delete

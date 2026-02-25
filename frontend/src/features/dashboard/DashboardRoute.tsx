@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Checkbox, Input, Modal, Space, Typography, message } from 'antd';
 import type { MenuProps } from 'antd';
 import {
@@ -16,10 +16,12 @@ import { formatDateTimeWithSeconds, formatNumber } from '../../utils/format';
 import { useDesignTokens } from '../../design-system/utils';
 import { useNavigateWithParams } from '../../utils/navigation';
 import { useDashboardExport } from './hooks/useDashboardExport';
+import { useLocation } from 'react-router-dom';
 import { DashboardDetailsTabs, DashboardDeliveriesTab, DashboardErrorsTab, DashboardHeader, DashboardKpiSection, DashboardLatencyTab, DashboardLogsTab, DashboardOverviewTab, DashboardToolbar, DashboardOutboundTab, DashboardInboundTab, DashboardScheduledTab } from './components';
 
 export const DashboardRoute = () => {
   const navigate = useNavigateWithParams();
+  const location = useLocation();
   const { themeColors, spacing } = useDesignTokens();
   const [days, setDays] = useState(1); // Default to "Today"
   const [eventTypeView, setEventTypeView] = useState<'chart' | 'list'>('chart');
@@ -279,6 +281,16 @@ export const DashboardRoute = () => {
   };
 
   
+
+  useEffect(() => {
+    refetchSummary();
+    refetchAnalytics();
+    refetchTimeseriesDaily();
+    refetchTimeseriesHourly();
+    refetchErrors();
+    refetchPerformance();
+    refetchEventAuditStats();
+  }, [location.key]);
 
   const timeLabel = days === 1 ? 'Today' : `${days}d`;
   const hasSummaryData = (analytics?.summary?.total ?? 0) > 0;

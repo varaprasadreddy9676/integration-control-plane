@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
-import { App, Button, Dropdown, Modal, Select, Space, Tag, Typography, Card, Grid, Input, Switch, Divider } from 'antd';
-import { FilterOutlined, MoreOutlined, ReloadOutlined, SearchOutlined, CloseCircleOutlined, DownloadOutlined, CopyOutlined, DeleteOutlined, CheckOutlined, StopOutlined, EditOutlined, AppstoreOutlined, ThunderboltOutlined } from '@ant-design/icons';
+import { App, Button, Dropdown, Modal, Select, Space, Tag, Typography, Card, Grid, Input, Switch, Divider, Empty } from 'antd';
+import { FilterOutlined, MoreOutlined, ReloadOutlined, SearchOutlined, CloseCircleOutlined, DownloadOutlined, CopyOutlined, DeleteOutlined, CheckOutlined, StopOutlined, EditOutlined, AppstoreOutlined, ThunderboltOutlined, PlusOutlined } from '@ant-design/icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigateWithParams } from '../../../utils/navigation';
 import { StatusBadge } from '../../../components/common/StatusBadge';
@@ -65,6 +65,9 @@ export const IntegrationsRoute = ({ hideHeader = false, isActive = true }: Integ
   }, [data, eventFilter, statusFilter, scopeFilter, searchQuery]);
 
   const eventOptions = useMemo(() => [...new Set(data.map((item) => item.eventType))], [data]);
+
+  const hasActiveFilters = !!(eventFilter || statusFilter || scopeFilter || searchQuery);
+  const outboundData = useMemo(() => data.filter((item: any) => item.direction !== 'INBOUND'), [data]);
 
   const onDelete = async (record: IntegrationConfig) => {
     Modal.confirm({
@@ -482,8 +485,60 @@ export const IntegrationsRoute = ({ hideHeader = false, isActive = true }: Integ
           </div>
         </div>
 
+      {/* Empty states */}
+      {!isLoading && outboundData.length === 0 && (
+        <div style={{ padding: `${spacing[12]} ${spacing[4]}`, textAlign: 'center' }}>
+          <Empty
+            description={
+              <Space direction="vertical" size="small">
+                <Typography.Text strong style={{ fontSize: 16 }}>No event rules yet</Typography.Text>
+                <Typography.Text type="secondary">
+                  Event rules define where to deliver events when they occur. Create your first rule to start routing events.
+                </Typography.Text>
+              </Space>
+            }
+          >
+            <Space>
+              <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/integrations/new')}>
+                Create Event Rule
+              </Button>
+              <Button icon={<AppstoreOutlined />} onClick={() => navigate('/templates')}>
+                Browse Templates
+              </Button>
+            </Space>
+          </Empty>
+        </div>
+      )}
+
+      {!isLoading && outboundData.length > 0 && filtered.length === 0 && hasActiveFilters && (
+        <div style={{ padding: `${spacing[10]} ${spacing[4]}`, textAlign: 'center' }}>
+          <Empty
+            description={
+              <Space direction="vertical" size="small">
+                <Typography.Text strong>No event rules match your filters</Typography.Text>
+                <Typography.Text type="secondary">
+                  Try adjusting your search or filters to find what you're looking for.
+                </Typography.Text>
+              </Space>
+            }
+          >
+            <Button
+              icon={<FilterOutlined />}
+              onClick={() => {
+                setEventFilter(undefined);
+                setStatusFilter(undefined);
+                setScopeFilter(undefined);
+                setSearchQuery('');
+              }}
+            >
+              Clear all filters
+            </Button>
+          </Empty>
+        </div>
+      )}
+
       {/* Table */}
-      <div
+      {(isLoading || filtered.length > 0) && <div
         style={{
           border: `1px solid ${token.colorBorder}`,
           borderRadius: 8,
@@ -653,7 +708,7 @@ export const IntegrationsRoute = ({ hideHeader = false, isActive = true }: Integ
             }
           ]}
         />
-      </div>
+      </div>}
     </div>
   );
 };
