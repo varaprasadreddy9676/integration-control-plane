@@ -26,6 +26,9 @@ const buildAuthHeadersNoContentType = (extra: HeadersInit = {}) => {
 // Store the current orgId for automatic inclusion in all API requests
 let currentOrgId: number | null = null;
 
+// Guard against concurrent portal token refresh attempts
+let portalRefreshPromise: Promise<boolean> | null = null;
+
 // Error types for better error handling
 export class APIError extends Error {
   constructor(
@@ -138,6 +141,37 @@ const fetchWithTimeout = async (
 };
 
 /**
+ * Attempt to refresh a portal access token using the stored refresh token.
+ * Returns true if refresh succeeded and new tokens have been stored.
+ * Deduplicates concurrent refresh attempts.
+ */
+async function attemptPortalRefresh(refreshToken: string): Promise<boolean> {
+  if (portalRefreshPromise) return portalRefreshPromise;
+
+  portalRefreshPromise = (async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/portal/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-API-Key': API_KEY },
+        body: JSON.stringify({ refreshToken }),
+      });
+      if (!res.ok) return false;
+      const data = await res.json();
+      localStorage.setItem('integration_gateway_token', data.accessToken);
+      localStorage.setItem('portal_refresh_token', data.refreshToken);
+      window.dispatchEvent(new Event('auth-storage'));
+      return true;
+    } catch {
+      return false;
+    } finally {
+      portalRefreshPromise = null;
+    }
+  })();
+
+  return portalRefreshPromise;
+}
+
+/**
  * Make HTTP request with retry logic and enhanced error handling
  */
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -213,8 +247,30 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
         // Special handling for auth errors
         if (response.status === 401 || response.status === 403) {
-          clearAuthStorage();
-          console.error('Authentication error:', message);
+          // For portal sessions, attempt token refresh before clearing auth
+          const portalRefreshToken = localStorage.getItem('portal_refresh_token');
+          if (response.status === 401 && portalRefreshToken) {
+            const refreshed = await attemptPortalRefresh(portalRefreshToken);
+            if (refreshed) {
+              // Retry original request with new token
+              const retryHeaders = buildAuthHeaders(options.headers || {});
+              const retryResponse = await fetchWithTimeout(url, { ...options, headers: retryHeaders });
+              const retryText = await retryResponse.text();
+              let retryData: any;
+              const retryContentType = retryResponse.headers.get('content-type');
+              if (retryText && retryContentType?.includes('application/json')) {
+                try { retryData = JSON.parse(retryText); } catch { retryData = retryText; }
+              } else {
+                retryData = retryText;
+              }
+              if (retryResponse.ok) return retryData as T;
+            }
+            clearAuthStorage();
+            console.error('Portal session expired and refresh failed');
+          } else {
+            clearAuthStorage();
+            console.error('Authentication error:', message);
+          }
         }
 
         throw error;
@@ -291,6 +347,84 @@ export const createPortalSession = async (data: {
   request('/auth/portal-session', {
     method: 'POST',
     body: JSON.stringify(data)
+  });
+
+// ── Portal Access Profiles (new scoped system) ────────────────────────────────
+
+export interface PortalAccessProfile {
+  id: string;
+  orgId: number;
+  name: string;
+  role: 'VIEWER' | 'INTEGRATION_EDITOR';
+  allowedIntegrationIds: string[];
+  allowedTags: string[];
+  allowedViews: string[];
+  allowedOrigins: string[];
+  isActive: boolean;
+  tokenVersion: number;
+  createdBy: string | null;
+  createdAt: string;
+  updatedAt: string;
+  lastUsedAt: string | null;
+}
+
+export interface CreatePortalProfileInput {
+  orgId: number;
+  name: string;
+  role?: 'VIEWER' | 'INTEGRATION_EDITOR';
+  allowedIntegrationIds?: string[];
+  allowedTags?: string[];
+  allowedViews?: string[];
+  allowedOrigins?: string[];
+  isActive?: boolean;
+}
+
+export const listPortalProfiles = async (orgId: number): Promise<PortalAccessProfile[]> => {
+  const res = await request<{ profiles: PortalAccessProfile[] }>(`/portal-profiles?orgId=${orgId}`);
+  return res.profiles;
+};
+
+export const createPortalProfile = async (
+  input: CreatePortalProfileInput
+): Promise<{ profile: PortalAccessProfile; linkSecret: string; launchUrl: string }> =>
+  request('/portal-profiles', { method: 'POST', body: JSON.stringify(input) });
+
+export const updatePortalProfile = async (
+  id: string,
+  updates: Partial<Pick<PortalAccessProfile, 'name' | 'role' | 'allowedIntegrationIds' | 'allowedTags' | 'allowedViews' | 'allowedOrigins' | 'isActive'>>
+): Promise<{ profile: PortalAccessProfile }> =>
+  request(`/portal-profiles/${id}`, { method: 'PATCH', body: JSON.stringify(updates) });
+
+export const rotatePortalProfileLink = async (
+  id: string
+): Promise<{ profile: PortalAccessProfile; linkSecret: string; launchUrl: string; message: string }> =>
+  request(`/portal-profiles/${id}/rotate-link`, { method: 'POST' });
+
+export const revokePortalProfileSessions = async (
+  id: string
+): Promise<{ profile: PortalAccessProfile; message: string }> =>
+  request(`/portal-profiles/${id}/revoke-sessions`, { method: 'POST' });
+
+export const exchangePortalLaunchCredential = async (
+  pid: string,
+  secret: string
+): Promise<{
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: string;
+  profile: { id: string; orgId: number; role: string; allowedIntegrationIds: string[]; allowedTags: string[]; allowedViews: string[] };
+}> =>
+  request('/auth/portal/launch', {
+    method: 'POST',
+    body: JSON.stringify({ pid, secret })
+  });
+
+export const refreshPortalToken = async (
+  refreshToken: string
+): Promise<{ accessToken: string; refreshToken: string; expiresIn: string }> =>
+  request('/auth/portal/refresh', {
+    method: 'POST',
+    body: JSON.stringify({ refreshToken })
   });
 
 const serializeIntegrationInput = (input: IntegrationConfig) => ({

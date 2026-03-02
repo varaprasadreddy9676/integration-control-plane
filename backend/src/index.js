@@ -51,6 +51,7 @@ const eventsRouter = require('./routes/events');
 const eventSourcesRouter = require('./routes/event-sources');
 const executionLogsRouter = require('./routes/execution-logs');
 const dlqRouter = require('./routes/dlq');
+const portalProfilesRouter = require('./routes/portal-profiles');
 const healthMonitor = require('./services/health-monitor');
 const { initializeCommunicationAdapters } = require('./services/communication/bootstrap');
 const { MemoryMonitor } = require('./services/memory-monitor');
@@ -81,6 +82,12 @@ async function bootstrap() {
   const { createIndexes: createAIInteractionIndexes } = require('./services/ai/interaction-logger');
   await createAIInteractionIndexes().catch((err) => {
     log('warn', 'Failed to ensure ai_interactions indexes', { error: err.message });
+  });
+
+  // Initialize portal access profile indexes
+  const portalProfileData = require('./data/portal-access-profiles');
+  await portalProfileData.ensureIndexes().catch((err) => {
+    log('warn', 'Failed to ensure portal_access_profiles indexes', { error: err.message });
   });
 
   // Pre-warm the system prompt cache from DB (non-blocking)
@@ -190,6 +197,8 @@ async function bootstrap() {
   app.use(`${config.api.basePrefix}/daily-reports`, auth, dailyReportsRouter);
   app.use(`${config.api.basePrefix}/execution-logs`, auth, executionLogsRouter);
   app.use(`${config.api.basePrefix}/dlq`, auth, dlqRouter);
+  // Portal Access Profile management (auth inside routes, supports SUPER_ADMIN / ADMIN / ORG_ADMIN)
+  app.use(`${config.api.basePrefix}/portal-profiles`, portalProfilesRouter);
 
   app.use((req, res) => {
     log('warn', 'Route not found', { path: req.path });

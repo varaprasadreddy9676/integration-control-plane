@@ -12,14 +12,16 @@ const { fetch, AbortController } = require('../utils/runtime');
 const { executeSchedulingScript, validateRecurringConfig } = require('../services/scheduler');
 const { generateMaskedCurlCommand } = require('../utils/curl-generator');
 const { auditIntegration } = require('../middleware/audit');
+const { filterIntegrationScope, assertIntegrationInScope, assertViewAllowed, assertPortalNotReadOnly } = require('../middleware/portal-scope');
 
 const router = express.Router();
 
 router.get(
   '/',
+  assertViewAllowed('dashboard'),
   asyncHandler(async (req, res) => {
     const integrations = await data.listIntegrations(req.orgId);
-    res.json(integrations);
+    res.json(filterIntegrationScope(req, integrations));
   })
 );
 
@@ -34,6 +36,7 @@ router.get(
 // Bulk operations - Must be defined BEFORE /:id routes to avoid parameter matching
 router.patch(
   '/bulk',
+  assertPortalNotReadOnly,
   asyncHandler(async (req, res) => {
     const { action, ids } = req.body;
 
@@ -85,6 +88,7 @@ router.patch(
 
 router.delete(
   '/bulk',
+  assertPortalNotReadOnly,
   asyncHandler(async (req, res) => {
     const { ids } = req.body;
 
@@ -128,6 +132,7 @@ router.get(
     if (!integration || integration.orgId !== req.orgId) {
       return res.status(404).json({ error: 'Integration not found', code: 'NOT_FOUND' });
     }
+    assertIntegrationInScope(req, integration);
     return res.json(integration);
   })
 );
@@ -140,6 +145,7 @@ router.get(
     if (!integration || integration.orgId !== req.orgId) {
       return res.status(404).json({ error: 'Integration not found', code: 'NOT_FOUND' });
     }
+    assertIntegrationInScope(req, integration);
 
     // Only generate curl for INBOUND integrations
     if (integration.direction !== 'INBOUND') {
@@ -182,11 +188,13 @@ router.get(
 // Duplicate integration - Must be before POST / to avoid parameter matching
 router.post(
   '/:id/duplicate',
+  assertPortalNotReadOnly,
   asyncHandler(async (req, res) => {
     const integration = await data.getIntegration(req.params.id);
     if (!integration || integration.orgId !== req.orgId) {
       return res.status(404).json({ error: 'Integration not found', code: 'NOT_FOUND' });
     }
+    assertIntegrationInScope(req, integration);
 
     // Create duplicate data - remove fields that should be auto-generated
     const { id, entityName, createdAt, updatedAt, ...duplicateData } = integration;
@@ -212,6 +220,7 @@ router.post(
 
 router.post(
   '/',
+  assertPortalNotReadOnly,
   asyncHandler(async (req, res) => {
     // Reject deprecated entityRid field — use orgUnitRid instead
     if (req.body.entityRid !== undefined) {
@@ -365,6 +374,7 @@ router.post(
 
 router.put(
   '/:id',
+  assertPortalNotReadOnly,
   asyncHandler(async (req, res) => {
     if (req.body.entityRid !== undefined) {
       return res.status(400).json({
@@ -447,6 +457,7 @@ router.put(
 
 router.delete(
   '/:id',
+  assertPortalNotReadOnly,
   asyncHandler(async (req, res) => {
     const beforeIntegration = await data.getIntegration(req.params.id);
     const removed = await data.deleteIntegration(req.orgId, req.params.id);

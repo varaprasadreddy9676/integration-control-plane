@@ -62,6 +62,21 @@ function buildLogsQuery(orgId, filters = {}) {
   if (filters.eventType) {
     query.eventType = filters.eventType;
   }
+
+  // Portal scope: restrict to allowed integration IDs (injected by applyPortalLogFilters)
+  if (Array.isArray(filters.portalAllowedIntegrationIds) && filters.portalAllowedIntegrationIds.length > 0) {
+    const ids = filters.portalAllowedIntegrationIds;
+    const objectIds = ids.map((id) => mongodb.toObjectId(id)).filter(Boolean);
+    const allIds = objectIds.length ? [...objectIds, ...ids] : ids;
+    andConditions.push({
+      $or: [
+        { __KEEP___KEEP_integrationConfig__Id__: { $in: allIds } },
+        { integrationConfigId: { $in: allIds } },
+        { webhookConfigId: { $in: allIds } },
+      ],
+    });
+  }
+
   if (filters.search) {
     // Use regex search for flexible full-text search across multiple fields
     // This searches: __KEEP_integrationName__, eventType, errorMessage, targetUrl, responseBody

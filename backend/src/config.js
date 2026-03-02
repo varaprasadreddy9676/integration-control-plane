@@ -113,6 +113,20 @@ const defaultConfig = {
     maxRequests: parsePositiveNumber(process.env.API_RATE_LIMIT_MAX_REQUESTS, 100),
     windowSeconds: parsePositiveNumber(process.env.API_RATE_LIMIT_WINDOW_SECONDS, 60),
   },
+  portal: {
+    // Master switch: set PORTAL_SCOPED_ACCESS_ENABLED=true to activate new profile-based flow.
+    // Legacy /auth/portal-session remains active until this flag is true and migration complete.
+    scopedAccessEnabled: parseBoolean(process.env.PORTAL_SCOPED_ACCESS_ENABLED, false),
+    // Emergency kill-switch: set PORTAL_LAUNCH_DISABLED=true to block all portal launches instantly.
+    launchDisabled: parseBoolean(process.env.PORTAL_LAUNCH_DISABLED, false),
+    // Short-lived access token TTL (e.g. '1h', '30m')
+    accessTokenTtl: process.env.PORTAL_ACCESS_TOKEN_TTL || '1h',
+    // Refresh token TTL (e.g. '7d', '24h')
+    refreshTokenTtl: process.env.PORTAL_REFRESH_TOKEN_TTL || '7d',
+    // Rate limit: max launch attempts per IP per window
+    launchRateLimitMax: parsePositiveNumber(process.env.PORTAL_LAUNCH_RATE_LIMIT_MAX, 20),
+    launchRateLimitWindowSeconds: parsePositiveNumber(process.env.PORTAL_LAUNCH_RATE_LIMIT_WINDOW_SECONDS, 60),
+  },
   // NOTE: Event types are now managed in MongoDB 'event_types' collection (56 events)
   // Do not specify eventTypes here - use the populate-event-types.js script instead
 };
@@ -146,9 +160,22 @@ const merged = {
   eventAudit: { ...defaultConfig.eventAudit, ...(fileConfig.eventAudit || {}) },
   logging: { ...defaultConfig.logging, ...(fileConfig.logging || {}) },
   rateLimit: { ...defaultConfig.rateLimit, ...(fileConfig.rateLimit || {}) },
+  portal: { ...defaultConfig.portal, ...(fileConfig.portal || {}) },
   // communicationServiceUrl and frontendUrl: file overrides default if present
   communicationServiceUrl: fileConfig.communicationServiceUrl || defaultConfig.communicationServiceUrl,
   frontendUrl: fileConfig.frontendUrl || defaultConfig.frontendUrl,
 };
+
+// ── Startup validation: log resolved FRONTEND_URL so ops can confirm it is correct ──
+const resolvedFrontendUrl = merged.frontendUrl;
+const isDefaultFrontendUrl = resolvedFrontendUrl === 'http://localhost:5174';
+if (isDefaultFrontendUrl && process.env.NODE_ENV === 'production') {
+  console.warn(
+    '[config] WARNING: FRONTEND_URL is still the localhost default in a production environment. ' +
+    'Set FRONTEND_URL env var to your actual frontend origin to ensure portal magic links work correctly.'
+  );
+} else {
+  console.info(`[config] Effective FRONTEND_URL: ${resolvedFrontendUrl}`);
+}
 
 module.exports = merged;

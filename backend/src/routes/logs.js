@@ -8,8 +8,35 @@ const data = require('../data');
 const { log } = require('../logger');
 const mongodb = require('../mongodb');
 const asyncHandler = require('../utils/async-handler');
+const { isPortalScopedSession, assertViewAllowed, assertIntegrationInScope } = require('../middleware/portal-scope');
 
 const router = express.Router();
+
+/**
+ * Build an integrationId filter clause for portal-scoped log queries.
+ * When the session has allowedIntegrationIds restrictions, inject them into the
+ * filters so the DB query returns only the permitted logs — instead of fetching
+ * all and filtering in-memory (which would break pagination).
+ */
+function applyPortalLogFilters(req, filters) {
+  if (!isPortalScopedSession(req)) return filters;
+  const { allowedIntegrationIds } = req.portalScope;
+  if (!allowedIntegrationIds || allowedIntegrationIds.length === 0) return filters;
+
+  // If the caller already requested a specific integrationId, verify it is allowed.
+  if (filters.__KEEP___KEEP_integrationConfig__Id__) {
+    const requested = String(filters.__KEEP___KEEP_integrationConfig__Id__);
+    if (!allowedIntegrationIds.includes(requested)) {
+      // Return a never-matching filter by requesting an impossible ID
+      return { ...filters, __KEEP___KEEP_integrationConfig__Id__: '__portal_scope_blocked__' };
+    }
+    return filters;
+  }
+
+  // No specific integrationId requested — restrict to allowed ones.
+  // Pass as comma-separated list which data.listLogs already supports via `integrationIds`.
+  return { ...filters, portalAllowedIntegrationIds: allowedIntegrationIds };
+}
 const LOG_EXPORT_JOBS_COLLECTION = 'log_export_jobs';
 const LOG_EXPORT_TMP_DIR = path.join(os.tmpdir(), 'integration-control-plane-log-exports');
 const LOG_EXPORT_ASYNC_THRESHOLD = Math.max(1, Number.parseInt(process.env.LOG_EXPORT_ASYNC_THRESHOLD || '5000', 10));
@@ -503,10 +530,11 @@ router.post(
 
 router.get(
   '/stats/summary',
+  assertViewAllowed('logs'),
   asyncHandler(async (req, res) => {
     // Use dedicated aggregation function for unbounded stats calculation
     // This does NOT use listLogs() to avoid the 500-row cap
-    const filters = {
+    const baseFilters = {
       __KEEP___KEEP_integrationConfig__Id__: req.query.integrationId || req.query.integrationId,
       eventType: req.query.eventType,
       direction: req.query.direction,
@@ -515,6 +543,7 @@ router.get(
       endDate: req.query.endDate,
     };
 
+    const filters = applyPortalLogFilters(req, baseFilters);
     const stats = await data.getLogStatsSummary(req.orgId, filters);
     res.json(stats);
   })
@@ -586,8 +615,9 @@ router.post(
 
 router.get(
   '/',
+  assertViewAllowed('logs'),
   asyncHandler(async (req, res) => {
-    const filters = {
+    const baseFilters = {
       status: req.query.status,
       __KEEP___KEEP_integrationConfig__Id__: req.query.integrationId || req.query.integrationId,
       eventType: req.query.eventType,
@@ -599,6 +629,8 @@ router.get(
       page: req.query.page,
       limit: req.query.limit,
     };
+
+    const filters = applyPortalLogFilters(req, baseFilters);
 
     // Fetch logs and total count in parallel for pagination
     const [logs, total] = await Promise.all([data.listLogs(req.orgId, filters), data.countLogs(req.orgId, filters)]);
@@ -624,11 +656,12 @@ router.get(
 
 router.get(
   '/export',
+  assertViewAllowed('logs'),
   asyncHandler(async (req, res) => {
     let aborted = false;
 
     try {
-      const filters = buildExportFiltersFromReq(req);
+      const filters = applyPortalLogFilters(req, buildExportFiltersFromReq(req));
       const totalRecords = await data.countLogs(req.orgId, filters);
       const useAsyncExport = parseBooleanQuery(req.query.async) || totalRecords >= LOG_EXPORT_ASYNC_THRESHOLD;
       if (useAsyncExport) {
@@ -915,9 +948,10 @@ router.post(
 
 router.get(
   '/export/json',
+  assertViewAllowed('logs'),
   asyncHandler(async (req, res) => {
     try {
-      const filters = buildExportFiltersFromReq(req);
+      const filters = applyPortalLogFilters(req, buildExportFiltersFromReq(req));
       const totalRecords = await data.countLogs(req.orgId, filters);
       const useAsyncExport = parseBooleanQuery(req.query.async) || totalRecords >= LOG_EXPORT_ASYNC_THRESHOLD;
       if (useAsyncExport) {
@@ -1078,6 +1112,7 @@ router.get(
 
 router.get(
   '/:id',
+  assertViewAllowed('logs'),
   asyncHandler(async (req, res) => {
     const logEntry = await data.getLogById(req.orgId, req.params.id);
     if (!logEntry) {
@@ -1085,6 +1120,7 @@ router.get(
     }
 
     // Include integration configuration details for enhanced UI
+    // Fetch first so the scope check has full integration data (including tags) for tag-scoped profiles
     let __KEEP_integrationConfig__ = null;
     if (logEntry.__KEEP___KEEP_integrationConfig__Id__) {
       try {
@@ -1100,6 +1136,12 @@ router.get(
       } catch (_err) {
         // Integration might be deleted, ignore error
       }
+    }
+
+    // Portal scope: ensure the log's integration is within scope.
+    // Use the full integration object (with tags) so tag-scoped profiles are checked correctly.
+    if (isPortalScopedSession(req) && logEntry.__KEEP___KEEP_integrationConfig__Id__) {
+      assertIntegrationInScope(req, __KEEP_integrationConfig__ ?? { _id: logEntry.__KEEP___KEEP_integrationConfig__Id__, id: logEntry.__KEEP___KEEP_integrationConfig__Id__ });
     }
 
     return res.json({

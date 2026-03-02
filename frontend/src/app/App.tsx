@@ -80,6 +80,8 @@ import { DLQRoute } from '../features/integrations/routes/DLQRoute';
 import { FlowBuilderRoute } from '../features/flowBuilder/routes/FlowBuilderRoute';
 import { FlowBuilderListRoute } from '../features/flowBuilder/routes/FlowBuilderListRoute';
 import { LoginRoute } from '../features/auth/LoginRoute';
+import { PortalLaunchRoute } from '../features/auth/PortalLaunchRoute';
+import { PortalScopeBadge } from '../components/portal/PortalScopeBadge';
 import { TenantLoadingState } from '../components/common/TenantLoadingState';
 import { ServerOfflineState } from '../components/common/ServerOfflineState';
 import { ToastHost } from '../components/common/ToastHost';
@@ -104,6 +106,14 @@ export const App = () => {
   const isAdmin = user?.role === 'ADMIN';
   const isOrgAdmin = user?.role === 'ORG_ADMIN';
   const isImpersonating = user?.impersonated;
+  const isPortalSession = !!(user as any)?.isPortalSession;
+  const portalAllowedViews: string[] = (() => {
+    if (!isPortalSession) return [];
+    try {
+      const stored = localStorage.getItem('integration_gateway_user');
+      return stored ? (JSON.parse(stored)?.allowedViews ?? []) : [];
+    } catch { return []; }
+  })();
   const { mode, toggleMode } = useThemeMode();
   const queryClient = useQueryClient();
 
@@ -134,6 +144,12 @@ export const App = () => {
         role: string;
         orgId?: number;
         isPortalSession?: boolean;
+        profileId?: string;
+        allowedIntegrationIds?: string[];
+        allowedTags?: string[];
+        allowedViews?: string[];
+        tokenVersion?: number;
+        type?: string;
       };
 
       // Write token + synthetic user into localStorage so auth-context picks them up
@@ -145,7 +161,13 @@ export const App = () => {
           email: payload.email,
           role: payload.role,
           orgId: payload.orgId ?? null,
-          isPortalSession: payload.isPortalSession ?? false
+          isPortalSession: payload.isPortalSession ?? false,
+          ...(payload.profileId ? {
+            profileId: payload.profileId,
+            allowedIntegrationIds: payload.allowedIntegrationIds ?? [],
+            allowedTags: payload.allowedTags ?? [],
+            allowedViews: payload.allowedViews ?? ['dashboard', 'logs'],
+          } : {}),
         })
       );
 
@@ -160,6 +182,19 @@ export const App = () => {
       console.warn('[Portal] Failed to decode magic link token', err);
     }
   }, [tokenParam, token]);
+
+  // Remove the token from the browser URL immediately after bootstrap so it
+  // does not appear in server logs, browser history, or get copied accidentally.
+  useEffect(() => {
+    if (!tokenParam) return;
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('token');
+      window.history.replaceState({}, '', url.toString());
+    } catch {
+      // ignore — replaceState not critical
+    }
+  }, [tokenParam]);
   // ------------------------------------
 
 
@@ -214,71 +249,92 @@ export const App = () => {
     const showOrgMenus = orgId > 0 || !isSuperAdmin;
 
     if (showOrgMenus) {
-      groups.push(
-        // ── Home ────────────────────────────────────────────────────────────
-        {
+      // For portal sessions, only show groups/items corresponding to allowedViews
+      const portalCanView = (view: string) =>
+        !isPortalSession || portalAllowedViews.length === 0 || portalAllowedViews.includes(view);
+
+      if (portalCanView('dashboard')) {
+        groups.push({
           label: 'Overview',
           items: [
             { key: '/dashboard', icon: <RadarChartOutlined />, label: 'Dashboard' }
           ]
-        },
+        });
+      }
 
-        // ── What you build ──────────────────────────────────────────────────
-        {
+      // Integrations — portal VIEWER sessions can browse (read-only in backend)
+      // Full editors (non-portal) see all tools
+      if (!isPortalSession) {
+        groups.push(
+          // ── What you build ────────────────────────────────────────────────
+          {
+            label: 'Integrations',
+            items: [
+              { key: '/integrations', icon: <ApiOutlined />, label: 'All Integrations' },
+              ...(isFeatureEnabled('integrationFlowBuilderEnabled')
+                ? [{ key: '/flow-builder', icon: <BlockOutlined />, label: 'Flow Builder' }]
+                : []
+              ),
+              { key: '/scheduled', icon: <CalendarOutlined />, label: 'Schedules' },
+              { key: '/scheduled-jobs', icon: <ClockCircleOutlined />, label: 'Job Queue' }
+            ]
+          },
+
+          // ── Reference data ────────────────────────────────────────────────
+          {
+            label: 'Resources',
+            items: [
+              { key: '/events/catalog', icon: <DeploymentUnitOutlined />, label: 'Event Catalog' },
+              { key: '/templates', icon: <AppstoreOutlined />, label: 'Templates' },
+              { key: '/lookups', icon: <DatabaseOutlined />, label: 'Lookup Tables' }
+            ]
+          }
+        );
+      } else {
+        // Portal session — show integrations list only (read-only scope enforced by backend)
+        groups.push({
           label: 'Integrations',
           items: [
-            { key: '/integrations', icon: <ApiOutlined />, label: 'All Integrations' },
-            ...(isFeatureEnabled('integrationFlowBuilderEnabled')
-              ? [{ key: '/flow-builder', icon: <BlockOutlined />, label: 'Flow Builder' }]
-              : []
-            ),
-            { key: '/scheduled', icon: <CalendarOutlined />, label: 'Schedules' },
-            { key: '/scheduled-jobs', icon: <ClockCircleOutlined />, label: 'Job Queue' }
+            { key: '/integrations', icon: <ApiOutlined />, label: 'All Integrations' }
           ]
-        },
+        });
+      }
 
-        // ── Reference data ──────────────────────────────────────────────────
-        {
-          label: 'Resources',
-          items: [
-            { key: '/events/catalog', icon: <DeploymentUnitOutlined />, label: 'Event Catalog' },
-            { key: '/templates', icon: <AppstoreOutlined />, label: 'Templates' },
-            { key: '/lookups', icon: <DatabaseOutlined />, label: 'Lookup Tables' }
-          ]
-        },
+      const monitorItems = [
+        ...(portalCanView('logs') ? [{ key: '/logs', icon: <HistoryOutlined />, label: 'Delivery Logs' }] : []),
+        ...(!isPortalSession ? [
+          { key: '/events', icon: <FileTextOutlined />, label: 'Event Audit' },
+          { key: '/alert-center', icon: <BellOutlined />, label: 'Alert Center' },
+          { key: '/dlq', icon: <WarningOutlined />, label: 'Dead Letter Queue' },
+          { key: '/bulk', icon: <ThunderboltOutlined />, label: 'Bulk Operations' },
+          { key: '/system-logs', icon: <CodeOutlined />, label: 'System Logs' },
+        ] : []),
+      ];
 
-        // ── What you watch ──────────────────────────────────────────────────
-        {
-          label: 'Monitor',
-          items: [
-            { key: '/logs', icon: <HistoryOutlined />, label: 'Delivery Logs' },
-            { key: '/events', icon: <FileTextOutlined />, label: 'Event Audit' },
-            { key: '/alert-center', icon: <BellOutlined />, label: 'Alert Center' },
-            { key: '/dlq', icon: <WarningOutlined />, label: 'Dead Letter Queue' },
-            { key: '/bulk', icon: <ThunderboltOutlined />, label: 'Bulk Operations' },
-            { key: '/system-logs', icon: <CodeOutlined />, label: 'System Logs' }
-          ]
-        },
+      if (monitorItems.length > 0) {
+        groups.push({ label: 'Monitor', items: monitorItems });
+      }
 
-        // ── AI ──────────────────────────────────────────────────────────────
-        {
-          label: 'AI',
-          items: [
-            { key: '/ai', icon: <RobotOutlined />, label: 'AI Assistant' },
-            { key: '/ai-settings', icon: <ExperimentOutlined />, label: 'AI Config' }
-          ]
-        },
-
-        // ── Org config + account ────────────────────────────────────────────
-        {
-          label: 'Settings',
-          items: [
-            { key: '/settings', icon: <SettingOutlined />, label: 'Organization' },
-            { key: '/settings/event-source', icon: <CloudServerOutlined />, label: 'Event Source' },
-            { key: '/help', icon: <BookOutlined />, label: 'Documentation' }
-          ]
-        }
-      );
+      // AI and Settings — not shown in portal sessions
+      if (!isPortalSession) {
+        groups.push(
+          {
+            label: 'AI',
+            items: [
+              { key: '/ai', icon: <RobotOutlined />, label: 'AI Assistant' },
+              { key: '/ai-settings', icon: <ExperimentOutlined />, label: 'AI Config' }
+            ]
+          },
+          {
+            label: 'Settings',
+            items: [
+              { key: '/settings', icon: <SettingOutlined />, label: 'Organization' },
+              { key: '/settings/event-source', icon: <CloudServerOutlined />, label: 'Event Source' },
+              { key: '/help', icon: <BookOutlined />, label: 'Documentation' }
+            ]
+          }
+        );
+      }
     }
 
     // ── Platform admin ──────────────────────────────────────────────────────
@@ -309,7 +365,7 @@ export const App = () => {
     }
 
     return groups;
-  }, [isSuperAdmin, isAdmin, isOrgAdmin, orgId]);
+  }, [isSuperAdmin, isAdmin, isOrgAdmin, orgId, isPortalSession, portalAllowedViews]);
 
   const activeKey = useMemo(() => {
     const all = navGroups.flatMap((group) => group.items);
@@ -323,6 +379,7 @@ export const App = () => {
   const isLoginRoute = location.pathname.startsWith('/login');
   const isLandingRoute = location.pathname === '/';
   const isDocsRoute = location.pathname.startsWith('/docs');
+  const isPortalLaunchRoute = location.pathname.startsWith('/portal/launch');
   const isAdminRoute = location.pathname.startsWith('/admin');
   const canSkipTenant = (isSuperAdmin || isAdmin) && isAdminRoute;
 
@@ -648,6 +705,8 @@ export const App = () => {
                 </div>
               </div>
 
+              {isPortalSession && <PortalScopeBadge />}
+
               {(isSuperAdmin || isAdmin) && !isImpersonating && (
                 <Select
                   size="small"
@@ -870,6 +929,15 @@ export const App = () => {
       <Routes>
         <Route path="/docs" element={<DocsPage />} />
         <Route path="/docs/:slug" element={<DocsPage />} />
+      </Routes>
+    );
+  }
+
+  // Portal launch — public exchange route, no auth required
+  if (isPortalLaunchRoute) {
+    return (
+      <Routes>
+        <Route path="/portal/launch" element={<PortalLaunchRoute />} />
       </Routes>
     );
   }

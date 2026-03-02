@@ -5,13 +5,26 @@ const emailService = require('../services/email-service');
 const dashboardCaptureService = require('../services/dashboard-capture');
 const config = require('../config');
 const { log, logError } = require('../logger');
+const { assertViewAllowed, isPortalScopedSession } = require('../middleware/portal-scope');
 
 const router = express.Router();
 
 router.get(
   '/',
+  assertViewAllowed('dashboard'),
   asyncHandler(async (req, res) => {
     const summary = await data.getDashboardSummary(req.orgId);
+
+    // For portal sessions with integration scope, annotate response as scoped
+    // so the frontend can display a contextual badge.
+    if (isPortalScopedSession(req)) {
+      const { allowedIntegrationIds, allowedTags } = req.portalScope;
+      const hasScope = (allowedIntegrationIds?.length > 0) || (allowedTags?.length > 0);
+      if (hasScope) {
+        return res.json({ ...summary, _portalScoped: true });
+      }
+    }
+
     res.json(summary);
   })
 );

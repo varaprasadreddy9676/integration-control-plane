@@ -50,7 +50,19 @@ function auth(req, res, next) {
         orgId: payload.orgId || null,
         impersonatedBy: payload.impersonatedBy || null,
         impersonated: !!payload.impersonated,
+        isPortalSession: !!payload.isPortalSession,
       };
+
+      // Attach portal scope claims so downstream routes can enforce them
+      if (payload.isPortalSession && payload.type === 'portal_access') {
+        req.portalScope = {
+          profileId: payload.profileId || null,
+          allowedIntegrationIds: Array.isArray(payload.allowedIntegrationIds) ? payload.allowedIntegrationIds : [],
+          allowedTags: Array.isArray(payload.allowedTags) ? payload.allowedTags : [],
+          allowedViews: Array.isArray(payload.allowedViews) ? payload.allowedViews : ['dashboard', 'logs'],
+          tokenVersion: payload.tokenVersion ?? null,
+        };
+      }
 
       if (payload.orgId) {
         applyOrgContext(req, Number(payload.orgId));

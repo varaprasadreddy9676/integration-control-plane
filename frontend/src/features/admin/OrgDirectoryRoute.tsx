@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Button, Card, Col, Input, InputNumber, Modal, Row, Space, Table, Typography, message, Tag } from 'antd';
+import { useEffect, useMemo, useState, useCallback } from 'react';
+import { Alert, Button, Card, Checkbox, Col, Drawer, Input, InputNumber, Modal, Row, Select, Space, Switch, Table, Tag, Tooltip, Typography, message } from 'antd';
+import { CopyOutlined, KeyOutlined, ReloadOutlined, StopOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { PageHeader } from '../../components/common/PageHeader';
 import { useAuth } from '../../app/auth-context';
@@ -7,6 +8,7 @@ import { useDesignTokens, spacingToNumber } from '../../design-system/utils';
 import {
   AdminOrgSummary,
   AdminOrgUnit,
+  PortalAccessProfile,
   createAdminOrg,
   createAdminOrgUnit,
   deleteAdminOrg,
@@ -15,7 +17,12 @@ import {
   listAdminOrgUnits,
   updateAdminOrg,
   updateAdminOrgUnit,
-  createPortalSession
+  createPortalSession,
+  listPortalProfiles,
+  createPortalProfile,
+  updatePortalProfile,
+  rotatePortalProfileLink,
+  revokePortalProfileSessions,
 } from '../../services/api';
 
 const OrgUnitsInline = ({
@@ -176,6 +183,45 @@ export const OrgDirectoryRoute = () => {
   const [portalLink, setPortalLink] = useState<{ url: string; orgId: number } | null>(null);
   const [generatingPortal, setGeneratingPortal] = useState(false);
 
+  // Portal Profiles management
+  const [profilesOrg, setProfilesOrg] = useState<AdminOrgSummary | null>(null);
+  const [profilesVisible, setProfilesVisible] = useState(false);
+  const [profiles, setProfiles] = useState<PortalAccessProfile[]>([]);
+  const [profilesLoading, setProfilesLoading] = useState(false);
+  const [createProfileVisible, setCreateProfileVisible] = useState(false);
+  const [createProfileSaving, setCreateProfileSaving] = useState(false);
+  const [createProfileResult, setCreateProfileResult] = useState<{ linkSecret: string; launchUrl: string } | null>(null);
+  const [rotatingId, setRotatingId] = useState<string | null>(null);
+  const [revokingId, setRevokingId] = useState<string | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [profileForm, setProfileForm] = useState({
+    name: '',
+    role: 'VIEWER' as 'VIEWER' | 'INTEGRATION_EDITOR',
+    allowedIntegrationIds: '',
+    allowedTags: '',
+    allowedViews: ['dashboard', 'logs'] as string[],
+    isActive: true,
+    allowedOrigins: '',
+  });
+
+  const loadProfiles = useCallback(async (orgId: number) => {
+    setProfilesLoading(true);
+    try {
+      const data = await listPortalProfiles(orgId);
+      setProfiles(data);
+    } catch {
+      setProfiles([]);
+    } finally {
+      setProfilesLoading(false);
+    }
+  }, []);
+
+  const openProfilesDrawer = (org: AdminOrgSummary) => {
+    setProfilesOrg(org);
+    setProfilesVisible(true);
+    loadProfiles(org.orgId);
+  };
+
   const parseTags = (value: string) => {
     const tokens = value.split(',').map((tag) => tag.trim()).filter(Boolean);
     const seen = new Set<string>();
@@ -331,20 +377,9 @@ export const OrgDirectoryRoute = () => {
           </Button>
           <Button
             size="small"
-            onClick={async () => {
-              setGeneratingPortal(true);
-              try {
-                const res = await createPortalSession({ orgId: record.orgId, role: 'INTEGRATION_EDITOR' });
-                setPortalLink({ url: res.portalUrl, orgId: record.orgId });
-              } catch (err: any) {
-                messageApi.error(err?.message || 'Failed to generate portal link');
-              } finally {
-                setGeneratingPortal(false);
-              }
-            }}
-            loading={generatingPortal && portalLink?.orgId === record.orgId}
+            onClick={() => openProfilesDrawer(record)}
           >
-            Portal
+            Portal Profiles
           </Button>
           <Button
             size="small"
@@ -1036,6 +1071,335 @@ export const OrgDirectoryRoute = () => {
           </Row>
         </Space>
       </Modal>
+
+      {/* Portal Profiles Drawer */}
+      <Drawer
+        title={profilesOrg ? `Portal Profiles — Org ${profilesOrg.orgId}` : 'Portal Profiles'}
+        width={720}
+        open={profilesVisible}
+        onClose={() => {
+          setProfilesVisible(false);
+          setProfilesOrg(null);
+          setProfiles([]);
+          setCreateProfileVisible(false);
+          setCreateProfileResult(null);
+        }}
+        extra={
+          <Button type="primary" size="small" onClick={() => { setCreateProfileVisible(true); setCreateProfileResult(null); }}>
+            Create Profile
+          </Button>
+        }
+      >
+        {createProfileVisible && !createProfileResult && (
+          <Card
+            size="small"
+            title="New Portal Profile"
+            style={{ marginBottom: 16 }}
+            extra={
+              <Button size="small" onClick={() => setCreateProfileVisible(false)}>Cancel</Button>
+            }
+          >
+            <Space direction="vertical" style={{ width: '100%' }} size={8}>
+              <Input
+                placeholder="Profile name (required)"
+                value={profileForm.name}
+                onChange={(e) => setProfileForm((prev) => ({ ...prev, name: e.target.value }))}
+              />
+              <Select
+                style={{ width: '100%' }}
+                value={profileForm.role}
+                onChange={(v) => setProfileForm((prev) => ({ ...prev, role: v }))}
+                options={[
+                  { value: 'VIEWER', label: 'Viewer (read-only)' },
+                  { value: 'INTEGRATION_EDITOR', label: 'Editor (read + write)' },
+                ]}
+              />
+              <Input
+                placeholder="Allowed Integration IDs (comma-separated, empty = all)"
+                value={profileForm.allowedIntegrationIds}
+                onChange={(e) => setProfileForm((prev) => ({ ...prev, allowedIntegrationIds: e.target.value }))}
+              />
+              <Input
+                placeholder="Allowed Tags (comma-separated, empty = all)"
+                value={profileForm.allowedTags}
+                onChange={(e) => setProfileForm((prev) => ({ ...prev, allowedTags: e.target.value }))}
+              />
+              <div>
+                <Typography.Text type="secondary" style={{ fontSize: 12 }}>Allowed Views</Typography.Text>
+                <div style={{ marginTop: 4 }}>
+                  <Checkbox.Group
+                    value={profileForm.allowedViews}
+                    onChange={(vals) => setProfileForm((prev) => ({ ...prev, allowedViews: vals as string[] }))}
+                    options={[
+                      { label: 'Dashboard', value: 'dashboard' },
+                      { label: 'Logs', value: 'logs' },
+                    ]}
+                  />
+                </div>
+              </div>
+              <Input
+                placeholder="Allowed Origins (comma-separated, empty = any)"
+                value={profileForm.allowedOrigins}
+                onChange={(e) => setProfileForm((prev) => ({ ...prev, allowedOrigins: e.target.value }))}
+              />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Switch
+                  checked={profileForm.isActive}
+                  onChange={(v) => setProfileForm((prev) => ({ ...prev, isActive: v }))}
+                  size="small"
+                />
+                <Typography.Text>Active</Typography.Text>
+              </div>
+              <Button
+                type="primary"
+                size="small"
+                loading={createProfileSaving}
+                onClick={async () => {
+                  if (!profileForm.name.trim()) { messageApi.error('Profile name is required'); return; }
+                  if (!profilesOrg) return;
+                  setCreateProfileSaving(true);
+                  try {
+                    const parseComma = (s: string) => s.split(',').map((t) => t.trim()).filter(Boolean);
+                    const res = await createPortalProfile({
+                      orgId: profilesOrg.orgId,
+                      name: profileForm.name.trim(),
+                      role: profileForm.role,
+                      allowedIntegrationIds: parseComma(profileForm.allowedIntegrationIds),
+                      allowedTags: parseComma(profileForm.allowedTags),
+                      allowedViews: profileForm.allowedViews,
+                      allowedOrigins: parseComma(profileForm.allowedOrigins),
+                      isActive: profileForm.isActive,
+                    });
+                    setCreateProfileResult({ linkSecret: res.linkSecret, launchUrl: res.launchUrl });
+                    setProfileForm({ name: '', role: 'VIEWER', allowedIntegrationIds: '', allowedTags: '', allowedViews: ['dashboard', 'logs'], isActive: true, allowedOrigins: '' });
+                    await loadProfiles(profilesOrg.orgId);
+                  } catch (err: any) {
+                    messageApi.error(err?.message || 'Failed to create profile');
+                  } finally {
+                    setCreateProfileSaving(false);
+                  }
+                }}
+              >
+                Create
+              </Button>
+            </Space>
+          </Card>
+        )}
+
+        {createProfileResult && (
+          <Alert
+            type="success"
+            message="Profile created — copy the launch URL now"
+            description={
+              <Space direction="vertical" style={{ width: '100%' }}>
+                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                  This launch URL will not be shown again. Rotate the link to generate a new one.
+                </Typography.Text>
+                <Input.TextArea
+                  rows={3}
+                  readOnly
+                  value={createProfileResult.launchUrl}
+                  style={{ fontFamily: 'monospace', fontSize: 12 }}
+                />
+                <Button
+                  size="small"
+                  icon={<CopyOutlined />}
+                  onClick={() => {
+                    navigator.clipboard.writeText(createProfileResult.launchUrl);
+                    messageApi.success('Launch URL copied');
+                  }}
+                >
+                  Copy URL
+                </Button>
+              </Space>
+            }
+            style={{ marginBottom: 16 }}
+            closable
+            onClose={() => setCreateProfileResult(null)}
+          />
+        )}
+
+        <Table
+          loading={profilesLoading}
+          dataSource={profiles}
+          rowKey={(r) => r.id}
+          size="small"
+          pagination={false}
+          columns={[
+            {
+              title: 'Name',
+              dataIndex: 'name',
+              key: 'name',
+              render: (v: string, record: PortalAccessProfile) => (
+                <Space size={4}>
+                  {v}
+                  {!record.isActive && <Tag color="red">Inactive</Tag>}
+                </Space>
+              ),
+            },
+            {
+              title: 'Role',
+              dataIndex: 'role',
+              key: 'role',
+              render: (v: string) => (
+                <Tag color={v === 'INTEGRATION_EDITOR' ? 'blue' : 'default'}>
+                  {v === 'INTEGRATION_EDITOR' ? 'Editor' : 'Viewer'}
+                </Tag>
+              ),
+            },
+            {
+              title: 'Scope',
+              key: 'scope',
+              render: (_: any, record: PortalAccessProfile) => {
+                const ids = record.allowedIntegrationIds ?? [];
+                const tags = record.allowedTags ?? [];
+                if (!ids.length && !tags.length) return <Tag>All</Tag>;
+                return (
+                  <Space size={2} wrap>
+                    {ids.length > 0 && <Tag color="purple">{ids.length} integration(s)</Tag>}
+                    {tags.length > 0 && <Tag color="cyan">{tags.length} tag(s)</Tag>}
+                  </Space>
+                );
+              },
+            },
+            {
+              title: 'Views',
+              dataIndex: 'allowedViews',
+              key: 'allowedViews',
+              render: (v: string[]) => (v ?? []).map((view) => <Tag key={view}>{view}</Tag>),
+            },
+            {
+              title: 'Active',
+              dataIndex: 'isActive',
+              key: 'isActive',
+              width: 70,
+              render: (v: boolean, record: PortalAccessProfile) => (
+                <Switch
+                  checked={v}
+                  size="small"
+                  loading={togglingId === record.id}
+                  onChange={async (checked) => {
+                    setTogglingId(record.id);
+                    try {
+                      await updatePortalProfile(record.id, { isActive: checked });
+                      if (profilesOrg) await loadProfiles(profilesOrg.orgId);
+                    } catch (err: any) {
+                      messageApi.error(err?.message || 'Failed to update profile');
+                    } finally {
+                      setTogglingId(null);
+                    }
+                  }}
+                />
+              ),
+            },
+            {
+              title: 'Actions',
+              key: 'actions',
+              render: (_: any, record: PortalAccessProfile) => (
+                <Space size={4}>
+                  <Tooltip title="Rotate launch link (invalidates all existing sessions)">
+                    <Button
+                      size="small"
+                      icon={<ReloadOutlined />}
+                      loading={rotatingId === record.id}
+                      onClick={() => {
+                        Modal.confirm({
+                          title: 'Rotate portal link?',
+                          content: 'This will generate a new launch URL and invalidate all existing sessions. Active embeds will need to be re-authenticated.',
+                          okText: 'Rotate',
+                          cancelText: 'Cancel',
+                          onOk: async () => {
+                            setRotatingId(record.id);
+                            try {
+                              const res = await rotatePortalProfileLink(record.id);
+                              if (profilesOrg) await loadProfiles(profilesOrg.orgId);
+                              Modal.success({
+                                title: 'New launch URL',
+                                content: (
+                                  <Space direction="vertical" style={{ width: '100%' }}>
+                                    <Input.TextArea rows={3} readOnly value={res.launchUrl} style={{ fontFamily: 'monospace', fontSize: 12 }} />
+                                    <Button
+                                      size="small"
+                                      icon={<CopyOutlined />}
+                                      onClick={() => { navigator.clipboard.writeText(res.launchUrl); messageApi.success('Copied'); }}
+                                    >
+                                      Copy
+                                    </Button>
+                                  </Space>
+                                ),
+                                width: 540,
+                              });
+                            } catch (err: any) {
+                              messageApi.error(err?.message || 'Failed to rotate link');
+                            } finally {
+                              setRotatingId(null);
+                            }
+                          },
+                        });
+                      }}
+                    >
+                      Rotate
+                    </Button>
+                  </Tooltip>
+                  <Tooltip title="Revoke all active sessions (link stays valid for new sessions)">
+                    <Button
+                      size="small"
+                      icon={<StopOutlined />}
+                      loading={revokingId === record.id}
+                      onClick={() => {
+                        Modal.confirm({
+                          title: 'Revoke active sessions?',
+                          content: 'All active sessions for this profile will be invalidated immediately. The launch URL remains valid for new sessions.',
+                          okText: 'Revoke',
+                          okButtonProps: { danger: true },
+                          cancelText: 'Cancel',
+                          onOk: async () => {
+                            setRevokingId(record.id);
+                            try {
+                              await revokePortalProfileSessions(record.id);
+                              messageApi.success('All sessions revoked');
+                            } catch (err: any) {
+                              messageApi.error(err?.message || 'Failed to revoke sessions');
+                            } finally {
+                              setRevokingId(null);
+                            }
+                          },
+                        });
+                      }}
+                    >
+                      Revoke
+                    </Button>
+                  </Tooltip>
+                  <Tooltip title="Get launch URL">
+                    <Button
+                      size="small"
+                      icon={<KeyOutlined />}
+                      onClick={() => {
+                        Modal.info({
+                          title: `Launch URL for "${record.name}"`,
+                          content: (
+                            <Space direction="vertical" style={{ width: '100%' }}>
+                              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                                Rotate the link to generate a fresh URL with a new secret.
+                              </Typography.Text>
+                              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                                Profile ID: <code>{record.id}</code>
+                              </Typography.Text>
+                            </Space>
+                          ),
+                          width: 480,
+                        });
+                      }}
+                    >
+                      Info
+                    </Button>
+                  </Tooltip>
+                </Space>
+              ),
+            },
+          ]}
+        />
+      </Drawer>
 
       <Modal
         title={editingUnit ? `Edit Unit ${editingUnit.rid}` : 'Edit Unit'}

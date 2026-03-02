@@ -9,6 +9,7 @@ export interface AuthUser {
   orgId?: number | null;
   impersonatedBy?: string | null;
   impersonated?: boolean;
+  isPortalSession?: boolean;
 }
 
 export const getAuthToken = () => localStorage.getItem(TOKEN_KEY);
