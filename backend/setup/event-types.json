@@ -11984,5 +11984,2204 @@
       "$date": "2026-02-05T11:18:46.152Z"
     },
     "isActive": true
+  },
+  {
+    "_id": {
+      "$oid": "6a3f1b2c4d5e6f7a8b9c0d1e"
+    },
+    "eventType": "LAB_ORDER_CREATED",
+    "eventTypeId": 76,
+    "label": "Lab Order Created",
+    "description": "Triggered when a new laboratory order is placed",
+    "category": "Laboratory Events",
+    "implementationClass": "ubq.lab.LabEventImpl",
+    "fields": [
+      {
+        "path": "type",
+        "type": "string",
+        "description": "Event type identifier",
+        "example": "LAB_ORDER_CREATED"
+      },
+      {
+        "path": "order.orderId",
+        "type": "string",
+        "description": "Unique lab order identifier",
+        "example": "37451023"
+      },
+      {
+        "path": "order.status",
+        "type": "string",
+        "description": "Lab order status code",
+        "example": "4"
+      },
+      {
+        "path": "order.orderDate",
+        "type": "string",
+        "description": "Date and time the order was placed",
+        "example": "2026-03-02 11:14:00"
+      },
+      {
+        "path": "order.orderType",
+        "type": "string",
+        "description": "Order type (0=IP, 1=OP)",
+        "example": "1"
+      },
+      {
+        "path": "order.orderNumber",
+        "type": "string",
+        "description": "Sequential order number",
+        "example": "0"
+      },
+      {
+        "path": "order.serviceRID",
+        "type": "string",
+        "description": "Service resource identifier",
+        "example": "1026616"
+      },
+      {
+        "path": "order.serviceName",
+        "type": "string",
+        "description": "Name of the lab service ordered",
+        "example": "BLOOD SUGAR-RANDOM"
+      },
+      {
+        "path": "order.priority",
+        "type": "string",
+        "description": "Order priority (0=normal)",
+        "example": "0"
+      },
+      {
+        "path": "order.qty",
+        "type": "string",
+        "description": "Quantity ordered",
+        "example": "1.0"
+      },
+      {
+        "path": "order.orderingDoctorRID",
+        "type": "string",
+        "description": "Resource ID of the ordering doctor",
+        "example": "55407"
+      },
+      {
+        "path": "order.processingUnitRID",
+        "type": "string",
+        "description": "Resource ID of the processing unit/lab",
+        "example": "14900"
+      },
+      {
+        "path": "order.sampleCollectingUnit",
+        "type": "string",
+        "description": "Unit responsible for sample collection",
+        "example": "13471"
+      },
+      {
+        "path": "order.statusModifiedDateTime",
+        "type": "string",
+        "description": "Timestamp when order status was last modified",
+        "example": "2026-03-02 11:14:00"
+      },
+      {
+        "path": "order.modifiedDateTime",
+        "type": "string",
+        "description": "Timestamp of last modification",
+        "example": "2026-03-02 11:14:57"
+      },
+      {
+        "path": "order.billing.billRID",
+        "type": "number",
+        "description": "Billing record RID (0 if not billed)",
+        "example": 0
+      },
+      {
+        "path": "order.billing.billNumber",
+        "type": "string",
+        "description": "Bill number",
+        "example": ""
+      },
+      {
+        "path": "order.billing.billCreated",
+        "type": "boolean",
+        "description": "Whether a bill has been created",
+        "example": false
+      },
+      {
+        "path": "order.billing.billStatusName",
+        "type": "string",
+        "description": "Human-readable bill status",
+        "example": "Fully Paid"
+      },
+      {
+        "path": "order.labTests",
+        "type": "array",
+        "description": "Array of individual lab tests in this order",
+        "example": []
+      },
+      {
+        "path": "order.labTests[].id",
+        "type": "string",
+        "description": "Lab test record identifier",
+        "example": "13303063"
+      },
+      {
+        "path": "order.labTests[].status",
+        "type": "string",
+        "description": "Individual test status code",
+        "example": "2"
+      },
+      {
+        "path": "order.labTests[].serviceCode",
+        "type": "string",
+        "description": "Lab test service code",
+        "example": "LAB026"
+      },
+      {
+        "path": "order.labTests[].serviceName",
+        "type": "string",
+        "description": "Lab test service name",
+        "example": "BLOOD SUGAR-RANDOM"
+      },
+      {
+        "path": "order.labTests[].groupName",
+        "type": "string",
+        "description": "Lab group/department name",
+        "example": "LABORATORY"
+      },
+      {
+        "path": "order.labTests[].sampleId",
+        "type": "string",
+        "description": "Sample barcode or ID",
+        "example": " "
+      },
+      {
+        "path": "order.labTests[].consultingDoctorRID",
+        "type": "string",
+        "description": "RID of the consulting doctor for this test",
+        "example": "55407"
+      },
+      {
+        "path": "order.labTests[].consultingDoctorName",
+        "type": "string",
+        "description": "Name of the consulting doctor for this test",
+        "example": "Karishma Vijay Dubey"
+      },
+      {
+        "path": "visit.id.value",
+        "type": "string",
+        "description": "Visit resource identifier",
+        "example": "20664247"
+      },
+      {
+        "path": "visit.date",
+        "type": "string",
+        "description": "Visit date (DD/MM/YYYY)",
+        "example": "02/03/2026"
+      },
+      {
+        "path": "visit.time",
+        "type": "string",
+        "description": "Visit time",
+        "example": "10:10 AM"
+      },
+      {
+        "path": "visit.typeName",
+        "type": "string",
+        "description": "Visit type name (OP/IP)",
+        "example": "OP"
+      },
+      {
+        "path": "visit.patientMRN",
+        "type": "string",
+        "description": "Patient medical record number",
+        "example": "SEHVNS/30039/25"
+      },
+      {
+        "path": "visit.status",
+        "type": "number",
+        "description": "Visit status code",
+        "example": 8
+      },
+      {
+        "path": "visit.statusName",
+        "type": "string",
+        "description": "Human-readable visit status",
+        "example": "Draft"
+      },
+      {
+        "path": "visit.gender.name",
+        "type": "string",
+        "description": "Patient gender",
+        "example": "Male"
+      },
+      {
+        "path": "visit.speciality.name",
+        "type": "string",
+        "description": "Medical speciality name",
+        "example": "General Ophthalmology"
+      },
+      {
+        "path": "visit.consultingDoctorName",
+        "type": "string",
+        "description": "Name of the consulting doctor",
+        "example": "Karishma Vijay Dubey"
+      },
+      {
+        "path": "visit.tokenNumber",
+        "type": "string",
+        "description": "Visit queue token number",
+        "example": "2065"
+      },
+      {
+        "path": "visit.referredBy",
+        "type": "string",
+        "description": "Referral source",
+        "example": "Newspaper and Magazine Ads"
+      },
+      {
+        "path": "visit.reasonName",
+        "type": "string",
+        "description": "Reason for visit",
+        "example": "Consultation"
+      },
+      {
+        "path": "visit.patientAgeInYears",
+        "type": "number",
+        "description": "Patient age in years",
+        "example": 0
+      },
+      {
+        "path": "patient.mrn.documentNumber",
+        "type": "string",
+        "description": "Patient MRN document number",
+        "example": "SEHVNS/30039/25"
+      },
+      {
+        "path": "patient.fullName",
+        "type": "string",
+        "description": "Patient full name",
+        "example": "Heera Lal"
+      },
+      {
+        "path": "patient.phone",
+        "type": "string",
+        "description": "Patient phone number",
+        "example": "7785909086"
+      },
+      {
+        "path": "patient.email",
+        "type": "string",
+        "description": "Patient email address",
+        "example": ""
+      },
+      {
+        "path": "patient.address",
+        "type": "string",
+        "description": "Patient address",
+        "example": "Bhadwa Varanasi"
+      },
+      {
+        "path": "patient.isVIP",
+        "type": "boolean",
+        "description": "Whether patient is flagged as VIP",
+        "example": false
+      },
+      {
+        "path": "patient.notifyBySms",
+        "type": "boolean",
+        "description": "Patient SMS notification preference",
+        "example": false
+      },
+      {
+        "path": "patient.notifyByEmail",
+        "type": "boolean",
+        "description": "Patient email notification preference",
+        "example": false
+      },
+      {
+        "path": "patient.notifyByWhatsapp",
+        "type": "boolean",
+        "description": "Patient WhatsApp notification preference",
+        "example": false
+      },
+      {
+        "path": "entityRID",
+        "type": "number",
+        "description": "Entity (hospital/clinic) resource identifier",
+        "example": 585
+      },
+      {
+        "path": "entityCode",
+        "type": "string",
+        "description": "Entity code",
+        "example": "7898019"
+      },
+      {
+        "path": "entityName",
+        "type": "string",
+        "description": "Entity name",
+        "example": "R JHUNJHUNWALA SANKARA EYE HOSPITAL Varanasi"
+      },
+      {
+        "path": "entityPhone",
+        "type": "string",
+        "description": "Entity phone number",
+        "example": "0542- 3506789"
+      },
+      {
+        "path": "entityParentID",
+        "type": "number",
+        "description": "Parent entity (enterprise) identifier",
+        "example": 84
+      },
+      {
+        "path": "enterpriseCode",
+        "type": "string",
+        "description": "Enterprise code",
+        "example": "7709418"
+      },
+      {
+        "path": "enterpriseEntityRID",
+        "type": "number",
+        "description": "Enterprise entity RID",
+        "example": 0
+      },
+      {
+        "path": "description",
+        "type": "string",
+        "description": "Human-readable event description",
+        "example": "New lab order placed"
+      },
+      {
+        "path": "unitRID",
+        "type": "number",
+        "description": "Unit resource identifier",
+        "example": 0
+      },
+      {
+        "path": "userRID",
+        "type": "number",
+        "description": "User resource identifier",
+        "example": 19740297
+      },
+      {
+        "path": "datetime",
+        "type": "string",
+        "description": "Event timestamp",
+        "example": "02/03/2026 11:14 AM"
+      }
+    ],
+    "samplePayload": {
+      "type": "LAB_ORDER_CREATED",
+      "order": {
+        "qty": "1.0",
+        "state": "0",
+        "status": "4",
+        "billing": {
+          "billRID": 0,
+          "billNumber": "",
+          "billStatus": 0,
+          "receiptRID": 0,
+          "billCreated": false,
+          "receiptNumber": "",
+          "receiptStatus": 0,
+          "billStatusName": "",
+          "receiptCreated": false,
+          "receiptStatusName": ""
+        },
+        "orderId": "37451023",
+        "remarks": "",
+        "labTests": [
+          {
+            "id": "13303063",
+            "unit": "",
+            "state": "0",
+            "method": "",
+            "status": "2",
+            "orderId": "37451023",
+            "remarks": "",
+            "reportId": "0",
+            "sampleId": " ",
+            "testDate": null,
+            "testTime": null,
+            "visitRID": "20664247",
+            "groupName": "LABORATORY",
+            "orderDate": "2026-03-02 11:14:00",
+            "parentRID": "0",
+            "sampleRID": null,
+            "isAbnormal": "0",
+            "patientRID": null,
+            "resultType": "1",
+            "sequenceNo": "0",
+            "serviceRID": "1026616",
+            "normalRange": "null",
+            "resultValue": "",
+            "serviceCode": "LAB026",
+            "serviceName": "BLOOD SUGAR-RANDOM",
+            "templateRID": "0",
+            "equipmentRID": "0",
+            "modifiedDate": "2026-03-02 11:14:57",
+            "observations": [],
+            "attachmentRID": "0",
+            "rootParentRID": "0",
+            "technicalNote": null,
+            "createdDateTime": null,
+            "serviceGridCode": "LAB026",
+            "reportPrintStatus": "0",
+            "computedNormalRange": "null",
+            "consultingDoctorRID": "55407",
+            "consultingDoctorName": "Karishma Vijay Dubey"
+          }
+        ],
+        "priority": "0",
+        "orderDate": "2026-03-02 11:14:00",
+        "orderType": "1",
+        "startDate": "2026-03-02",
+        "startTime": "00:00:00",
+        "serviceRID": "1026616",
+        "orderNumber": "0",
+        "serviceName": "BLOOD SUGAR-RANDOM",
+        "serviceType": "21977",
+        "tokenNumber": null,
+        "itemCategory": "0",
+        "parentOrderId": "0",
+        "signedUserRID": "0",
+        "signedDateTime": null,
+        "orderingUnitRID": "0",
+        "modifiedDateTime": "2026-03-02 11:14:57",
+        "orderingDoctorRID": "55407",
+        "processingUnitRID": "14900",
+        "rootParentOrderId": "0",
+        "attendingDoctorRID": "0",
+        "cancellationReason": "",
+        "processingComments": "",
+        "performingDoctorRID": "0",
+        "sampleCollectingUnit": "13471",
+        "statusModifiedDateTime": "2026-03-02 11:14:00",
+        "externalReferenceNumber": null
+      },
+      "visit": {
+        "id": { "value": "20664247" },
+        "date": "02/03/2026",
+        "time": "10:10 AM",
+        "type": 1,
+        "gender": { "name": "Male", "index": 1 },
+        "leadNo": "",
+        "sealed": false,
+        "status": 8,
+        "medicsId": 0,
+        "typeName": "OP",
+        "patientMRN": "SEHVNS/30039/25",
+        "reasonName": "Consultation",
+        "referredBy": "Newspaper and Magazine Ads",
+        "speciality": { "name": "General Ophthalmology", "index": 15540470 },
+        "statusName": "Draft",
+        "leadRemarks": "",
+        "tokenNumber": "2065",
+        "updateCount": 0,
+        "visitNumber": { "documentNumber": "", "sequenceNumber": 3 },
+        "visitCategory": 0,
+        "visitedEntity": { "value": "84" },
+        "consultingDoctor": { "value": "55407" },
+        "patientAgeInDays": 0,
+        "patientAgeInYears": 0,
+        "freeRemainingCount": 0,
+        "patientAgeInMonths": 0,
+        "medicsAppointmentId": 0,
+        "referralPhoneNumber": "8754111722",
+        "consultingDoctorName": "Karishma Vijay Dubey"
+      },
+      "patient": {
+        "mrn": { "documentNumber": "SEHVNS/30039/25", "sequenceNumber": 24509422 },
+        "email": "",
+        "isVIP": false,
+        "phone": "7785909086",
+        "valid": 0,
+        "address": "Bhadwa Varanasi",
+        "fullName": "Heera Lal",
+        "medicsId": 0,
+        "isExpired": 0,
+        "isUnknown": false,
+        "notifyBySms": false,
+        "updateCount": 0,
+        "confidential": false,
+        "notifyByEmail": false,
+        "isInternational": false,
+        "notifyByWhatsapp": false,
+        "isMobileNoVerified": false,
+        "referencePatientId": 0
+      },
+      "unitRID": 0,
+      "userRID": 19740297,
+      "datetime": "02/03/2026 11:14 AM",
+      "entityRID": 585,
+      "entityCode": "7898019",
+      "entityName": "R JHUNJHUNWALA SANKARA EYE HOSPITAL Varanasi",
+      "description": "New lab order placed",
+      "entityPhone": "0542- 3506789",
+      "enterpriseCode": "7709418",
+      "entityParentID": 84,
+      "enterpriseEntityRID": 0
+    },
+    "createdAt": {
+      "$date": "2026-03-02T00:00:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-03-02T00:00:00.000Z"
+    },
+    "isActive": true
+  },
+  {
+    "_id": {
+      "$oid": "6a3f1b2c4d5e6f7a8b9c0d1f"
+    },
+    "eventType": "LAB_ORDER_CANCELLED",
+    "eventTypeId": 77,
+    "label": "Lab Order Cancelled",
+    "description": "Triggered when a laboratory order is cancelled",
+    "category": "Laboratory Events",
+    "implementationClass": "ubq.lab.LabEventImpl",
+    "fields": [
+      {
+        "path": "type",
+        "type": "string",
+        "description": "Event type identifier",
+        "example": "LAB_ORDER_CANCELLED"
+      },
+      {
+        "path": "order.orderId",
+        "type": "string",
+        "description": "Unique lab order identifier",
+        "example": "37339032"
+      },
+      {
+        "path": "order.status",
+        "type": "string",
+        "description": "Lab order status code (64 = cancelled)",
+        "example": "64"
+      },
+      {
+        "path": "order.orderDate",
+        "type": "string",
+        "description": "Date and time the order was originally placed",
+        "example": "2026-02-27 10:32:00"
+      },
+      {
+        "path": "order.orderType",
+        "type": "string",
+        "description": "Order type (0=IP, 1=OP)",
+        "example": "1"
+      },
+      {
+        "path": "order.serviceRID",
+        "type": "string",
+        "description": "Service resource identifier",
+        "example": "1585293"
+      },
+      {
+        "path": "order.serviceName",
+        "type": "string",
+        "description": "Name of the cancelled lab service",
+        "example": "PREOP. CATARACT - INVESTIGATION"
+      },
+      {
+        "path": "order.cancellationReason",
+        "type": "string",
+        "description": "Reason for order cancellation",
+        "example": ""
+      },
+      {
+        "path": "order.priority",
+        "type": "string",
+        "description": "Order priority",
+        "example": "0"
+      },
+      {
+        "path": "order.qty",
+        "type": "string",
+        "description": "Quantity ordered",
+        "example": "1.0"
+      },
+      {
+        "path": "order.orderingDoctorRID",
+        "type": "string",
+        "description": "Resource ID of the ordering doctor",
+        "example": "8952"
+      },
+      {
+        "path": "order.processingUnitRID",
+        "type": "string",
+        "description": "Resource ID of the processing unit/lab",
+        "example": "14883"
+      },
+      {
+        "path": "order.sampleCollectingUnit",
+        "type": "string",
+        "description": "Unit responsible for sample collection",
+        "example": "3266"
+      },
+      {
+        "path": "order.statusModifiedDateTime",
+        "type": "string",
+        "description": "Timestamp when order was cancelled",
+        "example": "2026-03-02 11:14:52"
+      },
+      {
+        "path": "order.modifiedDateTime",
+        "type": "string",
+        "description": "Timestamp of last modification",
+        "example": "2026-03-02 00:00:00"
+      },
+      {
+        "path": "order.billing.billRID",
+        "type": "number",
+        "description": "Billing record RID",
+        "example": 0
+      },
+      {
+        "path": "order.billing.billCreated",
+        "type": "boolean",
+        "description": "Whether a bill has been created",
+        "example": false
+      },
+      {
+        "path": "order.billing.billStatusName",
+        "type": "string",
+        "description": "Human-readable bill status",
+        "example": ""
+      },
+      {
+        "path": "order.labTests",
+        "type": "array",
+        "description": "Array of individual lab tests in this cancelled order",
+        "example": []
+      },
+      {
+        "path": "order.labTests[].id",
+        "type": "string",
+        "description": "Lab test record identifier",
+        "example": "13272709"
+      },
+      {
+        "path": "order.labTests[].status",
+        "type": "string",
+        "description": "Individual test status code (64 = cancelled)",
+        "example": "64"
+      },
+      {
+        "path": "order.labTests[].serviceCode",
+        "type": "string",
+        "description": "Lab test service code",
+        "example": "LAB706"
+      },
+      {
+        "path": "order.labTests[].serviceName",
+        "type": "string",
+        "description": "Lab test service name",
+        "example": "PREOP INVESTIGATION CATARACT"
+      },
+      {
+        "path": "order.labTests[].groupName",
+        "type": "string",
+        "description": "Lab group/department name",
+        "example": "LABORATORY"
+      },
+      {
+        "path": "order.labTests[].consultingDoctorRID",
+        "type": "string",
+        "description": "RID of the consulting doctor",
+        "example": "8952"
+      },
+      {
+        "path": "order.labTests[].consultingDoctorName",
+        "type": "string",
+        "description": "Name of the consulting doctor",
+        "example": "Ajita S"
+      },
+      {
+        "path": "visit.id.value",
+        "type": "string",
+        "description": "Visit resource identifier",
+        "example": "20618097"
+      },
+      {
+        "path": "visit.date",
+        "type": "string",
+        "description": "Visit date (DD/MM/YYYY)",
+        "example": "27/02/2026"
+      },
+      {
+        "path": "visit.time",
+        "type": "string",
+        "description": "Visit time",
+        "example": "08:48 AM"
+      },
+      {
+        "path": "visit.typeName",
+        "type": "string",
+        "description": "Visit type name (OP/IP)",
+        "example": "OP"
+      },
+      {
+        "path": "visit.patientMRN",
+        "type": "string",
+        "description": "Patient medical record number",
+        "example": "SEC/690526/22"
+      },
+      {
+        "path": "visit.status",
+        "type": "number",
+        "description": "Visit status code",
+        "example": 8
+      },
+      {
+        "path": "visit.statusName",
+        "type": "string",
+        "description": "Human-readable visit status",
+        "example": "Draft"
+      },
+      {
+        "path": "visit.gender.name",
+        "type": "string",
+        "description": "Patient gender",
+        "example": "Male"
+      },
+      {
+        "path": "visit.speciality.name",
+        "type": "string",
+        "description": "Medical speciality name",
+        "example": "Glaucoma"
+      },
+      {
+        "path": "visit.consultingDoctorName",
+        "type": "string",
+        "description": "Name of the consulting doctor",
+        "example": "Ajita S"
+      },
+      {
+        "path": "visit.tokenNumber",
+        "type": "string",
+        "description": "Visit queue token number",
+        "example": "3008"
+      },
+      {
+        "path": "visit.referredBy",
+        "type": "string",
+        "description": "Referral source",
+        "example": "Self"
+      },
+      {
+        "path": "visit.reasonName",
+        "type": "string",
+        "description": "Reason for visit",
+        "example": "Consultation"
+      },
+      {
+        "path": "visit.patientAgeInYears",
+        "type": "number",
+        "description": "Patient age in years",
+        "example": 0
+      },
+      {
+        "path": "patient.mrn.documentNumber",
+        "type": "string",
+        "description": "Patient MRN document number",
+        "example": "SEC/690526/22"
+      },
+      {
+        "path": "patient.fullName",
+        "type": "string",
+        "description": "Patient full name",
+        "example": "Krishnan K A"
+      },
+      {
+        "path": "patient.phone",
+        "type": "string",
+        "description": "Patient phone number",
+        "example": "9567899306"
+      },
+      {
+        "path": "patient.email",
+        "type": "string",
+        "description": "Patient email address",
+        "example": ""
+      },
+      {
+        "path": "patient.address",
+        "type": "string",
+        "description": "Patient address",
+        "example": "KGISL PLATINAM TOWER ,KEERNATHAM MAIN ROAD"
+      },
+      {
+        "path": "patient.isVIP",
+        "type": "boolean",
+        "description": "Whether patient is flagged as VIP",
+        "example": false
+      },
+      {
+        "path": "patient.notifyBySms",
+        "type": "boolean",
+        "description": "Patient SMS notification preference",
+        "example": false
+      },
+      {
+        "path": "patient.notifyByEmail",
+        "type": "boolean",
+        "description": "Patient email notification preference",
+        "example": false
+      },
+      {
+        "path": "patient.notifyByWhatsapp",
+        "type": "boolean",
+        "description": "Patient WhatsApp notification preference",
+        "example": false
+      },
+      {
+        "path": "entityRID",
+        "type": "number",
+        "description": "Entity (hospital/clinic) resource identifier",
+        "example": 113
+      },
+      {
+        "path": "entityCode",
+        "type": "string",
+        "description": "Entity code",
+        "example": "7831211"
+      },
+      {
+        "path": "entityName",
+        "type": "string",
+        "description": "Entity name",
+        "example": "SANKARA EYE HOSPITAL, Coimbatore"
+      },
+      {
+        "path": "entityPhone",
+        "type": "string",
+        "description": "Entity phone number",
+        "example": "04223116789"
+      },
+      {
+        "path": "entityParentID",
+        "type": "number",
+        "description": "Parent entity (enterprise) identifier",
+        "example": 84
+      },
+      {
+        "path": "enterpriseCode",
+        "type": "string",
+        "description": "Enterprise code",
+        "example": "7709418"
+      },
+      {
+        "path": "enterpriseEntityRID",
+        "type": "number",
+        "description": "Enterprise entity RID",
+        "example": 84
+      },
+      {
+        "path": "description",
+        "type": "string",
+        "description": "Human-readable event description",
+        "example": "Order cancelled"
+      },
+      {
+        "path": "unitRID",
+        "type": "number",
+        "description": "Unit resource identifier",
+        "example": 3292
+      },
+      {
+        "path": "userRID",
+        "type": "number",
+        "description": "User resource identifier",
+        "example": 3435600
+      },
+      {
+        "path": "datetime",
+        "type": "string",
+        "description": "Event timestamp",
+        "example": "02/03/2026 11:14 AM"
+      }
+    ],
+    "samplePayload": {
+      "type": "LAB_ORDER_CANCELLED",
+      "order": {
+        "qty": "1.0",
+        "state": "0",
+        "status": "64",
+        "billing": {
+          "billRID": 0,
+          "billNumber": "",
+          "billStatus": 0,
+          "receiptRID": 0,
+          "billCreated": false,
+          "receiptNumber": "",
+          "receiptStatus": 0,
+          "billStatusName": "",
+          "receiptCreated": false,
+          "receiptStatusName": ""
+        },
+        "orderId": "37339032",
+        "remarks": "",
+        "labTests": [
+          {
+            "id": "13272709",
+            "unit": "",
+            "state": "0",
+            "method": "",
+            "status": "64",
+            "orderId": "37339032",
+            "remarks": "",
+            "reportId": "0",
+            "sampleId": " ",
+            "testDate": null,
+            "testTime": null,
+            "visitRID": "20618097",
+            "groupName": "LABORATORY",
+            "orderDate": "2026-02-27 10:32:00",
+            "parentRID": "0",
+            "sampleRID": null,
+            "isAbnormal": "0",
+            "patientRID": null,
+            "resultType": "1",
+            "sequenceNo": "0",
+            "serviceRID": "1585293",
+            "normalRange": "null",
+            "resultValue": "",
+            "serviceCode": "LAB706",
+            "serviceName": "PREOP INVESTIGATION CATARACT",
+            "templateRID": "0",
+            "equipmentRID": "0",
+            "modifiedDate": "2026-03-02 11:14:52",
+            "observations": [],
+            "attachmentRID": "0",
+            "rootParentRID": "0",
+            "technicalNote": null,
+            "createdDateTime": null,
+            "serviceGridCode": "LAB706",
+            "reportPrintStatus": "0",
+            "computedNormalRange": "null",
+            "consultingDoctorRID": "8952",
+            "consultingDoctorName": "Ajita S"
+          }
+        ],
+        "priority": "0",
+        "orderDate": "2026-02-27 10:32:00",
+        "orderType": "1",
+        "startDate": "2026-02-27",
+        "startTime": "00:00:00",
+        "serviceRID": "1585293",
+        "orderNumber": "0",
+        "serviceName": "PREOP. CATARACT - INVESTIGATION",
+        "serviceType": "21977",
+        "tokenNumber": null,
+        "itemCategory": "0",
+        "parentOrderId": "0",
+        "signedUserRID": "0",
+        "signedDateTime": null,
+        "orderingUnitRID": "0",
+        "modifiedDateTime": "2026-03-02 00:00:00",
+        "orderingDoctorRID": "8952",
+        "processingUnitRID": "14883",
+        "rootParentOrderId": "0",
+        "attendingDoctorRID": "0",
+        "cancellationReason": "",
+        "processingComments": "",
+        "performingDoctorRID": "0",
+        "sampleCollectingUnit": "3266",
+        "statusModifiedDateTime": "2026-03-02 11:14:52",
+        "externalReferenceNumber": null
+      },
+      "visit": {
+        "id": { "value": "20618097" },
+        "date": "27/02/2026",
+        "time": "08:48 AM",
+        "type": 1,
+        "gender": { "name": "Male", "index": 1 },
+        "leadNo": "",
+        "sealed": false,
+        "status": 8,
+        "medicsId": 0,
+        "typeName": "OP",
+        "patientMRN": "SEC/690526/22",
+        "reasonName": "Consultation",
+        "referredBy": "Self",
+        "speciality": { "name": "Glaucoma", "index": 523687 },
+        "statusName": "Draft",
+        "leadRemarks": "",
+        "tokenNumber": "3008",
+        "updateCount": 0,
+        "visitNumber": { "documentNumber": "", "sequenceNumber": 2 },
+        "visitCategory": 0,
+        "visitedEntity": { "value": "84" },
+        "consultingDoctor": { "value": "8952" },
+        "patientAgeInDays": 0,
+        "patientAgeInYears": 0,
+        "freeRemainingCount": 0,
+        "patientAgeInMonths": 0,
+        "medicsAppointmentId": 0,
+        "referralPhoneNumber": "8015284446",
+        "consultingDoctorName": "Ajita S"
+      },
+      "patient": {
+        "mrn": { "documentNumber": "SEC/690526/22", "sequenceNumber": 14962165 },
+        "email": "",
+        "isVIP": false,
+        "phone": "9567899306",
+        "valid": 0,
+        "address": "KGISL PLATINAM TOWER ,KEERNATHAM MAIN ROAD",
+        "fullName": "Krishnan K A",
+        "medicsId": 0,
+        "isExpired": 0,
+        "isUnknown": false,
+        "notifyBySms": false,
+        "updateCount": 0,
+        "confidential": false,
+        "notifyByEmail": false,
+        "isInternational": false,
+        "notifyByWhatsapp": false,
+        "isMobileNoVerified": false,
+        "referencePatientId": 0
+      },
+      "unitRID": 3292,
+      "userRID": 3435600,
+      "datetime": "02/03/2026 11:14 AM",
+      "entityRID": 113,
+      "entityCode": "7831211",
+      "entityName": "SANKARA EYE HOSPITAL, Coimbatore",
+      "description": "Order cancelled",
+      "entityPhone": "04223116789",
+      "enterpriseCode": "7709418",
+      "entityParentID": 84,
+      "enterpriseEntityRID": 84
+    },
+    "createdAt": {
+      "$date": "2026-03-02T00:00:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-03-02T00:00:00.000Z"
+    },
+    "isActive": true
+  },
+  {
+    "_id": {
+      "$oid": "6a3f1b2c4d5e6f7a8b9c0d20"
+    },
+    "eventType": "LAB_ORDER_SENT_TO_EXTERNAL",
+    "eventTypeId": 78,
+    "label": "Lab Order Sent to External",
+    "description": "Triggered when a laboratory order is sent to an external lab",
+    "category": "Laboratory Events",
+    "implementationClass": "ubq.lab.LabEventImpl",
+    "fields": [
+      {
+        "path": "type",
+        "type": "string",
+        "description": "Event type identifier",
+        "example": "LAB_ORDER_SENT_TO_EXTERNAL"
+      },
+      {
+        "path": "order.orderId",
+        "type": "string",
+        "description": "Unique lab order identifier",
+        "example": "37450288"
+      },
+      {
+        "path": "order.status",
+        "type": "string",
+        "description": "Lab order status code (12 = sent to external)",
+        "example": "12"
+      },
+      {
+        "path": "order.orderDate",
+        "type": "string",
+        "description": "Date and time the order was placed",
+        "example": "2026-03-02 11:07:00"
+      },
+      {
+        "path": "order.orderType",
+        "type": "string",
+        "description": "Order type (0=IP, 1=OP)",
+        "example": "0"
+      },
+      {
+        "path": "order.orderNumber",
+        "type": "string",
+        "description": "Sequential order number",
+        "example": "2026/261/12612"
+      },
+      {
+        "path": "order.serviceRID",
+        "type": "string",
+        "description": "Service resource identifier",
+        "example": "683671"
+      },
+      {
+        "path": "order.serviceName",
+        "type": "string",
+        "description": "Name of the lab service",
+        "example": "Blood Group & RH Factor"
+      },
+      {
+        "path": "order.priority",
+        "type": "string",
+        "description": "Order priority",
+        "example": "0"
+      },
+      {
+        "path": "order.qty",
+        "type": "string",
+        "description": "Quantity ordered",
+        "example": "1.0"
+      },
+      {
+        "path": "order.orderingDoctorRID",
+        "type": "string",
+        "description": "Resource ID of the ordering doctor",
+        "example": "29862"
+      },
+      {
+        "path": "order.processingUnitRID",
+        "type": "string",
+        "description": "Resource ID of the processing unit (external lab)",
+        "example": "14888"
+      },
+      {
+        "path": "order.sampleCollectingUnit",
+        "type": "string",
+        "description": "Unit responsible for sample collection",
+        "example": "14888"
+      },
+      {
+        "path": "order.statusModifiedDateTime",
+        "type": "string",
+        "description": "Timestamp when order was sent to external lab",
+        "example": "2026-03-02 11:07:26"
+      },
+      {
+        "path": "order.modifiedDateTime",
+        "type": "string",
+        "description": "Timestamp of last modification",
+        "example": "2026-03-02 11:07:27"
+      },
+      {
+        "path": "order.billing.billRID",
+        "type": "number",
+        "description": "Billing record RID",
+        "example": 21287482
+      },
+      {
+        "path": "order.billing.billNumber",
+        "type": "string",
+        "description": "Bill number",
+        "example": "SDN/OP/25/11231"
+      },
+      {
+        "path": "order.billing.billCreated",
+        "type": "boolean",
+        "description": "Whether a bill has been created",
+        "example": true
+      },
+      {
+        "path": "order.billing.billStatusName",
+        "type": "string",
+        "description": "Human-readable bill status",
+        "example": "Fully Paid"
+      },
+      {
+        "path": "order.billing.receiptNumber",
+        "type": "string",
+        "description": "Receipt number",
+        "example": "SDN/RC/25/19237"
+      },
+      {
+        "path": "order.billing.receiptCreated",
+        "type": "boolean",
+        "description": "Whether a receipt has been created",
+        "example": true
+      },
+      {
+        "path": "order.labTests",
+        "type": "array",
+        "description": "Array of individual lab tests sent to external lab",
+        "example": []
+      },
+      {
+        "path": "order.labTests[].id",
+        "type": "string",
+        "description": "Lab test record identifier",
+        "example": "13302882"
+      },
+      {
+        "path": "order.labTests[].status",
+        "type": "string",
+        "description": "Individual test status code",
+        "example": "4"
+      },
+      {
+        "path": "order.labTests[].serviceCode",
+        "type": "string",
+        "description": "Lab test service code",
+        "example": "SRV00225"
+      },
+      {
+        "path": "order.labTests[].serviceName",
+        "type": "string",
+        "description": "Lab test service name",
+        "example": "Blood Group & RH Factor"
+      },
+      {
+        "path": "order.labTests[].groupName",
+        "type": "string",
+        "description": "Lab group/department name",
+        "example": "Pathology"
+      },
+      {
+        "path": "order.labTests[].sampleId",
+        "type": "string",
+        "description": "Sample barcode or ID",
+        "example": "0598BL006841"
+      },
+      {
+        "path": "order.labTests[].sampleRID",
+        "type": "string",
+        "description": "Sample resource identifier",
+        "example": "3695039"
+      },
+      {
+        "path": "order.labTests[].consultingDoctorName",
+        "type": "string",
+        "description": "Name of the consulting doctor",
+        "example": "Dr. Pallavi Prasad"
+      },
+      {
+        "path": "externalLab.unitRID",
+        "type": "number",
+        "description": "External lab unit resource identifier",
+        "example": 14888
+      },
+      {
+        "path": "externalLab.unitCode",
+        "type": "string",
+        "description": "External lab unit code",
+        "example": "Neuberg"
+      },
+      {
+        "path": "externalLab.unitName",
+        "type": "string",
+        "description": "External lab name",
+        "example": "Neuberg Diagnostics"
+      },
+      {
+        "path": "externalLab.entityRID",
+        "type": "number",
+        "description": "Entity RID of the facility sending to external lab",
+        "example": 261
+      },
+      {
+        "path": "externalLab.entityCode",
+        "type": "string",
+        "description": "Entity code of the facility",
+        "example": "7770598"
+      },
+      {
+        "path": "externalLab.entityName",
+        "type": "string",
+        "description": "Entity name of the facility",
+        "example": "Nova IVF Fertility Rajajinagar- Bangalore"
+      },
+      {
+        "path": "visit.id.value",
+        "type": "string",
+        "description": "Visit resource identifier",
+        "example": "20666658"
+      },
+      {
+        "path": "visit.date",
+        "type": "string",
+        "description": "Visit date (DD/MM/YYYY)",
+        "example": "02/03/2026"
+      },
+      {
+        "path": "visit.time",
+        "type": "string",
+        "description": "Visit time",
+        "example": "11:07 AM"
+      },
+      {
+        "path": "visit.typeName",
+        "type": "string",
+        "description": "Visit type name (OP/IP)",
+        "example": "OP"
+      },
+      {
+        "path": "visit.patientMRN",
+        "type": "string",
+        "description": "Patient medical record number",
+        "example": "SDN31156"
+      },
+      {
+        "path": "visit.gender.name",
+        "type": "string",
+        "description": "Patient gender",
+        "example": "Female"
+      },
+      {
+        "path": "visit.speciality.name",
+        "type": "string",
+        "description": "Medical speciality name",
+        "example": "INFERTILITY"
+      },
+      {
+        "path": "visit.consultingDoctorName",
+        "type": "string",
+        "description": "Name of the consulting doctor",
+        "example": "Dr. Pallavi Prasad"
+      },
+      {
+        "path": "visit.reasonName",
+        "type": "string",
+        "description": "Reason for visit",
+        "example": "Service"
+      },
+      {
+        "path": "visit.patientAgeInYears",
+        "type": "number",
+        "description": "Patient age in years",
+        "example": 0
+      },
+      {
+        "path": "patient.mrn.documentNumber",
+        "type": "string",
+        "description": "Patient MRN document number",
+        "example": "SDN31156"
+      },
+      {
+        "path": "patient.fullName",
+        "type": "string",
+        "description": "Patient full name",
+        "example": "K Mala"
+      },
+      {
+        "path": "patient.phone",
+        "type": "string",
+        "description": "Patient phone number",
+        "example": "9148363178"
+      },
+      {
+        "path": "patient.address",
+        "type": "string",
+        "description": "Patient address",
+        "example": "#367/a 18th cross Muthurayaswamy layout"
+      },
+      {
+        "path": "patient.isVIP",
+        "type": "boolean",
+        "description": "Whether patient is flagged as VIP",
+        "example": false
+      },
+      {
+        "path": "patient.notifyBySms",
+        "type": "boolean",
+        "description": "Patient SMS notification preference",
+        "example": false
+      },
+      {
+        "path": "patient.notifyByEmail",
+        "type": "boolean",
+        "description": "Patient email notification preference",
+        "example": false
+      },
+      {
+        "path": "patient.notifyByWhatsapp",
+        "type": "boolean",
+        "description": "Patient WhatsApp notification preference",
+        "example": false
+      },
+      {
+        "path": "entityRID",
+        "type": "number",
+        "description": "Entity (hospital/clinic) resource identifier",
+        "example": 261
+      },
+      {
+        "path": "entityCode",
+        "type": "string",
+        "description": "Entity code",
+        "example": "7770598"
+      },
+      {
+        "path": "entityName",
+        "type": "string",
+        "description": "Entity name",
+        "example": "Nova IVF Fertility Rajajinagar- Bangalore"
+      },
+      {
+        "path": "entityPhone",
+        "type": "string",
+        "description": "Entity phone number",
+        "example": "080 4943 6666"
+      },
+      {
+        "path": "entityParentID",
+        "type": "number",
+        "description": "Parent entity (enterprise) identifier",
+        "example": 145
+      },
+      {
+        "path": "enterpriseCode",
+        "type": "string",
+        "description": "Enterprise code",
+        "example": "7859621"
+      },
+      {
+        "path": "enterpriseEntityRID",
+        "type": "number",
+        "description": "Enterprise entity RID",
+        "example": 145
+      },
+      {
+        "path": "description",
+        "type": "string",
+        "description": "Human-readable event description",
+        "example": "Sent to external lab"
+      },
+      {
+        "path": "unitRID",
+        "type": "number",
+        "description": "Unit resource identifier",
+        "example": 10409
+      },
+      {
+        "path": "userRID",
+        "type": "number",
+        "description": "User resource identifier",
+        "example": 18985059
+      },
+      {
+        "path": "datetime",
+        "type": "string",
+        "description": "Event timestamp",
+        "example": "02/03/2026 11:09 AM"
+      }
+    ],
+    "samplePayload": {
+      "type": "LAB_ORDER_SENT_TO_EXTERNAL",
+      "order": {
+        "qty": "1.0",
+        "state": "0",
+        "status": "12",
+        "billing": {
+          "billRID": 21287482,
+          "billNumber": "SDN/OP/25/11231",
+          "billStatus": 4,
+          "receiptRID": 19482864,
+          "billCreated": true,
+          "receiptNumber": "SDN/RC/25/19237",
+          "receiptStatus": 1,
+          "billStatusName": "Fully Paid",
+          "receiptCreated": true,
+          "receiptStatusName": "Confirmed"
+        },
+        "orderId": "37450288",
+        "remarks": "",
+        "labTests": [
+          {
+            "id": "13302882",
+            "unit": "",
+            "state": "11",
+            "method": "",
+            "status": "4",
+            "orderId": "37450288",
+            "remarks": "",
+            "reportId": "0",
+            "sampleId": "0598BL006841",
+            "testDate": null,
+            "testTime": null,
+            "visitRID": "20666658",
+            "groupName": "Pathology",
+            "orderDate": "2026-03-02 11:07:00",
+            "parentRID": "0",
+            "sampleRID": "3695039",
+            "isAbnormal": "0",
+            "patientRID": null,
+            "resultType": "1",
+            "sequenceNo": "0",
+            "serviceRID": "683671",
+            "normalRange": "null",
+            "resultValue": "",
+            "serviceCode": "SRV00225",
+            "serviceName": "Blood Group & RH Factor",
+            "templateRID": "0",
+            "equipmentRID": "0",
+            "modifiedDate": "2026-03-02 11:09:31",
+            "observations": [],
+            "attachmentRID": "0",
+            "rootParentRID": "0",
+            "technicalNote": null,
+            "createdDateTime": null,
+            "serviceGridCode": "NEU/261/SRV00225",
+            "reportPrintStatus": "0",
+            "computedNormalRange": "null",
+            "consultingDoctorRID": "29862",
+            "consultingDoctorName": "Dr. Pallavi Prasad"
+          }
+        ],
+        "priority": "0",
+        "orderDate": "2026-03-02 11:07:00",
+        "orderType": "0",
+        "startDate": "2026-03-02",
+        "startTime": "11:07:26",
+        "serviceRID": "683671",
+        "orderNumber": "2026/261/12612",
+        "serviceName": "Blood Group & RH Factor",
+        "serviceType": "21977",
+        "tokenNumber": null,
+        "itemCategory": "1",
+        "parentOrderId": "0",
+        "signedUserRID": "0",
+        "signedDateTime": null,
+        "orderingUnitRID": "9158",
+        "modifiedDateTime": "2026-03-02 11:07:27",
+        "orderingDoctorRID": "29862",
+        "processingUnitRID": "14888",
+        "rootParentOrderId": "0",
+        "attendingDoctorRID": "0",
+        "cancellationReason": "",
+        "processingComments": "",
+        "performingDoctorRID": "0",
+        "sampleCollectingUnit": "14888",
+        "statusModifiedDateTime": "2026-03-02 11:07:26",
+        "externalReferenceNumber": null
+      },
+      "visit": {
+        "id": { "value": "20666658" },
+        "date": "02/03/2026",
+        "time": "11:07 AM",
+        "type": 1,
+        "gender": { "name": "Female", "index": 2 },
+        "leadNo": "",
+        "sealed": false,
+        "status": 8,
+        "medicsId": 0,
+        "typeName": "OP",
+        "patientMRN": "SDN31156",
+        "reasonName": "Service",
+        "referredBy": "Dr. Nova (1234567890)",
+        "speciality": { "name": "INFERTILITY", "index": 1537754 },
+        "statusName": "Draft",
+        "leadRemarks": "",
+        "tokenNumber": "",
+        "updateCount": 0,
+        "visitNumber": { "documentNumber": "", "sequenceNumber": 2 },
+        "visitCategory": 0,
+        "visitedEntity": { "value": "145" },
+        "consultingDoctor": { "value": "29862" },
+        "patientAgeInDays": 0,
+        "patientAgeInYears": 0,
+        "freeRemainingCount": 0,
+        "patientAgeInMonths": 0,
+        "medicsAppointmentId": 0,
+        "consultingDoctorName": "Dr. Pallavi Prasad"
+      },
+      "patient": {
+        "mrn": { "documentNumber": "SDN31156", "sequenceNumber": 59455305 },
+        "isVIP": false,
+        "phone": "9148363178",
+        "valid": 0,
+        "address": "#367/a 18th cross Muthurayaswamy layout",
+        "fullName": "K Mala",
+        "medicsId": 0,
+        "isExpired": 0,
+        "isUnknown": false,
+        "notifyBySms": false,
+        "updateCount": 0,
+        "confidential": false,
+        "notifyByEmail": false,
+        "isInternational": false,
+        "notifyByWhatsapp": false,
+        "isMobileNoVerified": false,
+        "referencePatientId": 0
+      },
+      "unitRID": 10409,
+      "userRID": 18985059,
+      "datetime": "02/03/2026 11:09 AM",
+      "entityRID": 261,
+      "entityCode": "7770598",
+      "entityName": "Nova IVF Fertility Rajajinagar- Bangalore(A unit of Rhea Healthcare Private Limited)",
+      "description": "Sent to external lab",
+      "entityPhone": "080 4943 6666",
+      "externalLab": {
+        "unitRID": 14888,
+        "unitCode": "Neuberg",
+        "unitName": "Neuberg Diagnostics",
+        "entityRID": 261,
+        "entityCode": "7770598",
+        "entityName": "Nova IVF Fertility Rajajinagar- Bangalore(A unit of Rhea Healthcare Private Limited)"
+      },
+      "enterpriseCode": "7859621",
+      "entityParentID": 145,
+      "enterpriseEntityRID": 145
+    },
+    "createdAt": {
+      "$date": "2026-03-02T00:00:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-03-02T00:00:00.000Z"
+    },
+    "isActive": true
+  },
+  {
+    "_id": {
+      "$oid": "6a3f1b2c4d5e6f7a8b9c0d21"
+    },
+    "eventType": "LAB_ORDER_SAMPLE_COLLECTED",
+    "eventTypeId": 79,
+    "label": "Lab Order Sample Collected",
+    "description": "Triggered when a sample is collected for a laboratory order",
+    "category": "Laboratory Events",
+    "implementationClass": "ubq.lab.LabEventImpl",
+    "fields": [
+      {
+        "path": "type",
+        "type": "string",
+        "description": "Event type identifier",
+        "example": "LAB_ORDER_SAMPLE_COLLECTED"
+      },
+      {
+        "path": "order.orderId",
+        "type": "string",
+        "description": "Unique lab order identifier",
+        "example": "37424643"
+      },
+      {
+        "path": "order.status",
+        "type": "string",
+        "description": "Lab order status code (12 = sample collected)",
+        "example": "12"
+      },
+      {
+        "path": "order.orderDate",
+        "type": "string",
+        "description": "Date and time the order was placed",
+        "example": "2026-03-01 10:28:00"
+      },
+      {
+        "path": "order.orderType",
+        "type": "string",
+        "description": "Order type (0=IP, 1=OP)",
+        "example": "0"
+      },
+      {
+        "path": "order.serviceRID",
+        "type": "string",
+        "description": "Service resource identifier",
+        "example": "1562715"
+      },
+      {
+        "path": "order.serviceName",
+        "type": "string",
+        "description": "Name of the lab service",
+        "example": "CULTURE & SENSITIVITY -URINE"
+      },
+      {
+        "path": "order.priority",
+        "type": "string",
+        "description": "Order priority",
+        "example": "0"
+      },
+      {
+        "path": "order.qty",
+        "type": "string",
+        "description": "Quantity ordered",
+        "example": "1.0"
+      },
+      {
+        "path": "order.orderingDoctorRID",
+        "type": "string",
+        "description": "Resource ID of the ordering doctor",
+        "example": "79045"
+      },
+      {
+        "path": "order.processingUnitRID",
+        "type": "string",
+        "description": "Resource ID of the processing unit/lab",
+        "example": "20537"
+      },
+      {
+        "path": "order.sampleCollectingUnit",
+        "type": "string",
+        "description": "Unit that collected the sample",
+        "example": "20537"
+      },
+      {
+        "path": "order.statusModifiedDateTime",
+        "type": "string",
+        "description": "Timestamp when sample collection was recorded",
+        "example": "2026-03-01 10:28:24"
+      },
+      {
+        "path": "order.modifiedDateTime",
+        "type": "string",
+        "description": "Timestamp of last modification",
+        "example": "2026-03-01 10:28:24"
+      },
+      {
+        "path": "order.billing.billRID",
+        "type": "number",
+        "description": "Billing record RID",
+        "example": 21278007
+      },
+      {
+        "path": "order.billing.billNumber",
+        "type": "string",
+        "description": "Bill number",
+        "example": "MH/OP/25/1991"
+      },
+      {
+        "path": "order.billing.billCreated",
+        "type": "boolean",
+        "description": "Whether a bill has been created",
+        "example": true
+      },
+      {
+        "path": "order.billing.billStatusName",
+        "type": "string",
+        "description": "Human-readable bill status",
+        "example": "Fully Paid"
+      },
+      {
+        "path": "order.billing.receiptNumber",
+        "type": "string",
+        "description": "Receipt number",
+        "example": "MH/RC/25/3273"
+      },
+      {
+        "path": "order.billing.receiptCreated",
+        "type": "boolean",
+        "description": "Whether a receipt has been created",
+        "example": true
+      },
+      {
+        "path": "order.labTests",
+        "type": "array",
+        "description": "Array of individual lab tests with collected samples",
+        "example": []
+      },
+      {
+        "path": "order.labTests[].id",
+        "type": "string",
+        "description": "Lab test record identifier",
+        "example": "13296692"
+      },
+      {
+        "path": "order.labTests[].status",
+        "type": "string",
+        "description": "Individual test status code",
+        "example": "4"
+      },
+      {
+        "path": "order.labTests[].serviceCode",
+        "type": "string",
+        "description": "Lab test service code",
+        "example": "LAB152"
+      },
+      {
+        "path": "order.labTests[].serviceName",
+        "type": "string",
+        "description": "Lab test service name",
+        "example": "CULTURE & SENSITIVITY -URINE"
+      },
+      {
+        "path": "order.labTests[].groupName",
+        "type": "string",
+        "description": "Lab group/department name",
+        "example": "Microbiology"
+      },
+      {
+        "path": "order.labTests[].sampleId",
+        "type": "string",
+        "description": "Collected sample barcode or ID",
+        "example": "2889UR000305"
+      },
+      {
+        "path": "order.labTests[].sampleRID",
+        "type": "string",
+        "description": "Sample resource identifier",
+        "example": "3693581"
+      },
+      {
+        "path": "order.labTests[].consultingDoctorRID",
+        "type": "string",
+        "description": "RID of the consulting doctor",
+        "example": "79045"
+      },
+      {
+        "path": "order.labTests[].consultingDoctorName",
+        "type": "string",
+        "description": "Name of the consulting doctor",
+        "example": "JEEVAN KUMAR V"
+      },
+      {
+        "path": "visit.id.value",
+        "type": "string",
+        "description": "Visit resource identifier",
+        "example": "20655819"
+      },
+      {
+        "path": "visit.date",
+        "type": "string",
+        "description": "Visit date (DD/MM/YYYY)",
+        "example": "01/03/2026"
+      },
+      {
+        "path": "visit.time",
+        "type": "string",
+        "description": "Visit time",
+        "example": "09:47 AM"
+      },
+      {
+        "path": "visit.typeName",
+        "type": "string",
+        "description": "Visit type name (OP/IP)",
+        "example": "OP"
+      },
+      {
+        "path": "visit.patientMRN",
+        "type": "string",
+        "description": "Patient medical record number",
+        "example": "MH00936"
+      },
+      {
+        "path": "visit.status",
+        "type": "number",
+        "description": "Visit status code",
+        "example": 8
+      },
+      {
+        "path": "visit.statusName",
+        "type": "string",
+        "description": "Human-readable visit status",
+        "example": "Draft"
+      },
+      {
+        "path": "visit.gender.name",
+        "type": "string",
+        "description": "Patient gender",
+        "example": "Male"
+      },
+      {
+        "path": "visit.speciality.name",
+        "type": "string",
+        "description": "Medical speciality name",
+        "example": "Urology"
+      },
+      {
+        "path": "visit.consultingDoctorName",
+        "type": "string",
+        "description": "Name of the consulting doctor",
+        "example": "JEEVAN KUMAR V"
+      },
+      {
+        "path": "visit.tokenNumber",
+        "type": "string",
+        "description": "Visit queue token number",
+        "example": "DJURO1-W"
+      },
+      {
+        "path": "visit.referredBy",
+        "type": "string",
+        "description": "Referral source",
+        "example": "Self"
+      },
+      {
+        "path": "visit.reasonName",
+        "type": "string",
+        "description": "Reason for visit",
+        "example": "Consultation"
+      },
+      {
+        "path": "visit.patientAgeInYears",
+        "type": "number",
+        "description": "Patient age in years",
+        "example": 0
+      },
+      {
+        "path": "patient.mrn.documentNumber",
+        "type": "string",
+        "description": "Patient MRN document number",
+        "example": "MH00936"
+      },
+      {
+        "path": "patient.fullName",
+        "type": "string",
+        "description": "Patient full name",
+        "example": "Ankit Kedia"
+      },
+      {
+        "path": "patient.phone",
+        "type": "string",
+        "description": "Patient phone number",
+        "example": "8372905039"
+      },
+      {
+        "path": "patient.email",
+        "type": "string",
+        "description": "Patient email address",
+        "example": ""
+      },
+      {
+        "path": "patient.address",
+        "type": "string",
+        "description": "Patient address",
+        "example": "Sri Balaji Layout"
+      },
+      {
+        "path": "patient.isVIP",
+        "type": "boolean",
+        "description": "Whether patient is flagged as VIP",
+        "example": false
+      },
+      {
+        "path": "patient.notifyBySms",
+        "type": "boolean",
+        "description": "Patient SMS notification preference",
+        "example": false
+      },
+      {
+        "path": "patient.notifyByEmail",
+        "type": "boolean",
+        "description": "Patient email notification preference",
+        "example": false
+      },
+      {
+        "path": "patient.notifyByWhatsapp",
+        "type": "boolean",
+        "description": "Patient WhatsApp notification preference",
+        "example": false
+      },
+      {
+        "path": "entityRID",
+        "type": "number",
+        "description": "Entity (hospital/clinic) resource identifier",
+        "example": 852
+      },
+      {
+        "path": "entityCode",
+        "type": "string",
+        "description": "Entity code",
+        "example": "7982889"
+      },
+      {
+        "path": "entityName",
+        "type": "string",
+        "description": "Entity name",
+        "example": "Mahanandi Hospitals"
+      },
+      {
+        "path": "entityPhone",
+        "type": "string",
+        "description": "Entity phone number",
+        "example": "080-048908395"
+      },
+      {
+        "path": "entityParentID",
+        "type": "number",
+        "description": "Parent entity (enterprise) identifier",
+        "example": 852
+      },
+      {
+        "path": "enterpriseCode",
+        "type": "string",
+        "description": "Enterprise code",
+        "example": "7982889"
+      },
+      {
+        "path": "enterpriseEntityRID",
+        "type": "number",
+        "description": "Enterprise entity RID",
+        "example": 852
+      },
+      {
+        "path": "description",
+        "type": "string",
+        "description": "Human-readable event description",
+        "example": "Sample collected"
+      },
+      {
+        "path": "unitRID",
+        "type": "number",
+        "description": "Unit resource identifier",
+        "example": 20537
+      },
+      {
+        "path": "userRID",
+        "type": "number",
+        "description": "User resource identifier",
+        "example": 55543290
+      },
+      {
+        "path": "datetime",
+        "type": "string",
+        "description": "Event timestamp",
+        "example": "01/03/2026 09:52 PM"
+      }
+    ],
+    "samplePayload": {
+      "type": "LAB_ORDER_SAMPLE_COLLECTED",
+      "order": {
+        "qty": "1.0",
+        "state": "0",
+        "status": "12",
+        "billing": {
+          "billRID": 21278007,
+          "billNumber": "MH/OP/25/1991",
+          "billStatus": 4,
+          "receiptRID": 19474331,
+          "billCreated": true,
+          "receiptNumber": "MH/RC/25/3273",
+          "receiptStatus": 1,
+          "billStatusName": "Fully Paid",
+          "receiptCreated": true,
+          "receiptStatusName": "Confirmed"
+        },
+        "orderId": "37424643",
+        "remarks": "",
+        "labTests": [
+          {
+            "id": "13296692",
+            "unit": "",
+            "state": "0",
+            "method": "",
+            "status": "4",
+            "orderId": "37424643",
+            "remarks": "",
+            "reportId": "0",
+            "sampleId": "2889UR000305",
+            "testDate": null,
+            "testTime": null,
+            "visitRID": "20655819",
+            "groupName": "Microbiology",
+            "orderDate": "2026-03-01 10:28:00",
+            "parentRID": "0",
+            "sampleRID": "3693581",
+            "isAbnormal": "0",
+            "patientRID": null,
+            "resultType": "1",
+            "sequenceNo": "0",
+            "serviceRID": "1562715",
+            "normalRange": "null",
+            "resultValue": "",
+            "serviceCode": "LAB152",
+            "serviceName": "CULTURE & SENSITIVITY -URINE",
+            "templateRID": "0",
+            "equipmentRID": "0",
+            "modifiedDate": "2026-03-01 21:52:49",
+            "observations": [],
+            "attachmentRID": "0",
+            "rootParentRID": "0",
+            "technicalNote": null,
+            "createdDateTime": null,
+            "serviceGridCode": "",
+            "reportPrintStatus": "0",
+            "computedNormalRange": "null",
+            "consultingDoctorRID": "79045",
+            "consultingDoctorName": "JEEVAN KUMAR V"
+          }
+        ],
+        "priority": "0",
+        "orderDate": "2026-03-01 10:28:00",
+        "orderType": "0",
+        "startDate": "2026-03-01",
+        "startTime": "10:28:24",
+        "serviceRID": "1562715",
+        "orderNumber": "0",
+        "serviceName": "CULTURE & SENSITIVITY -URINE",
+        "serviceType": "21977",
+        "tokenNumber": null,
+        "itemCategory": "1",
+        "parentOrderId": "0",
+        "signedUserRID": "0",
+        "signedDateTime": null,
+        "orderingUnitRID": "20661",
+        "modifiedDateTime": "2026-03-01 10:28:24",
+        "orderingDoctorRID": "79045",
+        "processingUnitRID": "20537",
+        "rootParentOrderId": "0",
+        "attendingDoctorRID": "0",
+        "cancellationReason": "",
+        "processingComments": "",
+        "performingDoctorRID": "0",
+        "sampleCollectingUnit": "20537",
+        "statusModifiedDateTime": "2026-03-01 10:28:24",
+        "externalReferenceNumber": null
+      },
+      "visit": {
+        "id": { "value": "20655819" },
+        "date": "01/03/2026",
+        "time": "09:47 AM",
+        "type": 1,
+        "gender": { "name": "Male", "index": 1 },
+        "leadNo": "",
+        "sealed": false,
+        "status": 8,
+        "medicsId": 0,
+        "typeName": "OP",
+        "patientMRN": "MH00936",
+        "reasonName": "Consultation",
+        "referredBy": "Self",
+        "speciality": { "name": "Urology", "index": 16756932 },
+        "statusName": "Draft",
+        "leadRemarks": "",
+        "tokenNumber": "DJURO1-W",
+        "updateCount": 0,
+        "visitNumber": { "documentNumber": "", "sequenceNumber": 1 },
+        "visitCategory": 0,
+        "visitedEntity": { "value": "852" },
+        "consultingDoctor": { "value": "79045" },
+        "patientAgeInDays": 0,
+        "patientAgeInYears": 0,
+        "freeRemainingCount": 0,
+        "patientAgeInMonths": 0,
+        "medicsAppointmentId": 0,
+        "consultingDoctorName": "JEEVAN KUMAR V"
+      },
+      "patient": {
+        "mrn": { "documentNumber": "MH00936", "sequenceNumber": 59451919 },
+        "email": "",
+        "isVIP": false,
+        "phone": "8372905039",
+        "valid": 0,
+        "address": "Sri Balaji Layout",
+        "fullName": "Ankit Kedia",
+        "medicsId": 0,
+        "isExpired": 0,
+        "isUnknown": false,
+        "notifyBySms": false,
+        "updateCount": 0,
+        "confidential": false,
+        "notifyByEmail": false,
+        "isInternational": false,
+        "notifyByWhatsapp": false,
+        "isMobileNoVerified": false,
+        "referencePatientId": 0
+      },
+      "unitRID": 20537,
+      "userRID": 55543290,
+      "datetime": "01/03/2026 09:52 PM",
+      "entityRID": 852,
+      "entityCode": "7982889",
+      "entityName": "Mahanandi Hospitals",
+      "description": "Sample collected",
+      "entityPhone": "080-048908395",
+      "enterpriseCode": "7982889",
+      "entityParentID": 852,
+      "enterpriseEntityRID": 852
+    },
+    "createdAt": {
+      "$date": "2026-03-02T00:00:00.000Z"
+    },
+    "updatedAt": {
+      "$date": "2026-03-02T00:00:00.000Z"
+    },
+    "isActive": true
   }
 ]
