@@ -6,7 +6,7 @@ The gateway has a full multi-tenant RBAC system with predefined roles, granular 
 
 ## Roles
 
-Seven roles are defined. The first two are global (cross-tenant); the rest are scoped to a single organization.
+Seven roles are defined. The first two are global (cross-organization); the rest are scoped to a single organization.
 
 | Role | Scope | Description |
 |------|-------|-------------|

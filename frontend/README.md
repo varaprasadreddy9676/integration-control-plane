@@ -4,7 +4,7 @@ React + TypeScript console for managing bi-directional integrations, scheduled b
 
 ## Prerequisites
 - Node 20+
-- Running backend API (`/api/v1`) with tenant API key
+- Running backend API (`/api/v1`) with a configured API key
 
 ## Quick Start
 1. **Install dependencies**: `npm install`
@@ -21,7 +21,7 @@ React + TypeScript console for managing bi-directional integrations, scheduled b
 - **Frontend**: React 18, TypeScript 5, Vite 5
 - **UI Libraries**: Ant Design 5 + Shadcn/RadixUI + TailwindCSS
 - **Routing**: React Router 6
-- **State Management**: TanStack Query 5 (server state) + React Context (auth/tenant/theme)
+- **State Management**: TanStack Query 5 (server state) + React Context (auth/org/theme)
 - **Forms**: React Hook Form + @hookform/resolvers
 - **HTTP Client**: Axios with interceptors (auth, token refresh, retry)
 - **Code Editor**: Monaco Editor (SQL, JS, MongoDB queries)
@@ -73,12 +73,12 @@ frontend/
 - **Bi-directional transformation**: Request and response transformation
 - **Authentication**: Inbound (from client) + Outbound (to external API)
 - **Timeout handling**: Configurable timeouts with retry logic
-- **Rate limiting**: Per-integration and per-tenant limits
+- **Rate limiting**: Per-integration and per-organization limits
 
 #### SCHEDULED (Time-Driven Batch Jobs) 🆕
 - **Data source support**: SQL (MySQL), MongoDB (internal + external), Internal APIs
 - **Flexible scheduling**: Cron expressions or fixed intervals
-- **Variable substitution**: `{{config.tenantId}}`, `{{date.today()}}`, `{{env.VAR}}`
+- **Variable substitution**: `{{config.orgId}}`, `{{date.today()}}`, `{{env.VAR}}`
 - **Test before save**: Validate data source configuration with sample data preview
 - **External MongoDB**: Connect to any MongoDB instance with connection string
 - **Comprehensive logging**: Full execution trace (data fetched → transformed → delivered)
@@ -120,14 +120,14 @@ frontend/
 - **User Management**: Create users, assign roles, manage permissions
 - **Storage Stats**: Database collection size and storage usage
 - **Portal Embedding**: Generate magic links for iframe-embeddable webhook portal
-- **Rate Limit Configuration**: Global and per-tenant rate limits
+- **Rate Limit Configuration**: Global and per-organization rate limits
 - **Audit Logs**: Track all admin actions
 
 ### 6. Settings
 - **Event Source Settings**: Configure MySQL, Kafka, and HTTP Push per org
 - **MySQL Pool Settings**: Runtime-configurable connection pool limits
-- **Tenant Context**: View current tenant information
-- **UI Configuration**: Customize available features per tenant
+- **Organization Context**: View current organization information
+- **UI Configuration**: Customize available features per organization
 
 ### 7. Additional Features
 - **Integration Versioning**: Full version history with diff view
@@ -212,8 +212,8 @@ const [sqlQuery, setSqlQuery] = useState('');
 - `getDashboardAnalytics(days)` - Get dashboard metrics
 
 ### Authentication
-- **Header**: `X-API-Key: <tenant-api-key>`
-- **Query Parameter**: `orgId=<tenant-id>` (multi-tenancy)
+- **Header**: `X-API-Key: <api-key>`
+- **Query Parameter**: `orgId=<org-id>` (multi-tenancy)
 
 ### Backend Endpoints
 ```
@@ -247,7 +247,7 @@ npm install
 npm run dev
 
 # Type checking
-npm run type-check
+npx tsc -b --noEmit
 
 # Linting
 npm run lint
@@ -381,7 +381,7 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 ### Pull Request Process
 1. Create feature branch from `main`
 2. Make changes with clear commit messages
-3. Run `npm run type-check` and `npm run lint`
+3. Run `npx tsc -b --noEmit` and `npm run lint`
 4. Test manually (see Testing section)
 5. Create PR with description of changes
 6. Request review from team

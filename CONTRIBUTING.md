@@ -238,7 +238,7 @@ Frontend tests use [Vitest](https://vitest.dev/) with [React Testing Library](ht
 
 ## Multi-Tenancy
 
-All data is scoped by `orgId`. The middleware extracts this from JWT/API key context and injects it into every query. **Always include `orgId`** when writing new data layer queries — never query across tenants.
+All data is scoped by `orgId`. The middleware extracts this from JWT/API key context and injects it into every query. **Always include `orgId`** when writing new data layer queries — never query across organizations.
 
 ## Project Structure
 

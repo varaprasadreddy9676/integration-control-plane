@@ -116,7 +116,7 @@ Every inbound request produces a full execution trace:
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `type` | string | — | Unique identifier per tenant (used in URL) |
+| `type` | string | — | Unique identifier per organization (used in URL) |
 | `targetUrl` | string | — | Your internal API endpoint |
 | `httpMethod` | string | `POST` | HTTP verb for forwarding |
 | `inboundAuthType` | string | `NONE` | How callers authenticate |

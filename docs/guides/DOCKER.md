@@ -102,7 +102,7 @@ docker compose build --no-cache
 
 MySQL is optional.
 
-- For tenant-specific MySQL event sources, configure via Event Source settings/API.
+- For org-specific MySQL event sources, configure via Event Source settings/API.
 - For a shared/global MySQL source, set `db.*` in `backend/config.json`.
 - Backend enforces MySQL safety caps to prevent overload:
   - Shared pool: `connectionLimit` 1..20, `queueLimit` 0..200

@@ -14,7 +14,7 @@ Express API and worker service for the Integration Gateway control plane.
 
 - Node.js 18+
 - MongoDB 6+ (required)
-- Optional: MySQL and Kafka (only if used by tenant event-source configs)
+- Optional: MySQL and Kafka (only if used by org event-source configs)
 
 ## Quick Start
 
@@ -49,7 +49,7 @@ Optional:
 
 ## MySQL Behavior (Important)
 
-MySQL is optional and tenant-driven.
+MySQL is optional and organization-driven.
 
 - Per-org dedicated MySQL credentials are configured via `POST/PUT /api/v1/event-sources`.
 - Shared MySQL pool can be configured via `config.json` (`db.*`) if you want one common source.
@@ -68,7 +68,8 @@ These limits are enforced on save/test/runtime paths to prevent DB overload.
 ```bash
 npm run dev
 npm start
-npm run start:cluster
+# start:production is available for tuned memory settings
+npm run start:production
 npm run seed:schemas
 npm run seed:ui-config
 npm run check

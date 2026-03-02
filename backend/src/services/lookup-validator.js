@@ -121,11 +121,6 @@ function validateLookupEntry(lookup) {
     errors.push('target.id is required');
   }
 
-  // entityParentRid must be a number
-  if (lookup.entityParentRid !== undefined && typeof lookup.entityParentRid !== 'number') {
-    errors.push('entityParentRid must be a number');
-  }
-
   const orgUnitRid = lookup.orgUnitRid !== undefined ? lookup.orgUnitRid : lookup.entityRid;
   // orgUnitRid must be a number or null
   if (orgUnitRid !== undefined && orgUnitRid !== null && typeof orgUnitRid !== 'number') {

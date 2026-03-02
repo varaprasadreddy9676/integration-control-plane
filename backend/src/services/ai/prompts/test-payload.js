@@ -30,13 +30,13 @@ async function buildTestPayloadPrompt(eventType, orgId) {
 
       if (tenant) {
         entityContext = `\n**🔒 CRITICAL - USE THESE EXACT ORG DETAILS (DO NOT RANDOMIZE)**:
-- orgUnitRid: ${tenant.entityParentRid}
-- orgUnitCode: "${tenant.tenantCode}"
-- orgUnitName: "${tenant.tenantName}"
-- orgUnitPhone: "${tenant.tenantPhone || '0000000000'}"
-- orgId: ${tenant.entityParentRid}
-- enterpriseCode: "${tenant.tenantCode}"
-- enterpriseOrgUnitRid: ${tenant.entityParentRid}
+ - orgUnitRid: ${tenant.orgId}
+ - orgUnitCode: "${tenant.tenantCode}"
+ - orgUnitName: "${tenant.tenantName}"
+ - orgUnitPhone: "${tenant.tenantPhone || '0000000000'}"
+ - orgId: ${tenant.orgId}
+ - enterpriseCode: "${tenant.tenantCode}"
+ - enterpriseOrgUnitRid: ${tenant.orgId}
 
 **⚠️ SECURITY WARNING**: You MUST use the above org details EXACTLY as provided.
 DO NOT generate random hospital names, codes, or phone numbers for org metadata.

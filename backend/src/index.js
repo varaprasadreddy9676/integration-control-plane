@@ -89,6 +89,7 @@ async function bootstrap() {
 
   const app = express();
   app.disable('x-powered-by');
+  app.set('trust proxy', config.server?.trustProxy ?? false);
   app.use(
     cors({
       origin: true,
@@ -116,7 +117,7 @@ async function bootstrap() {
       const { checkWorkers } = require('./worker-heartbeat');
 
       // Get orgId from auth middleware if present, otherwise use default
-      const orgId = req.orgId || req.entityParentRid || 1;
+      const orgId = req.orgId || 1;
 
       const healthStatus = await healthMonitor.getSystemHealth(orgId);
       const workerStatus = checkWorkers();

@@ -12,7 +12,7 @@ If you're building a B2B SaaS platformâ€”especially a growing, multi-tenant oneâ
 
 I faced this exact problem while building integrations for a **Healthcare Information Management System (HIMS)** provider. I was spending weeks building custom webhook delivery systems, inbound API gateways, rate limiters, and dead-letter queues just so our internal products could integrate reliably with external hospital tools and third-party vendors. 
 
-Enterprise integration platforms like **MuleSoft** or **Kong** cost a fortune and are incredibly heavy to run. On the other hand, hacking together custom scripts per tenant was completely unmaintainable as we scaled. 
+Enterprise integration platforms like **MuleSoft** or **Kong** cost a fortune and are incredibly heavy to run. On the other hand, hacking together custom scripts per organization was completely unmaintainable as we scaled. 
 
 So, I built precisely what growing multi-tenant companies actually need: a fast, organization-scoped **Integration Control Plane**. 
 
@@ -23,7 +23,7 @@ This system acts as a unified traffic controller. Instead of spending 3-6 months
 While there are other webhook services (like Svix) or API Gateways (like Kong), this project occupies a highly valuable middle ground:
 1. **The "All-in-One" Approach**: It handles **Outbound Webhooks** (pushing events), **Inbound Proxying** (receiving requests), and **Scheduled Jobs** (batch data fetching) in a single platform. Most competitors only do one.
 2. **AI-Assisted Operations**: This is the killer feature. Instead of forcing developers to manually write complex transformation scripts, the gateway uses built-in AI (OpenAI, Anthropic, GLM, Moonshot) to generate JS/JMESPath transformations, analyze vendor API docs, suggest data mappings, and diagnose log failures instantly.
-3. **Deep Multi-Tenancy**: Everything is strictly scoped by `orgId` (tenant) and supports organizational hierarchies, meaning it is built for B2B scale from day one.
+3. **Deep Multi-Tenancy**: Everything is strictly scoped by `orgId` (organization) and supports organizational hierarchies, meaning it is built for B2B scale from day one.
 4. **Built-in Observability**: It doesn't just route traffic; it stores execution traces, manages the Dead Letter Queue (DLQ) for auto-retries, and provides a built-in Alert Center.
 
 ## What This Application Does
@@ -65,7 +65,7 @@ While there are other webhook services (like Svix) or API Gateways (like Kong), 
 - Per-org event source configuration (`/api/v1/event-sources`).
 - Supported types in code: `mysql`, `kafka`, `http_push`.
 - Important:
-  - MySQL is optional and should only be configured for tenants that use MySQL as their event source.
+  - MySQL is optional and should only be configured for organizations that use MySQL as their event source.
   - Global `eventSource.type` can be left empty.
   - `http_push` adapter is present but currently marked Phase 2 (registered, not full polling loop yet).
   - MySQL safety limits are enforced server-side to prevent overload:
@@ -132,8 +132,8 @@ docker-compose.dev.yml      # Dev stack with hot reload
   - Node.js 18+ for local development
   - MongoDB 6+ (required)
 - Optional, only if your use case needs them:
-  - MySQL (tenant-specific event source or scheduled SQL source)
-  - Kafka (tenant-specific event source)
+  - MySQL (org-specific event source or scheduled SQL source)
+  - Kafka (org-specific event source)
 
 ## Run With Docker (Recommended)
 

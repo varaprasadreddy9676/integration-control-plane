@@ -6,7 +6,7 @@ Outbound delivery is the core of the gateway. When an event is received, the sys
 
 ## How It Works
 
-1. **Event arrives** in the queue with a `tenantId`, `eventType`, and `payload`.
+1. **Event arrives** in the queue with an `orgId`, `eventType`, and `payload`.
 2. **Matching integrations** are fetched — all `OUTBOUND` configs that match the event type and are active.
 3. **Payload transformation** is applied (field mapping or custom JS script).
 4. **Authentication headers** are attached based on the configured auth type.

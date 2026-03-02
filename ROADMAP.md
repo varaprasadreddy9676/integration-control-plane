@@ -33,7 +33,7 @@ The Integration Gateway is production-ready with a comprehensive feature set for
 - Lookup tables for field value resolution
 - External MongoDB connectivity for scheduled jobs
 - Internal API data fetching for batch operations
-- Variable substitution ({{config.tenantId}}, {{date.today()}}, {{env.*}})
+- Variable substitution ({{config.orgId}}, {{date.today()}}, {{env.*}})
 
 #### Observability & Monitoring
 - Distributed tracing with correlation IDs across all execution steps

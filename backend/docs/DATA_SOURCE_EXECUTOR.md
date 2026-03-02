@@ -41,7 +41,7 @@ The Data Source Executor is a service that executes queries and API calls agains
 ### Supported Variables
 
 **Config Variables**:
-- `{{config.tenantId}}` → Current tenant ID
+- `{{config.orgId}}` → Current org ID
 - `{{config.integrationId}}` → Current integration ID
 - `{{config.integrationName}}` → Current integration name
 
@@ -62,7 +62,7 @@ The Data Source Executor is a service that executes queries and API calls agains
 // backend/src/services/data-source-executor.js:16-55
 
 const getVariableValue = (variable, context) => {
-  // Config variables: {{config.tenantId}}
+  // Config variables: {{config.orgId}}
   if (variable.startsWith('config.')) {
     const key = variable.substring(7);
     return context.config[key];
@@ -117,7 +117,7 @@ const replaceVariables = (str, context) => {
 **SQL Query**:
 ```sql
 SELECT * FROM bills
-WHERE entity_rid = {{config.tenantId}}
+WHERE entity_rid = {{config.orgId}}
   AND DATE(created_at) = {{date.today()}}
   AND amount > 1000
 ORDER BY created_at DESC
@@ -128,7 +128,7 @@ ORDER BY created_at DESC
 [
   {
     "$match": {
-      "tenantId": "{{config.tenantId}}",
+      "orgId": "{{config.orgId}}",
       "createdAt": {
         "$gte": "{{date.todayStart()}}",
         "$lt": "{{date.todayEnd()}}"
@@ -140,7 +140,7 @@ ORDER BY created_at DESC
 
 **API URL**:
 ```
-http://localhost:4000/api/v1/reports?date={{date.today()}}&tenant={{config.tenantId}}
+http://localhost:3545/api/v1/reports?date={{date.today()}}&orgId={{config.orgId}}
 ```
 
 ---
@@ -169,7 +169,7 @@ dataSourceConfig: {
 
 context: {
   config: {
-    tenantId: number,
+    orgId: number,
     integrationId: string,
     integrationName: string
   }
@@ -200,14 +200,14 @@ const executeSqlQuery = async (dataSourceConfig, context) => {
 
     log('info', 'Executing SQL query', {
       query: query.substring(0, 100) + '...',
-      tenantId: context.config.tenantId
+      orgId: context.config.orgId
     });
 
     const [rows] = await connection.query(query);
 
     log('info', 'SQL query executed successfully', {
       rowCount: rows.length,
-      tenantId: context.config.tenantId
+      orgId: context.config.orgId
     });
 
     return rows;
@@ -236,7 +236,7 @@ Array<Record<string, any>>  // Array of row objects
   query: `
     SELECT billId, patientName, totalAmount
     FROM bills
-    WHERE entity_rid = {{config.tenantId}}
+    WHERE entity_rid = {{config.orgId}}
       AND DATE(created_at) = {{date.today()}}
   `
 }
@@ -280,7 +280,7 @@ dataSourceConfig: {
 
 context: {
   config: {
-    tenantId: number,
+    orgId: number,
     integrationId: string,
     integrationName: string
   }
@@ -305,7 +305,7 @@ const executeMongoQuery = async (dataSourceConfig, context) => {
 
       log('info', 'Connecting to external MongoDB', {
         database: databaseName,
-        tenantId: context.config.tenantId
+        orgId: context.config.orgId
       });
 
       client = new MongoClient(connectionString, {
@@ -345,7 +345,7 @@ const executeMongoQuery = async (dataSourceConfig, context) => {
       database: dataSourceConfig.database || 'internal',
       stages: pipeline.length,
       isExternal: !!dataSourceConfig.connectionString,
-      tenantId: context.config.tenantId
+      orgId: context.config.orgId
     });
 
     const collection = db.collection(dataSourceConfig.collection);
@@ -353,7 +353,7 @@ const executeMongoQuery = async (dataSourceConfig, context) => {
 
     log('info', 'MongoDB aggregation executed successfully', {
       resultCount: results.length,
-      tenantId: context.config.tenantId
+      orgId: context.config.orgId
     });
 
     return results;
@@ -436,7 +436,7 @@ Array<any>  // Array of aggregation result documents
   pipeline: [
     {
       $match: {
-        tenantId: '{{config.tenantId}}',
+        orgId: '{{config.orgId}}',
         appointmentDate: {
           $gte: '{{date.todayStart()}}',
           $lt: '{{date.todayEnd()}}'
@@ -499,7 +499,7 @@ dataSourceConfig: {
 
 context: {
   config: {
-    tenantId: number,
+    orgId: number,
     integrationId: string,
     integrationName: string
   }
@@ -555,7 +555,7 @@ const executeApiCall = async (dataSourceConfig, context) => {
     log('info', 'Executing API call', {
       url,
       method,
-      tenantId: context.config.tenantId
+      orgId: context.config.orgId
     });
 
     const response = await axios(requestConfig);
@@ -563,7 +563,7 @@ const executeApiCall = async (dataSourceConfig, context) => {
     log('info', 'API call executed successfully', {
       url,
       status: response.status,
-      tenantId: context.config.tenantId
+      orgId: context.config.orgId
     });
 
     return response.data;
@@ -597,11 +597,11 @@ any  // API response body (parsed JSON)
 ```javascript
 {
   type: 'API',
-  url: 'http://localhost:4000/api/v1/analytics/summary?date={{date.today()}}',
+  url: 'http://localhost:3545/api/v1/analytics/summary?date={{date.today()}}',
   method: 'GET',
   headers: {
     'X-API-Key': '{{env.API_KEY}}',
-    'X-Tenant-ID': '{{config.tenantId}}'
+    'X-Org-Id': '{{config.orgId}}'
   }
 }
 ```
@@ -619,7 +619,7 @@ any  // API response body (parsed JSON)
 ```javascript
 {
   type: 'API',
-  url: 'http://localhost:4000/api/v1/reports/generate',
+  url: 'http://localhost:3545/api/v1/reports/generate',
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
@@ -628,7 +628,7 @@ any  // API response body (parsed JSON)
   body: {
     reportType: 'daily_summary',
     date: '{{date.today()}}',
-    tenantId: '{{config.tenantId}}'
+    orgId: '{{config.orgId}}'
   }
 }
 ```
@@ -651,7 +651,7 @@ executeDataSource(dataSourceConfig, integrationConfig)
 const executeDataSource = async (dataSourceConfig, integrationConfig) => {
   const context = {
     config: {
-      tenantId: integrationConfig.tenantId,
+      orgId: integrationConfig.orgId,
       integrationId: integrationConfig._id,
       integrationName: integrationConfig.name
     }
@@ -845,11 +845,11 @@ const result = await Promise.race([executePromise, timeout]);
 **Mitigation**:
 - Variables are substituted as-is (no parameterization)
 - ⚠️ **DO NOT** allow user-controlled variable values
-- ✅ Only use system-controlled variables (tenantId, date helpers)
+- ✅ Only use system-controlled variables (orgId, date helpers)
 
 **Safe**:
 ```sql
-WHERE entity_rid = {{config.tenantId}}
+WHERE entity_rid = {{config.orgId}}
 ```
 
 **Unsafe** (if user controls value):
@@ -893,7 +893,7 @@ WHERE name = {{user.input}}  -- ❌ SQL injection risk
 ```javascript
 log('info', 'Executing SQL query', {
   query: query.substring(0, 100) + '...',
-  tenantId: context.config.tenantId
+  orgId: context.config.orgId
 });
 ```
 
@@ -999,13 +999,13 @@ interface DataSourceConfig {
 
 interface IntegrationConfig {
   _id: string;
-  tenantId: number;
+  orgId: number;
   name: string;
 }
 
 interface Context {
   config: {
-    tenantId: number;
+    orgId: number;
     integrationId: string;
     integrationName: string;
   };

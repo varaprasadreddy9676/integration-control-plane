@@ -128,6 +128,12 @@ function validateInboundPayload(payload) {
     return 'Missing required fields: name, type';
   }
 
+  if (payload.rateLimits !== undefined && payload.rateLimits !== null) {
+    if (typeof payload.rateLimits !== 'object' || Array.isArray(payload.rateLimits)) {
+      return 'rateLimits must be an object when provided';
+    }
+  }
+
   const actions = Array.isArray(payload.actions) ? payload.actions : [];
   const communicationActions = actions.filter((a) => a?.kind === 'COMMUNICATION');
   const hasCommunicationAction = communicationActions.length > 0;
@@ -142,6 +148,25 @@ function validateInboundPayload(payload) {
   }
 
   return null;
+}
+
+function normalizeRateLimits(rateLimits) {
+  if (rateLimits === undefined) {
+    return undefined;
+  }
+  if (rateLimits === null) {
+    return null;
+  }
+
+  const enabled = rateLimits.enabled === true;
+  const maxRequestsRaw = Number(rateLimits.maxRequests);
+  const windowSecondsRaw = Number(rateLimits.windowSeconds);
+
+  return {
+    enabled,
+    maxRequests: Number.isFinite(maxRequestsRaw) ? Math.max(1, maxRequestsRaw) : 100,
+    windowSeconds: Number.isFinite(windowSecondsRaw) ? Math.max(1, windowSecondsRaw) : 60,
+  };
 }
 
 function buildOrgScopeQuery(orgId) {
@@ -279,7 +304,7 @@ router.post('/', async (req, res) => {
       requestTransformation,
       responseTransformation,
       streamResponse: !!streamResponse,
-      rateLimits,
+      rateLimits: normalizeRateLimits(rateLimits),
       timeout,
       retryCount,
       contentType,
@@ -328,6 +353,9 @@ router.put('/:id([0-9a-fA-F]{24})', async (req, res) => {
 
     const updateData = { ...req.body };
     delete updateData._id; // Remove _id if present
+    if (Object.prototype.hasOwnProperty.call(updateData, 'rateLimits')) {
+      updateData.rateLimits = normalizeRateLimits(updateData.rateLimits);
+    }
     updateData.updatedAt = new Date();
 
     const db = await mongodb.getDbSafe();

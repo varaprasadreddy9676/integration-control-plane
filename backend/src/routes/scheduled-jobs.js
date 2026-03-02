@@ -18,11 +18,11 @@ function buildOrgScopeQuery(orgId) {
 
 /**
  * GET /scheduled-jobs
- * List all scheduled jobs for a tenant
+ * List all scheduled jobs for an organization
  */
 router.get('/', async (req, res) => {
   try {
-    const orgId = req.orgId || req.entityParentRid;
+    const orgId = req.orgId;
     if (!orgId) {
       return res.status(400).json({ error: 'orgId is required' });
     }
@@ -68,7 +68,7 @@ router.get('/', async (req, res) => {
  */
 router.post('/', async (req, res) => {
   try {
-    const orgId = req.orgId || req.entityParentRid;
+    const orgId = req.orgId;
     if (!orgId) {
       return res.status(400).json({ error: 'orgId is required' });
     }
@@ -153,7 +153,7 @@ router.post('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const orgId = req.orgId || req.entityParentRid;
+    const orgId = req.orgId;
     if (!orgId) {
       return res.status(400).json({ error: 'orgId is required' });
     }
@@ -186,7 +186,7 @@ router.get('/:id', async (req, res) => {
 router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const orgId = req.orgId || req.entityParentRid;
+    const orgId = req.orgId;
     if (!orgId) {
       return res.status(400).json({ error: 'orgId is required' });
     }
@@ -272,7 +272,7 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const orgId = req.orgId || req.entityParentRid;
+    const orgId = req.orgId;
     if (!orgId) {
       return res.status(400).json({ error: 'orgId is required' });
     }
@@ -322,7 +322,7 @@ router.delete('/:id', async (req, res) => {
 router.post('/:id/execute', async (req, res) => {
   try {
     const { id } = req.params;
-    const orgId = req.orgId || req.entityParentRid;
+    const orgId = req.orgId;
     if (!orgId) {
       return res.status(400).json({ error: 'orgId is required' });
     }
@@ -366,7 +366,7 @@ router.post('/:id/execute', async (req, res) => {
 router.get('/:id/logs', async (req, res) => {
   try {
     const { id } = req.params;
-    const orgId = req.orgId || req.entityParentRid;
+    const orgId = req.orgId;
     if (!orgId) {
       return res.status(400).json({ error: 'orgId is required' });
     }
@@ -410,7 +410,7 @@ router.get('/:id/logs', async (req, res) => {
 router.get('/:id/logs/:logId', async (req, res) => {
   try {
     const { id, logId } = req.params;
-    const orgId = req.orgId || req.entityParentRid;
+    const orgId = req.orgId;
     if (!orgId) {
       return res.status(400).json({ error: 'orgId is required' });
     }
@@ -442,7 +442,7 @@ router.get('/:id/logs/:logId', async (req, res) => {
  */
 router.post('/test-datasource', async (req, res) => {
   try {
-    const orgId = req.orgId || req.entityParentRid;
+    const orgId = req.orgId;
     if (!orgId) {
       return res.status(400).json({ error: 'orgId is required' });
     }

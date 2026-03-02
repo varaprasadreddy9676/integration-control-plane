@@ -713,36 +713,6 @@
         "example": 0
       },
       {
-        "path": "visit.reasonName",
-        "type": "string",
-        "description": "Reason for visit",
-        "example": "New Patient"
-      },
-      {
-        "path": "visit.tokenNumber",
-        "type": "string",
-        "description": "Visit token number",
-        "example": "T123"
-      },
-      {
-        "path": "visit.medicsAppointmentId",
-        "type": "number",
-        "description": "Appointment ID",
-        "example": 12345
-      },
-      {
-        "path": "entityRID",
-        "type": "number",
-        "description": "Entity resource ID",
-        "example": 648
-      },
-      {
-        "path": "entityParentID",
-        "type": "number",
-        "description": "Entity parent ID",
-        "example": 648
-      },
-      {
         "path": "patient.mrn.documentNumber",
         "type": "string",
         "description": "Patient MRN document number",
@@ -852,51 +822,34 @@
       }
     ],
     "samplePayload": {
-      "type": "OP_VISIT_MODIFIED",
+      "eventId": 12346,
+      "eventType": "OP_VISIT_MODIFIED",
+      "eventDateTime": "2024-03-15T11:45:00",
+      "description": "OP Visit Modified",
+      "tenantId": 1,
+      "Visits": [
+        {
+          "pat_mrn": "MRN2024001",
+          "pat_full_name": "John Doe",
+          "visit_date": "15-Mar-2024",
+          "visit_reason": "Routine checkup - Updated to include ECG",
+          "visit_remarks": "Added ECG to investigation list"
+        }
+      ],
       "visit": {
         "id": {
-          "rid": 44726868
+          "rid": 10001
         },
-        "doctorId": {
-          "rid": 50401156
-        },
-        "specialityId": {
-          "rid": 50363632
-        },
-        "reasonId": {
-          "rid": 44732420
-        },
-        "reasonName": "New Patient",
-        "sourceAppointmentId": 0,
-        "tokenNumber": "G6",
-        "medicsAppointmentId": 11282464,
-        "freeRemainingCount": 0
+        "status": "ACTIVE"
       },
       "patient": {
-        "mrn": {
-          "documentNumber": "HISMR/7668/26",
-          "sequenceNumber": 60006432
-        },
-        "fullName": "Shankar",
-        "phone": "9945108866",
-        "address": "Bangalore",
-        "isVIP": false,
-        "valid": 1,
-        "isExpired": 0,
-        "isUnknown": false,
-        "isInternational": false,
-        "confidential": false,
-        "notifyBySms": true,
-        "notifyByEmail": false,
-        "notifyByWhatsapp": true,
-        "isMobileNoVerified": true,
-        "sourceSystemId": 0,
-        "referencePatientId": 0,
-        "updateCount": 1
+        "fullName": "John Doe",
+        "MRN": {
+          "printableNumber": "MRN2024001"
+        }
       },
-      "datetime": "13/02/2026 01:12 PM",
-      "entityRID": 648,
-      "entityParentID": 648
+      "datetime": "27/01/2026 02:58 PM",
+      "type": "OP_VISIT_MODIFIED"
     },
     "createdAt": {
       "$date": "2025-12-10T06:47:27.645Z"
@@ -1156,84 +1109,27 @@
         "type": "number",
         "description": "source system appointment ID",
         "example": 0
-      },
-      {
-        "path": "visit.reasonName",
-        "type": "string",
-        "description": "Reason for visit",
-        "example": "New Patient"
-      },
-      {
-        "path": "visit.tokenNumber",
-        "type": "string",
-        "description": "Visit token number",
-        "example": "T123"
-      },
-      {
-        "path": "visit.medicsAppointmentId",
-        "type": "number",
-        "description": "Appointment ID",
-        "example": 12345
-      },
-      {
-        "path": "entityRID",
-        "type": "number",
-        "description": "Entity resource ID",
-        "example": 648
-      },
-      {
-        "path": "entityParentID",
-        "type": "number",
-        "description": "Entity parent ID",
-        "example": 648
       }
     ],
     "samplePayload": {
-      "type": "PATIENT_REGISTERED",
-      "visit": {
-        "id": {
-          "rid": 44726868
-        },
-        "doctorId": {
-          "rid": 50401156
-        },
-        "specialityId": {
-          "rid": 50363632
-        },
-        "reasonId": {
-          "rid": 44732420
-        },
-        "reasonName": "New Patient",
-        "sourceAppointmentId": 0,
-        "tokenNumber": "G6",
-        "medicsAppointmentId": 11282464,
-        "freeRemainingCount": 0
-      },
+      "eventId": 12360,
+      "eventType": "PATIENT_REGISTERED",
+      "eventDateTime": "2024-03-15T09:15:00",
+      "description": "Patient Registered",
+      "tenantId": 1,
+      "entityCode": "HQ001",
       "patient": {
-        "mrn": {
-          "documentNumber": "HISMR/7668/26",
-          "sequenceNumber": 60006432
-        },
-        "fullName": "Shankar",
-        "phone": "9945108866",
-        "address": "Bangalore",
-        "isVIP": false,
-        "valid": 1,
-        "isExpired": 0,
-        "isUnknown": false,
-        "isInternational": false,
-        "confidential": false,
-        "notifyBySms": true,
-        "notifyByEmail": false,
-        "notifyByWhatsapp": true,
-        "isMobileNoVerified": true,
-        "sourceSystemId": 0,
-        "referencePatientId": 0,
-        "updateCount": 0
+        "phone": "+91-9876543210",
+        "email": "john.doe@email.com",
+        "fullName": "John Doe",
+        "address": "123 Main Street, City, State - 560001",
+        "MRN": {
+          "printableNumber": "MRN2024001",
+          "sequenceNumber": 2024001
+        }
       },
-      "datetime": "13/02/2026 01:12 PM",
-      "entityRID": 648,
-      "entityParentID": 648
+      "datetime": "27/01/2026 02:58 PM",
+      "type": "PATIENT_REGISTERED"
     },
     "createdAt": {
       "$date": "2025-12-10T06:47:27.645Z"

@@ -2,9 +2,26 @@ const path = require('path');
 const fs = require('fs');
 require('dotenv').config();
 
+const parseBoolean = (value, fallback) => {
+  if (value === undefined || value === null || value === '') return fallback;
+  if (typeof value === 'boolean') return value;
+  const normalized = String(value).trim().toLowerCase();
+  if (['true', '1', 'yes', 'on'].includes(normalized)) return true;
+  if (['false', '0', 'no', 'off'].includes(normalized)) return false;
+  return fallback;
+};
+
+const parsePositiveNumber = (value, fallback) => {
+  const num = Number(value);
+  return Number.isFinite(num) && num > 0 ? num : fallback;
+};
+
 const defaultConfig = {
   port: process.env.PORT || 4000,
   api: { basePrefix: process.env.API_PREFIX || '/api/v1' },
+  server: {
+    trustProxy: parseBoolean(process.env.TRUST_PROXY, false),
+  },
   communicationServiceUrl: process.env.COMMUNICATION_SERVICE_URL || '',
   frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5174',
   db: {
@@ -91,6 +108,11 @@ const defaultConfig = {
     maxFiles: '14d',      // keep 14 days of rotated files
     compress: true,       // gzip rotated files
   },
+  rateLimit: {
+    enabled: parseBoolean(process.env.API_RATE_LIMIT_ENABLED, true),
+    maxRequests: parsePositiveNumber(process.env.API_RATE_LIMIT_MAX_REQUESTS, 100),
+    windowSeconds: parsePositiveNumber(process.env.API_RATE_LIMIT_WINDOW_SECONDS, 60),
+  },
   // NOTE: Event types are now managed in MongoDB 'event_types' collection (56 events)
   // Do not specify eventTypes here - use the populate-event-types.js script instead
 };
@@ -113,6 +135,7 @@ const merged = {
   ...defaultConfig,
   ...fileConfig,
   api: { ...defaultConfig.api, ...(fileConfig.api || {}) },
+  server: { ...defaultConfig.server, ...(fileConfig.server || {}) },
   db: { ...defaultConfig.db, ...(fileConfig.db || {}) },
   mongodb: { ...defaultConfig.mongodb, ...(fileConfig.mongodb || {}) },
   security: { ...defaultConfig.security, ...(fileConfig.security || {}) },
@@ -122,6 +145,7 @@ const merged = {
   scheduler: { ...defaultConfig.scheduler, ...(fileConfig.scheduler || {}) },
   eventAudit: { ...defaultConfig.eventAudit, ...(fileConfig.eventAudit || {}) },
   logging: { ...defaultConfig.logging, ...(fileConfig.logging || {}) },
+  rateLimit: { ...defaultConfig.rateLimit, ...(fileConfig.rateLimit || {}) },
   // communicationServiceUrl and frontendUrl: file overrides default if present
   communicationServiceUrl: fileConfig.communicationServiceUrl || defaultConfig.communicationServiceUrl,
   frontendUrl: fileConfig.frontendUrl || defaultConfig.frontendUrl,

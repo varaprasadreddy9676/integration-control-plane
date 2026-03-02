@@ -121,7 +121,6 @@ async function logError(err, context = {}) {
         message,
         stack: err.stack,
         context,
-        entityParentRid: context.entityParentRid || null,
         scope: context.scope || 'unknown',
         timestamp: new Date(),
         createdAt: new Date(),

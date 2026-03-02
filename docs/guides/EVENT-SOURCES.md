@@ -225,7 +225,7 @@ Navigate to **Admin** → **MySQL Pool Settings** to adjust pool limits for any 
 | `connectionLimit` | 1 | 20 |
 | `queueLimit` | 0 | 200 |
 
-The shared pool is intended for development or single-tenant deployments. In production, configure dedicated per-org sources.
+The shared pool is intended for development or single-organization deployments. In production, configure dedicated per-org sources.
 
 ---
 

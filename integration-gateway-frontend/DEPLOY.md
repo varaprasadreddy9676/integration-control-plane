@@ -31,7 +31,7 @@
 
        # API proxy (optional - if backend is on same server)
        location /api/ {
-           proxy_pass http://localhost:4000;
+           proxy_pass http://localhost:3545;
            proxy_set_header Host $host;
            proxy_set_header X-Real-IP $remote_addr;
        }

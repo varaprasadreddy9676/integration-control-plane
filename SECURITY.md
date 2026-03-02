@@ -139,10 +139,10 @@ mongodb://username:password@localhost:27017/medics_integration_gateway?authSourc
 
 ### 3. Multi-Tenant Isolation
 
-#### Organization (Tenant) Separation
+#### Organization Separation
 - **Strict orgId enforcement** - Every query must filter by orgId
-- **Row-level security** - Database queries automatically scope to tenant
-- **No cross-tenant access** - Users can only access their own organization's data
+- **Row-level security** - Database queries automatically scope to organization
+- **No cross-organization access** - Users can only access their own organization's data
 - **Audit all access** - Log every data access with orgId context
 
 ```javascript

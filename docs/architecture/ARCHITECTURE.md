@@ -45,8 +45,8 @@ Integration Gateway is a bi-directional integration platform that connects healt
 │  ┌────────────────────────────────────────────────────────────┐ │
 │  │  Middleware Stack                                          │ │
 │  │  • Authentication (API Key + JWT)                          │ │
-│  │  • Rate Limiting (Global + Per-Tenant + Per-Integration)  │ │
-│  │  • Multi-Tenant Context                                    │ │
+│  │  • Rate Limiting (Global + Per-Org + Per-Integration)     │ │
+│  │  • Organization Context                                    │ │
 │  │  • Request Logging & Correlation                           │ │
 │  │  • Error Handling                                          │ │
 │  └────────────────────────────────────────────────────────────┘ │
@@ -143,8 +143,8 @@ Integration Gateway is a bi-directional integration platform that connects healt
 2. CORS Handler (origin validation)
 3. Body Parser (JSON, 10MB limit)
 4. Authentication (API Key or JWT Bearer)
-5. Rate Limiter (global, per-tenant, per-integration)
-6. Multi-Tenant Context (orgId extraction and validation)
+5. Rate Limiter (global, per-org, per-integration)
+6. Organization Context (orgId extraction and validation)
 7. Request Logger (structured logging)
 8. Route Handlers
 9. Error Handler (centralized error response)
@@ -164,7 +164,7 @@ Integration Gateway is a bi-directional integration platform that connects healt
 - `/dashboard` - System health and statistics
 - `/analytics` - Delivery analytics and trends
 - `/admin` - Admin operations (users, orgs, audit logs, rate limits)
-- `/tenant` - Tenant information
+- `/tenant` - Organization context information
 - `/templates` - Integration templates
 - `/field-schemas` - Event field definitions
 - `/health` - Health check endpoint
@@ -337,7 +337,7 @@ Integration Gateway is a bi-directional integration platform that connects healt
 - `integration_configs` - Outbound and inbound integration definitions
 - `lookups` - Lookup tables for field value resolution
 - `event_types` - Event schema definitions (25+ types)
-- `ui_config` - Tenant-specific UI configuration
+- `ui_config` - Org-specific UI configuration
 - `organizations` - Organization definitions (parent level)
 - `org_units` - Organization units (child entities)
 - `users` - User accounts for authentication
@@ -347,7 +347,7 @@ Integration Gateway is a bi-directional integration platform that connects healt
 - `execution_logs` - Step-by-step execution traces (DLQ viewer)
 - `scheduled_integrations` - Pending scheduled deliveries
 - `dlq` (alias: `failed_deliveries`) - Dead letter queue
-- `rate_limits` - Per-tenant rate limiting state
+- `rate_limits` - Per-org rate limiting state
 - `processed_events` - Event deduplication cache
 
 **Audit Collections**:
@@ -372,8 +372,8 @@ Integration Gateway is a bi-directional integration platform that connects healt
 **Indexes** (Performance-Critical)
 ```javascript
 // integration_configs
-{ tenantId: 1, direction: 1, isActive: 1 }
-{ tenantId: 1, eventType: 1, isActive: 1 }
+{ orgId: 1, direction: 1, isActive: 1 }
+{ orgId: 1, eventType: 1, isActive: 1 }
 { 'rateLimits.enabled': 1 }
 
 // delivery_logs
@@ -392,7 +392,7 @@ Integration Gateway is a bi-directional integration platform that connects healt
 { orgId: 1, status: 1 }
 
 // rate_limits
-{ integrationConfigId: 1, tenantId: 1 }
+{ integrationConfigId: 1, orgId: 1 }
 { resetAt: 1 }
 
 // organizations
@@ -430,7 +430,7 @@ Integration Gateway is a bi-directional integration platform that connects healt
                             ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                   Match Active Integrations                      │
-│  - Query: { tenantId: event.entityRid, eventType, isActive }    │
+│  - Query: { orgId: event.entityRid, eventType, isActive }    │
 │  - Include parent-level integrations (with exclusions)           │
 │  - Filter by direction: OUTBOUND                                 │
 └───────────────────────────┬─────────────────────────────────────┘
@@ -507,7 +507,7 @@ Integration Gateway is a bi-directional integration platform that connects healt
                             ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                Fetch Inbound Integration Config                  │
-│  Query: { type: "appointment-booking", tenantId: 648,           │
+│  Query: { type: "appointment-booking", orgId: 648,           │
 │           direction: "INBOUND", isActive: true }                 │
 └───────────────────────────┬─────────────────────────────────────┘
                             │
@@ -609,7 +609,7 @@ while (true) {
 
 **Deduplication**:
 - In-memory LRU cache (5-minute window)
-- Key: `${eventType}:${payloadId}:${tenantId}`
+- Key: `${eventType}:${payloadId}:${orgId}`
 - Prevents duplicate deliveries if event appears multiple times
 
 **Error Handling**:
@@ -653,7 +653,7 @@ if (integration.schedulingMode === 'RECURRING') {
 
 **Timezone Handling**:
 - Store scheduledFor in UTC
-- Calculate next occurrence in tenant's timezone
+- Calculate next occurrence in the organization's timezone
 - Convert back to UTC for storage
 
 ### DLQ Worker Design
@@ -705,7 +705,7 @@ The system supports three distinct integration patterns:
   direction: 'OUTBOUND',
   name: string,
   eventType: string,  // e.g., 'appointment-created'
-  tenantId: number,
+  orgId: number,
   isActive: boolean,
   targetUrl: string,
   httpMethod: 'POST' | 'PUT' | 'PATCH',
@@ -741,7 +741,7 @@ The system supports three distinct integration patterns:
 
 **Delivery Guarantees**:
 - At-least-once (with deduplication)
-- Ordered within same event type per tenant
+- Ordered within same event type per organization
 - No ordering across event types
 
 ### INBOUND (Real-Time API Proxy)
@@ -760,7 +760,7 @@ The system supports three distinct integration patterns:
   direction: 'INBOUND',
   type: string,  // URL param, e.g., 'appointment-booking'
   name: string,
-  tenantId: number,
+  orgId: number,
   isActive: boolean,
   targetUrl: string,
   httpMethod: 'POST' | 'PUT' | 'GET' | 'PATCH' | 'DELETE',
@@ -816,7 +816,7 @@ The system supports three distinct integration patterns:
   direction: 'SCHEDULED',
   name: string,
   type: string,  // Categorization (e.g., 'DAILY_EXPORT')
-  tenantId: number,
+  orgId: number,
   isActive: boolean,
   targetUrl: string,
   httpMethod: 'POST' | 'PUT',
@@ -863,7 +863,7 @@ The system supports three distinct integration patterns:
 
 **Variable Substitution**:
 Supports dynamic variables in queries, pipelines, URLs:
-- `{{config.tenantId}}` - Current tenant ID
+- `{{config.orgId}}` - Current org ID
 - `{{config.integrationId}}` - Integration ID
 - `{{date.today()}}` - Today's date (YYYY-MM-DD)
 - `{{date.yesterday()}}` - Yesterday's date
@@ -898,7 +898,7 @@ Schedule next execution (for CRON)
 1. **SQL** - Query internal MySQL HIS database
    ```sql
    SELECT * FROM bills
-   WHERE entity_rid = {{config.tenantId}}
+   WHERE entity_rid = {{config.orgId}}
      AND DATE(created_at) = {{date.today()}}
    ```
 
@@ -919,7 +919,7 @@ Schedule next execution (for CRON)
 3. **API** - Call internal API endpoints
    ```javascript
    {
-     url: 'http://localhost:4000/api/v1/analytics/summary',
+     url: 'http://localhost:3545/api/v1/analytics/summary',
      method: 'GET',
      headers: { 'X-API-Key': '{{env.API_KEY}}' }
    }
@@ -959,7 +959,7 @@ Schedule next execution (for CRON)
   type: string,  // For INBOUND only
   name: string,
   eventType: string,  // For OUTBOUND only
-  tenantId: number,
+  orgId: number,
   isActive: boolean,
   targetUrl: string,
   httpMethod: string,
@@ -1069,7 +1069,6 @@ Schedule next execution (for CRON)
   _id: ObjectId,
   integrationConfigId: ObjectId,
   integrationName: string,
-  tenantId: number,
   orgId: number,
   originalEventId: string,
   eventType: string,
@@ -1090,7 +1089,7 @@ Schedule next execution (for CRON)
 {
   _id: ObjectId,
   integrationId: ObjectId,  // References integration_configs
-  tenantId: number,
+  orgId: number,
   status: 'SUCCESS' | 'FAILED' | 'RUNNING',
 
   // Timing
@@ -1203,11 +1202,11 @@ Schedule next execution (for CRON)
 - Refresh on activity
 - Signed with `jwtSecret` from config
 
-**Multi-Tenant Context**:
+**Organization Context**:
 - All requests require `orgId` query parameter
 - Validates user has access to orgId
 - Filters all queries by orgId
-- Prevents cross-tenant data access
+- Prevents cross-organization data access
 
 ### Authorization
 
@@ -1230,10 +1229,10 @@ router.get('/integrations', requireAuth(), checkOrgAccess());
 - Applied before authentication
 - Prevents brute force attacks
 
-**Per-Tenant Rate Limit**:
+**Per-Organization Rate Limit**:
 - 100 requests per minute per orgId
 - Applied after authentication
-- Prevents abuse by single tenant
+- Prevents abuse by a single organization
 
 **Per-Integration Rate Limit**:
 - Configurable per integration

@@ -59,7 +59,6 @@ function errorHandler(err, req, res, _next) {
     method: req.method,
     statusCode,
     errorCode,
-    entityParentRid: req.entityParentRid,
     query: req.query,
     body: req.method !== 'GET' ? sanitizeBody(req.body) : undefined,
     userAgent: req.headers['user-agent'],

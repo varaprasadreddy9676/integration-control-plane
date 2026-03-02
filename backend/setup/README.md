@@ -65,10 +65,12 @@ All configuration files use standardized field names:
   - **OUTBOUND**: Events flow from source system → Gateway → External APIs (webhooks)
   - **INBOUND**: client app makes real-time API calls through Gateway to external systems
 
-**Tenant Scoping:**
-- `tenantId` - Specific tenant/clinic ID (formerly entityRid)
-- `orgId` - Organization/parent tenant ID (formerly entityParentRid)
-- `excludedTenantIds` - Excluded tenant IDs for INCLUDE_CHILDREN scope
+**Organization Scoping:**
+- `orgId` - Organization ID used for scoping integrations and API requests
+- `orgUnitRid` - Optional org-unit scope within an organization
+- `tenantId` - Legacy field kept only for backward compatibility in older setup artifacts
+- `entityParentRid` - Legacy alias for `orgId` (deprecated)
+- `excludedTenantIds` - Legacy exclusion list used in older setup artifacts
 
 ## Import Script
 
@@ -90,4 +92,4 @@ The script will:
 - All configurations are production-tested
 - Field names have been updated to open-source friendly naming
 - Multi-action webhooks are supported (v2.0+)
-- Transformation scripts use vm2 sandbox for security
+- Transformation scripts run in the secure VM wrapper (`backend/src/utils/secure-vm.js`) for sandboxed execution

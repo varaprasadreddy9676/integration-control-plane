@@ -53,6 +53,7 @@ import {
   AuthenticationFields,
   HttpConfigFields
 } from '../../../shared/integration-forms';
+import { RateLimitSection } from '../../integrations/components/detail/RateLimitSection';
 
 const { Text, Paragraph } = Typography;
 
@@ -615,6 +616,7 @@ return {
         retryCount: integration.retryCount || 3,
         contentType: integration.contentType || 'application/json',
         streamResponse: integration.streamResponse || false,
+        rateLimits: integration.rateLimits || { enabled: false, maxRequests: 100, windowSeconds: 60 },
         communicationConfig: integration.actions?.[0]?.communicationConfig || {
           channel: 'EMAIL',
           provider: 'SMTP'
@@ -709,6 +711,7 @@ return {
         direction: 'INBOUND',
         inboundAuthType: values.inboundAuthType,
         inboundAuthConfig: values.inboundAuthConfig,
+        rateLimits: values.rateLimits || { enabled: false, maxRequests: 100, windowSeconds: 60 },
         requestTransformation: {
           mode: 'SCRIPT',
           script: requestTransformEnabled ? requestTransformScript : ''
@@ -821,6 +824,11 @@ return {
           retryCount: 3,
           contentType: 'application/json',
           inboundAuthType: 'NONE',
+          rateLimits: {
+            enabled: false,
+            maxRequests: 100,
+            windowSeconds: 60
+          },
           communicationConfig: {
             channel: 'EMAIL',
             provider: 'SMTP'
@@ -1077,6 +1085,9 @@ return {
                           />
 
                           <Divider style={{ margin: `${spacing[4]} 0` }} />
+                          <RateLimitSection form={form} spacing={spacing} />
+
+                          <Divider style={{ margin: `${spacing[4]} 0` }} />
 
                           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                             <Button size="large" onClick={() => setActiveTab('basic')}>
@@ -1103,6 +1114,9 @@ return {
                         spacing={spacing}
                         colors={colors}
                       />
+
+                      <Divider style={{ margin: `${spacing[4]} 0` }} />
+                      <RateLimitSection form={form} spacing={spacing} />
 
                       <Divider style={{ margin: `${spacing[4]} 0` }} />
 
@@ -1613,6 +1627,36 @@ return {
                               )}
                             </div>
                           </div>
+                        )}
+                      </Space>
+                    </div>
+
+                    <Divider style={{ margin: 0 }} />
+
+                    {/* Rate Limit Summary */}
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: spacing[2], marginBottom: spacing[3] }}>
+                        <ThunderboltOutlined style={{ fontSize: 18, color: colors.primary[600] }} />
+                        <Text strong style={{ fontSize: 16 }}>Rate Limiting</Text>
+                      </div>
+                      <Space direction="vertical" size="small" style={{ width: '100%', paddingLeft: spacing[4] }}>
+                        <div style={{ display: 'flex', gap: spacing[2] }}>
+                          <Text type="secondary" style={{ minWidth: 150 }}>Status:</Text>
+                          <Tag color={form.getFieldValue(['rateLimits', 'enabled']) ? 'green' : 'default'}>
+                            {form.getFieldValue(['rateLimits', 'enabled']) ? 'Enabled' : 'Disabled'}
+                          </Tag>
+                        </div>
+                        {form.getFieldValue(['rateLimits', 'enabled']) && (
+                          <>
+                            <div style={{ display: 'flex', gap: spacing[2] }}>
+                              <Text type="secondary" style={{ minWidth: 150 }}>Max Requests:</Text>
+                              <Text>{form.getFieldValue(['rateLimits', 'maxRequests']) || 100}</Text>
+                            </div>
+                            <div style={{ display: 'flex', gap: spacing[2] }}>
+                              <Text type="secondary" style={{ minWidth: 150 }}>Window (seconds):</Text>
+                              <Text>{form.getFieldValue(['rateLimits', 'windowSeconds']) || 60}</Text>
+                            </div>
+                          </>
                         )}
                       </Space>
                     </div>

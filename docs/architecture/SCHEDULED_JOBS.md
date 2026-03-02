@@ -36,7 +36,7 @@ Unlike OUTBOUND (event-driven) and INBOUND (request/response proxy) integrations
 
 ✅ **Multiple Data Sources**: SQL, MongoDB (internal + external), Internal APIs
 ✅ **Flexible Scheduling**: Cron expressions or fixed intervals
-✅ **Variable Substitution**: Dynamic queries with `{{config.tenantId}}`, `{{date.today()}}`
+✅ **Variable Substitution**: Dynamic queries with `{{config.orgId}}`, `{{date.today()}}`
 ✅ **Test Before Save**: Validate data source configuration before creating job
 ✅ **Comprehensive Logging**: Full execution trace with data at each step
 ✅ **External MongoDB**: Connect to any MongoDB instance, not just internal
@@ -67,7 +67,7 @@ Unlike OUTBOUND (event-driven) and INBOUND (request/response proxy) integrations
                          ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                 Transformation Service                           │
-│  • JavaScript execution in VM2 sandbox                           │
+│  • JavaScript execution in secure VM sandbox                           │
 │  • Input: payload.data (fetched data)                            │
 │  • Output: transformed payload for target API                    │
 └────────────────────────┬────────────────────────────────────────┘
@@ -93,9 +93,9 @@ Fetch job config from integration_configs collection
        ↓
 Execute Data Source (SQL/MongoDB/API)
        ↓
-Apply variable substitution ({{config.tenantId}}, etc.)
+Apply variable substitution ({{config.orgId}}, etc.)
        ↓
-Transform fetched data (JavaScript VM2 sandbox)
+Transform fetched data (JavaScript secure VM sandbox)
        ↓
 Build authentication headers
        ↓
@@ -132,14 +132,14 @@ Schedule next execution (for CRON jobs)
       b.createdDate
     FROM bills b
     WHERE DATE(b.createdDate) = CURDATE()
-      AND b.entityRid = {{config.tenantId}}
+      AND b.entityRid = {{config.orgId}}
     ORDER BY b.createdDate DESC
   `
 }
 ```
 
 **Variable Substitution**:
-- `{{config.tenantId}}` - Current tenant ID
+- `{{config.orgId}}` - Current org ID
 - `{{date.today()}}` - Today's date (YYYY-MM-DD)
 - `{{date.yesterday()}}` - Yesterday's date
 - `{{env.VAR_NAME}}` - Environment variable
@@ -166,7 +166,7 @@ Schedule next execution (for CRON jobs)
   pipeline: [
     {
       $match: {
-        tenantId: "{{config.tenantId}}",
+        orgId: "{{config.orgId}}",
         createdAt: {
           $gte: "{{date.todayStart()}}",
           $lt: "{{date.todayEnd()}}"
@@ -194,7 +194,7 @@ Schedule next execution (for CRON jobs)
   pipeline: [
     {
       $match: {
-        tenantId: "{{config.tenantId}}",
+        orgId: "{{config.orgId}}",
         appointmentDate: {
           $gte: "{{date.todayStart()}}",
           $lt: "{{date.todayEnd()}}"
@@ -234,7 +234,7 @@ Schedule next execution (for CRON jobs)
 ```javascript
 {
   type: 'API',
-  url: 'http://localhost:4000/api/v1/analytics/summary',
+  url: 'http://localhost:3545/api/v1/analytics/summary',
   method: 'GET',
   headers: {
     'X-API-Key': '{{env.API_KEY}}',
@@ -247,7 +247,7 @@ Schedule next execution (for CRON jobs)
 ```javascript
 {
   type: 'API',
-  url: 'http://localhost:4000/api/v1/reports/generate',
+  url: 'http://localhost:3545/api/v1/reports/generate',
   method: 'POST',
   headers: {
     'X-API-Key': '{{env.API_KEY}}',
@@ -335,7 +335,7 @@ Schedule next execution (for CRON jobs)
   name: string,
   type: string,  // Categorization (e.g., 'DAILY_EXPORT')
   description: string,
-  tenantId: number,
+  orgId: number,
   isActive: boolean,
 
   // Schedule configuration
@@ -393,7 +393,7 @@ Schedule next execution (for CRON jobs)
 
 **Collection**: `integration_configs`
 
-**Query Filter**: `{ direction: 'SCHEDULED', tenantId: <tenant>, isActive: true }`
+**Query Filter**: `{ direction: 'SCHEDULED', orgId: <org>, isActive: true }`
 
 ---
 
@@ -425,7 +425,7 @@ Schedule next execution (for CRON jobs)
       - Log data fetched (with 50KB size limit)
 
    c. Transform data
-      - Execute transformation script in VM2 sandbox
+      - Execute transformation script in secure VM sandbox
       - Input: { data: <fetched data>, metadata: <job metadata> }
       - Output: transformed payload
       - Log transformed payload
@@ -573,7 +573,7 @@ executionLog.responseHeaders = response.headers;
 {
   _id: ObjectId,
   integrationId: ObjectId,
-  tenantId: number,
+  orgId: number,
   status: 'SUCCESS' | 'FAILED' | 'RUNNING',
 
   // Timing
@@ -670,7 +670,7 @@ executionLog.responseHeaders = response.headers;
 
 #### List Scheduled Jobs
 ```http
-GET /api/v1/scheduled-jobs?orgId=<tenantId>
+GET /api/v1/scheduled-jobs?orgId=<orgId>
 ```
 
 **Response**:
@@ -697,7 +697,7 @@ GET /api/v1/scheduled-jobs?orgId=<tenantId>
 
 #### Get Scheduled Job
 ```http
-GET /api/v1/scheduled-jobs/:id?orgId=<tenantId>
+GET /api/v1/scheduled-jobs/:id?orgId=<orgId>
 ```
 
 **Response**: Full job configuration
@@ -706,7 +706,7 @@ GET /api/v1/scheduled-jobs/:id?orgId=<tenantId>
 
 #### Create Scheduled Job
 ```http
-POST /api/v1/scheduled-jobs?orgId=<tenantId>
+POST /api/v1/scheduled-jobs?orgId=<orgId>
 Content-Type: application/json
 
 {
@@ -741,7 +741,7 @@ Content-Type: application/json
 
 #### Update Scheduled Job
 ```http
-PUT /api/v1/scheduled-jobs/:id?orgId=<tenantId>
+PUT /api/v1/scheduled-jobs/:id?orgId=<orgId>
 Content-Type: application/json
 
 {
@@ -757,7 +757,7 @@ Content-Type: application/json
 
 #### Delete Scheduled Job
 ```http
-DELETE /api/v1/scheduled-jobs/:id?orgId=<tenantId>
+DELETE /api/v1/scheduled-jobs/:id?orgId=<orgId>
 ```
 
 **Response**: `{ "message": "Scheduled job deleted successfully" }`
@@ -768,7 +768,7 @@ DELETE /api/v1/scheduled-jobs/:id?orgId=<tenantId>
 
 #### Execute Scheduled Job Manually
 ```http
-POST /api/v1/scheduled-jobs/:id/execute?orgId=<tenantId>
+POST /api/v1/scheduled-jobs/:id/execute?orgId=<orgId>
 ```
 
 **Response**: `{ "message": "Job execution triggered" }`
@@ -779,7 +779,7 @@ POST /api/v1/scheduled-jobs/:id/execute?orgId=<tenantId>
 
 #### Get Execution Logs
 ```http
-GET /api/v1/scheduled-jobs/:id/logs?orgId=<tenantId>&limit=50&offset=0&status=FAILED
+GET /api/v1/scheduled-jobs/:id/logs?orgId=<orgId>&limit=50&offset=0&status=FAILED
 ```
 
 **Response**:
@@ -809,7 +809,7 @@ GET /api/v1/scheduled-jobs/:id/logs?orgId=<tenantId>&limit=50&offset=0&status=FA
 
 #### Test Data Source
 ```http
-POST /api/v1/scheduled-jobs/test-datasource?orgId=<tenantId>
+POST /api/v1/scheduled-jobs/test-datasource?orgId=<orgId>
 Content-Type: application/json
 
 {
@@ -954,7 +954,7 @@ Content-Type: application/json
 ### Variable Substitution
 
 **Config Variables**:
-- `{{config.tenantId}}` - Current tenant ID
+- `{{config.orgId}}` - Current org ID
 - `{{config.integrationId}}` - Current integration ID
 - `{{config.integrationName}}` - Current integration name
 
@@ -981,14 +981,14 @@ Content-Type: application/json
 ```javascript
 // SQL query
 SELECT * FROM bills
-WHERE entity_rid = {{config.tenantId}}
+WHERE entity_rid = {{config.orgId}}
   AND DATE(created_at) = {{date.today()}}
 
 // MongoDB connection string
 mongodb://{{env.MONGO_USER}}:{{env.MONGO_PASS}}@external-host:27017
 
 // API URL
-http://localhost:4000/api/v1/reports?date={{date.today()}}&tenantId={{config.tenantId}}
+http://localhost:3545/api/v1/reports?date={{date.today()}}&orgId={{config.orgId}}
 ```
 
 ---

@@ -26,7 +26,6 @@ router.post('/', async (req, res) => {
       category: errorCategory,
       source: errorSource,
       orgId,
-      entityParentRid: orgId,
     });
 
     // Save to MongoDB for retention (30 days)
@@ -43,7 +42,6 @@ router.post('/', async (req, res) => {
         userAgent,
         type,
         orgId,
-        entityParentRid: orgId,
         timestamp: new Date(timestamp),
         createdAt: new Date(),
       });

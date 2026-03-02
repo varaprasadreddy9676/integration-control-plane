@@ -56,16 +56,12 @@ cd backend
 npm install
 ```
 
-This installs all required packages:
-- express (4.21.2)
-- mongodb (4.17.2)
-- mysql2 (3.15.3)
-- axios (1.13.4)
-- vm2 (3.10.0)
-- jsonwebtoken (9.0.2)
-- bcryptjs (2.4.3)
-- node-cron (4.2.1)
-- and more...
+This installs backend dependencies from `backend/package.json` (Express, MongoDB driver, MySQL client, Axios, JWT, scheduler libs, and more).
+For exact versions, use:
+
+```bash
+cat backend/package.json
+```
 
 #### 2. Create Configuration File
 

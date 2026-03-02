@@ -214,7 +214,7 @@ cd backend && npm start
 - [ ] `config.json` db section → Configure only if you use MySQL as event source
 - [ ] `config.json` lines 23-30 → Configure MongoDB
 - [ ] `config.json` lines 31-36 → Generate secure keys
-- [ ] MySQL database created (only for MySQL event-source tenants)
+- [ ] MySQL database created (only for organizations using MySQL event sources)
 - [ ] MongoDB database created
 - [ ] Test: `curl http://localhost:3545/health`
 

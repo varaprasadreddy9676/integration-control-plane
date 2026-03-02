@@ -10,12 +10,12 @@ Visit [https://webhook.site](https://webhook.site) and copy your unique URL.
 
 ### 2. Configure the Test
 
-Edit `smoke-test.js` and update these values:
+Edit `../scripts/tests/smoke-test.js` and update these values:
 
 ```javascript
 const CONFIG = {
   baseUrl: 'http://localhost:3545',
-  tenantId: 1, // Your test tenant ID
+  orgId: 1, // Your test organization ID
   testWebhookUrl: 'https://webhook.site/YOUR-UNIQUE-ID', // Your webhook.site URL
   timeout: 30000,
 };
@@ -35,7 +35,7 @@ In a new terminal:
 
 ```bash
 cd backend
-node smoke-test.js
+node ../scripts/tests/smoke-test.js
 ```
 
 ## What the Test Covers
@@ -110,7 +110,7 @@ If webhook.site is down, the test will show deliveries as RETRYING or FAILED. Th
 ### No integrations created
 
 Check:
-- Is the tenant ID correct?
+- Is the organization ID correct?
 - Does your database connection work?
 - Check server logs for errors
 

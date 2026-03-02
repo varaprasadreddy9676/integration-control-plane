@@ -288,7 +288,7 @@ function MysqlFields({
             >
               <ColumnSelect
                 discoveredColumns={discoveredColumns}
-                placeholder={`e.g. ${field.key === 'id' ? 'id' : field.key === 'orgId' ? 'entity_parent_rid' : field.key === 'eventType' ? 'transaction_type' : field.key === 'payload' ? 'message' : field.key}`}
+                placeholder={`e.g. ${field.key === 'id' ? 'id' : field.key === 'orgId' ? 'org_id' : field.key === 'eventType' ? 'transaction_type' : field.key === 'payload' ? 'message' : field.key}`}
               />
             </Form.Item>
           </Col>
