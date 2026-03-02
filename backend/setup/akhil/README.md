@@ -101,11 +101,16 @@ Content-Type: application/json
 
 The gateway fetches a token and caches it for the duration of `expires_in` (~24 hours), then auto-refreshes before the next delivery.
 
-Config fields in `integration_config.json` → `outgoingAuthConfig`:
-- `tokenUrl` — token endpoint URL
-- `username` / `password` — credentials
-- `usernameField` / `passwordField` — JSON body keys Akhil expects (`userName` / `password`)
-- `accessTokenPath` — where in the response to find the token (`access_token`)
+Config fields in `integration_config.json` → `outgoingAuthConfig` (auth type: `CUSTOM`):
+- `tokenEndpoint` — token endpoint URL
+- `tokenRequestMethod` — `"POST"`
+- `tokenRequestBody` — JSON object sent as body: `{ "userName": "…", "password": "…" }`
+- `tokenResponsePath` — dot-notation path to token in response: `"access_token"`
+- `tokenExpiresInPath` — dot-notation path to expiry seconds in response: `"expires_in"`
+- `tokenHeaderName` — header to attach token to: `"Authorization"`
+- `tokenHeaderPrefix` — prefix before token value: `"Bearer"`
+
+> Note: auth type must be `CUSTOM` (not `OAUTH2`). The standard `OAUTH2` type sends `application/x-www-form-urlencoded` with `client_credentials` grant — Akhil requires a JSON body with `userName`/`password` keys, which only `CUSTOM` supports.
 
 ---
 

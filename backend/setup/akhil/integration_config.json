@@ -13,25 +13,31 @@
   "httpMethod": "POST",
   "timeoutMs": 30000,
   "retryCount": 3,
-  "outgoingAuthType": "OAUTH2",
+  "outgoingAuthType": "CUSTOM",
   "outgoingAuthConfig": {
-    "tokenUrl": "http://192.168.3.78:1015/api/Token/GetToken",
-    "username": "REPLACE_WITH_AKHIL_USERNAME",
-    "password": "REPLACE_WITH_AKHIL_PASSWORD",
-    "tokenBodyFormat": "JSON",
-    "usernameField": "userName",
-    "passwordField": "password",
-    "accessTokenPath": "access_token"
+    "tokenEndpoint": "http://192.168.3.78:1015/api/Token/GetToken",
+    "tokenRequestMethod": "POST",
+    "tokenRequestBody": {
+      "userName": "REPLACE_WITH_AKHIL_USERNAME",
+      "password": "REPLACE_WITH_AKHIL_PASSWORD"
+    },
+    "tokenResponsePath": "access_token",
+    "tokenExpiresInPath": "expires_in",
+    "tokenHeaderName": "Authorization",
+    "tokenHeaderPrefix": "Bearer"
   },
-  "authType": "OAUTH2",
+  "authType": "CUSTOM",
   "authConfig": {
-    "tokenUrl": "http://192.168.3.78:1015/api/Token/GetToken",
-    "username": "REPLACE_WITH_AKHIL_USERNAME",
-    "password": "REPLACE_WITH_AKHIL_PASSWORD",
-    "tokenBodyFormat": "JSON",
-    "usernameField": "userName",
-    "passwordField": "password",
-    "accessTokenPath": "access_token"
+    "tokenEndpoint": "http://192.168.3.78:1015/api/Token/GetToken",
+    "tokenRequestMethod": "POST",
+    "tokenRequestBody": {
+      "userName": "REPLACE_WITH_AKHIL_USERNAME",
+      "password": "REPLACE_WITH_AKHIL_PASSWORD"
+    },
+    "tokenResponsePath": "access_token",
+    "tokenExpiresInPath": "expires_in",
+    "tokenHeaderName": "Authorization",
+    "tokenHeaderPrefix": "Bearer"
   },
   "inboundAuthType": null,
   "inboundAuthConfig": null,
