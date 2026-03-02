@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git push -u origin claude/nifty-williamson)",
+      "Bash(gh auth status)",
+      "Bash(gh pr:*)",
+      "Bash(git commit:*)",
+      "Bash(git push)",
+      "WebFetch(domain:documenter.getpostman.com)",
+      "Bash(git add backend/setup/akhil/)",
+      "Bash(git push origin claude/nifty-williamson)",
+      "Bash(grep -l \"oauth\\\\|OAUTH\\\\|tokenUrl\\\\|clientId\\\\|clientSecret\" /Users/sai/Documents/GitHub/integration-control-plane/.claude/worktrees/nifty-williamson/backend/test/tests/*.js)",
+      "Bash(git add backend/setup/akhil/integration_config.json backend/setup/akhil/README.md)",
+      "Bash(git add backend/src/services/lookup-service.js backend/setup/pathkind/README.md backend/setup/akhil/README.md)",
+      "Bash(npm --prefix backend run lint)",
+      "Bash(npm install --prefix backend)",
+      "Bash(npm install --prefix frontend)",
+      "Bash(node_modules/.bin/biome check ./src)",
+      "Bash(npm test)",
+      "Bash(npm install)",
+      "Bash(ls *.json)"
+    ]
+  }
+}
