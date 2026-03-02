@@ -1,0 +1,40 @@
+[
+  {
+    "_id": { "$oid": "6a4b2c3d4e5f607182930b01" },
+    "orgId": 145,
+    "orgUnitRid": null,
+    "type": "PATHKIND_LAB_CODE",
+    "source": {
+      "id": "147",
+      "label": "Nova IVF Fertility Koramangala - Bangalore"
+    },
+    "target": {
+      "id": "REPLACE_WITH_PATHKIND_LAB_CODE_FOR_147",
+      "label": "Pathkind lab code for Nova IVF Koramangala"
+    },
+    "isActive": true,
+    "usageCount": 0,
+    "lastUsedAt": null,
+    "createdAt": { "$date": "2026-03-02T00:00:00.000Z" },
+    "updatedAt": { "$date": "2026-03-02T00:00:00.000Z" }
+  },
+  {
+    "_id": { "$oid": "6a4b2c3d4e5f607182930b02" },
+    "orgId": 145,
+    "orgUnitRid": null,
+    "type": "PATHKIND_LAB_CODE",
+    "source": {
+      "id": "261",
+      "label": "Nova IVF Fertility Rajajinagar - Bangalore"
+    },
+    "target": {
+      "id": "REPLACE_WITH_PATHKIND_LAB_CODE_FOR_261",
+      "label": "Pathkind lab code for Nova IVF Rajajinagar"
+    },
+    "isActive": true,
+    "usageCount": 0,
+    "lastUsedAt": null,
+    "createdAt": { "$date": "2026-03-02T00:00:00.000Z" },
+    "updatedAt": { "$date": "2026-03-02T00:00:00.000Z" }
+  }
+]

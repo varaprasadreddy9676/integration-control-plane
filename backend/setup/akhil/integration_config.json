@@ -1,0 +1,98 @@
+{
+  "_id": { "$oid": "6a4b2c3d4e5f607182930c01" },
+  "name": "Akhil LIS - Lab Order External Push",
+  "type": "LAB_ORDER_SENT_TO_EXTERNAL",
+  "eventType": "LAB_ORDER_SENT_TO_EXTERNAL",
+  "direction": "OUTBOUND",
+  "orgId": 783,
+  "orgUnitRid": 783,
+  "entityName": "GUT GI",
+  "scope": "INCLUDE_CHILDREN",
+  "excludedEntityRids": [],
+  "targetUrl": "http://192.168.3.78:1015/api/VCP/SaveLabOrders",
+  "httpMethod": "POST",
+  "timeoutMs": 30000,
+  "retryCount": 3,
+  "outgoingAuthType": "CUSTOM",
+  "outgoingAuthConfig": {
+    "tokenEndpoint": "http://192.168.3.78:1015/api/Token/GetToken",
+    "tokenRequestMethod": "POST",
+    "tokenRequestBody": {
+      "userName": "REPLACE_WITH_AKHIL_USERNAME",
+      "password": "REPLACE_WITH_AKHIL_PASSWORD"
+    },
+    "tokenResponsePath": "access_token",
+    "tokenExpiresInPath": "expires_in",
+    "tokenHeaderName": "Authorization",
+    "tokenHeaderPrefix": "Bearer"
+  },
+  "authType": "CUSTOM",
+  "authConfig": {
+    "tokenEndpoint": "http://192.168.3.78:1015/api/Token/GetToken",
+    "tokenRequestMethod": "POST",
+    "tokenRequestBody": {
+      "userName": "REPLACE_WITH_AKHIL_USERNAME",
+      "password": "REPLACE_WITH_AKHIL_PASSWORD"
+    },
+    "tokenResponsePath": "access_token",
+    "tokenExpiresInPath": "expires_in",
+    "tokenHeaderName": "Authorization",
+    "tokenHeaderPrefix": "Bearer"
+  },
+  "inboundAuthType": null,
+  "inboundAuthConfig": null,
+  "responseTransformation": null,
+  "streamResponse": false,
+  "rateLimits": null,
+  "isActive": true,
+  "deliveryMode": "IMMEDIATE",
+  "schedulingConfig": null,
+  "transformationMode": "SCRIPT",
+  "transformMode": "SCRIPT",
+  "transformation": {
+    "script": "const order = payload.order;\nconst visit = payload.visit;\nconst patient = payload.patient;\n\n// ── Gender: Male/Female → M/F ─────────────────────────────────────────\nconst genderMap = { 'Male': 'M', 'Female': 'F', 'male': 'M', 'female': 'F', 'MALE': 'M', 'FEMALE': 'F' };\nconst gender = genderMap[visit.gender.name] || 'M';\n\n// ── Title → titleId numeric mapping ──────────────────────────────────\n// Confirm actual numeric IDs with Akhil team — update this map accordingly\nconst titleIdMap = {\n  'Mr': 1, 'Mr.': 1,\n  'Mrs': 2, 'Mrs.': 2,\n  'Miss': 3,\n  'Ms': 3, 'Ms.': 3,\n  'Dr': 4, 'Dr.': 4,\n  'Master': 5, 'Baby': 5\n};\nconst titleId = titleIdMap[payload.patientTitle] || 1;\n\n// ── Name splitting from fullName ──────────────────────────────────────\nconst nameParts = (patient.fullName || '').trim().split(/\\s+/);\nconst firstName = nameParts[0] || '';\nconst lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';\nconst middleName = nameParts.length > 2 ? nameParts.slice(1, -1).join(' ') : '';\n\n// ── DOB: ISO format preferred, convert DD/MM/YYYY if needed ──────────\nlet dob = '';\nif (payload.patientDOBISO && payload.patientDOBISO !== '') {\n  dob = payload.patientDOBISO;\n} else if (patient.dob && patient.dob !== '') {\n  const parts = patient.dob.split('/');\n  dob = parts[2] + '-' + parts[1] + '-' + parts[0];\n}\n\n// ── Build orderServiceDetails from labTests ───────────────────────────\n// integrationServiceCode is set to our serviceCode here;\n// the AKHIL_SERVICE_CODE lookup (configured below) translates it\n// to the Akhil-assigned code before delivery.\nconst orderServiceDetails = (order.labTests || []).map(function(test) {\n  return {\n    integrationServiceCode: test.serviceCode,\n    stat: '',\n    remarks: ''\n  };\n});\n\n// ── Build request body ────────────────────────────────────────────────\nconst body = {\n  titleId: titleId,\n  firstName: firstName,\n  middleName: middleName,\n  lastName: lastName,\n  gender: gender,\n  dob: dob,\n  mobileNo: patient.phone || '',\n  address: patient.address || '',\n  locationSource: 'REPLACE_WITH_AKHIL_LOCATION_SOURCE',\n  cityId: 0,\n  stateId: 0,\n  countryId: 0,\n  integrationOrderId: String(order.orderId),\n  integrationPatientId: patient.mrn.documentNumber,\n  orderServiceDetails: orderServiceDetails\n};\n\nreturn body;",
+    "mappings": [],
+    "staticFields": []
+  },
+  "transformConfig": {
+    "script": "const order = payload.order;\nconst visit = payload.visit;\nconst patient = payload.patient;\n\n// ── Gender: Male/Female → M/F ─────────────────────────────────────────\nconst genderMap = { 'Male': 'M', 'Female': 'F', 'male': 'M', 'female': 'F', 'MALE': 'M', 'FEMALE': 'F' };\nconst gender = genderMap[visit.gender.name] || 'M';\n\n// ── Title → titleId numeric mapping ──────────────────────────────────\n// Confirm actual numeric IDs with Akhil team — update this map accordingly\nconst titleIdMap = {\n  'Mr': 1, 'Mr.': 1,\n  'Mrs': 2, 'Mrs.': 2,\n  'Miss': 3,\n  'Ms': 3, 'Ms.': 3,\n  'Dr': 4, 'Dr.': 4,\n  'Master': 5, 'Baby': 5\n};\nconst titleId = titleIdMap[payload.patientTitle] || 1;\n\n// ── Name splitting from fullName ──────────────────────────────────────\nconst nameParts = (patient.fullName || '').trim().split(/\\s+/);\nconst firstName = nameParts[0] || '';\nconst lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';\nconst middleName = nameParts.length > 2 ? nameParts.slice(1, -1).join(' ') : '';\n\n// ── DOB: ISO format preferred, convert DD/MM/YYYY if needed ──────────\nlet dob = '';\nif (payload.patientDOBISO && payload.patientDOBISO !== '') {\n  dob = payload.patientDOBISO;\n} else if (patient.dob && patient.dob !== '') {\n  const parts = patient.dob.split('/');\n  dob = parts[2] + '-' + parts[1] + '-' + parts[0];\n}\n\n// ── Build orderServiceDetails from labTests ───────────────────────────\n// integrationServiceCode is set to our serviceCode here;\n// the AKHIL_SERVICE_CODE lookup (configured below) translates it\n// to the Akhil-assigned code before delivery.\nconst orderServiceDetails = (order.labTests || []).map(function(test) {\n  return {\n    integrationServiceCode: test.serviceCode,\n    stat: '',\n    remarks: ''\n  };\n});\n\n// ── Build request body ────────────────────────────────────────────────\nconst body = {\n  titleId: titleId,\n  firstName: firstName,\n  middleName: middleName,\n  lastName: lastName,\n  gender: gender,\n  dob: dob,\n  mobileNo: patient.phone || '',\n  address: patient.address || '',\n  locationSource: 'REPLACE_WITH_AKHIL_LOCATION_SOURCE',\n  cityId: 0,\n  stateId: 0,\n  countryId: 0,\n  integrationOrderId: String(order.orderId),\n  integrationPatientId: patient.mrn.documentNumber,\n  orderServiceDetails: orderServiceDetails\n};\n\nreturn body;",
+    "mappings": [],
+    "staticFields": []
+  },
+  "lookups": [
+    {
+      "type": "AKHIL_SERVICE_CODE",
+      "sourceField": "orderServiceDetails[].integrationServiceCode",
+      "targetField": "orderServiceDetails[].integrationServiceCode",
+      "unmappedBehavior": "FAIL"
+    }
+  ],
+  "actions": null,
+  "isInherited": false,
+  "sourceEntityName": null,
+  "enableSigning": false,
+  "signatureVersion": "v1",
+  "signingSecret": "REPLACE_WITH_OUTPUT_OF_generateSigningSecret",
+  "signingSecrets": ["REPLACE_WITH_OUTPUT_OF_generateSigningSecret"],
+  "version": "1.0.0",
+  "versionNotes": "Initial version — Akhil LIS integration for lab orders sent to external lab",
+  "compatibilityMode": "STRICT",
+  "isDefault": false,
+  "autoIncrement": false,
+  "versionStrategy": "SEMANTIC",
+  "metadata": {
+    "vendor": "Akhil Labs",
+    "vendorApiVersion": "v1",
+    "description": "Pushes lab order details to Akhil LIS when a LAB_ORDER_SENT_TO_EXTERNAL event fires. Covers org 783 (GUT GI) and all child entities.",
+    "versioning": {
+      "version": "1.0.0",
+      "versionNotes": "Initial version",
+      "compatibilityMode": "STRICT",
+      "isDefault": false,
+      "autoIncrement": false,
+      "versionStrategy": "SEMANTIC"
+    }
+  },
+  "createdAt": { "$date": "2026-03-02T00:00:00.000Z" },
+  "updatedAt": { "$date": "2026-03-02T00:00:00.000Z" }
+}
