@@ -1,0 +1,59 @@
+[
+  {
+    "_id": { "$oid": "6a4b2c3d4e5f607182930d01" },
+    "orgId": 783,
+    "orgUnitRid": null,
+    "type": "AKHIL_SERVICE_CODE",
+    "source": {
+      "id": "REPLACE_WITH_OUR_SERVICE_CODE_1",
+      "label": "REPLACE_WITH_TEST_NAME_1"
+    },
+    "target": {
+      "id": "REPLACE_WITH_AKHIL_SERVICE_CODE_1",
+      "label": "Akhil service code for test 1"
+    },
+    "isActive": true,
+    "usageCount": 0,
+    "lastUsedAt": null,
+    "createdAt": { "$date": "2026-03-02T00:00:00.000Z" },
+    "updatedAt": { "$date": "2026-03-02T00:00:00.000Z" }
+  },
+  {
+    "_id": { "$oid": "6a4b2c3d4e5f607182930d02" },
+    "orgId": 783,
+    "orgUnitRid": null,
+    "type": "AKHIL_SERVICE_CODE",
+    "source": {
+      "id": "REPLACE_WITH_OUR_SERVICE_CODE_2",
+      "label": "REPLACE_WITH_TEST_NAME_2"
+    },
+    "target": {
+      "id": "REPLACE_WITH_AKHIL_SERVICE_CODE_2",
+      "label": "Akhil service code for test 2"
+    },
+    "isActive": true,
+    "usageCount": 0,
+    "lastUsedAt": null,
+    "createdAt": { "$date": "2026-03-02T00:00:00.000Z" },
+    "updatedAt": { "$date": "2026-03-02T00:00:00.000Z" }
+  },
+  {
+    "_id": { "$oid": "6a4b2c3d4e5f607182930d03" },
+    "orgId": 783,
+    "orgUnitRid": null,
+    "type": "AKHIL_SERVICE_CODE",
+    "source": {
+      "id": "REPLACE_WITH_OUR_SERVICE_CODE_3",
+      "label": "REPLACE_WITH_TEST_NAME_3"
+    },
+    "target": {
+      "id": "REPLACE_WITH_AKHIL_SERVICE_CODE_3",
+      "label": "Akhil service code for test 3"
+    },
+    "isActive": true,
+    "usageCount": 0,
+    "lastUsedAt": null,
+    "createdAt": { "$date": "2026-03-02T00:00:00.000Z" },
+    "updatedAt": { "$date": "2026-03-02T00:00:00.000Z" }
+  }
+]
