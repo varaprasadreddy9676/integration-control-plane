@@ -896,6 +896,21 @@ router.post(
         throw new ValidationError('rateLimits fields required for merge mode');
       }
 
+      // Guard against MongoDB path update errors when existing docs have rateLimits: null.
+      // Nested updates like "rateLimits.enabled" fail on null parent values.
+      const hasRateLimitFieldUpdate = Object.keys(partial).some((key) => key.startsWith('rateLimits.'));
+      if (hasRateLimitFieldUpdate) {
+        const nullRateLimitsQuery =
+          Object.keys(query).length === 0 ? { rateLimits: null } : { $and: [query, { rateLimits: null }] };
+
+        await db.collection('integration_configs').updateMany(nullRateLimitsQuery, {
+          $set: {
+            rateLimits: normalizeRateLimits(),
+            updatedAt,
+          },
+        });
+      }
+
       updateDoc = { $set: { ...partial, updatedAt } };
       payload = partial;
     } else {
