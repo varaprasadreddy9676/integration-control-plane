@@ -95,15 +95,14 @@ Add more entries for any other child entities under org 145 that send orders to 
 ### Step 3 — Import into MongoDB
 
 ```bash
-# Import integration config
+# Import integration config (single document — no --jsonArray)
 mongoimport \
   --uri "$MONGODB_URI" \
   --db integration_gateway \
   --collection integration_configs \
-  --file backend/setup/pathkind/integration_config.json \
-  --jsonArray
+  --file backend/setup/pathkind/integration_config.json
 
-# Import lookup data
+# Import lookup data (array of documents)
 mongoimport \
   --uri "$MONGODB_URI" \
   --db integration_gateway \
@@ -181,7 +180,7 @@ This is intentional — sending a wrong or missing lab code to Pathkind would re
 | `6` | HIS client not found |
 | `1062` | Unknown error — contact administration |
 
-> Note: The Pathkind API always returns HTTP 200. Check `StatusCode` in the response body to determine success or failure.
+> **Engine behaviour:** The delivery engine marks a delivery as **success when it receives HTTP 2xx** and failure on any non-2xx response. It does not inspect the response body. The `StatusCode` table above is for your own manual investigation in delivery logs — if Pathkind returns HTTP 200 with `StatusCode: 1` (credit limit), the engine will log it as a successful delivery. Monitor the delivery logs and check the raw response body to catch business-level errors.
 
 ---
 

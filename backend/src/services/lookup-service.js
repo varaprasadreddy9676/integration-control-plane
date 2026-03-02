@@ -58,7 +58,7 @@ async function applyMappingToArray(
   type,
   sourceField,
   targetField,
-  entityParentRid,
+  orgId,
   orgUnitRid,
   unmappedBehavior,
   defaultValue
@@ -75,7 +75,7 @@ async function applyMappingToArray(
 
       // Only process non-empty, non-null, non-undefined values
       if (sourceValue !== null && sourceValue !== undefined && sourceValue !== '') {
-        const mappedValue = await resolveLookup(sourceValue, type, entityParentRid, orgUnitRid);
+        const mappedValue = await resolveLookup(sourceValue, type, orgId, orgUnitRid);
 
         if (mappedValue !== null) {
           // Mapping found - set to target field
@@ -95,7 +95,7 @@ async function applyMappingToArray(
 /**
  * Apply single lookup configuration to payload
  */
-async function applyLookupConfig(payload, config, entityParentRid, orgUnitRid) {
+async function applyLookupConfig(payload, config, orgId, orgUnitRid) {
   const { type, sourceField, targetField, unmappedBehavior, defaultValue } = config;
 
   // Handle array notation: items[].serviceCode
@@ -105,7 +105,7 @@ async function applyLookupConfig(payload, config, entityParentRid, orgUnitRid) {
       type,
       sourceField,
       targetField,
-      entityParentRid,
+      orgId,
       orgUnitRid,
       unmappedBehavior,
       defaultValue
@@ -116,7 +116,7 @@ async function applyLookupConfig(payload, config, entityParentRid, orgUnitRid) {
 
     // Only process non-empty, non-null, non-undefined values
     if (sourceValue !== null && sourceValue !== undefined && sourceValue !== '') {
-      const mappedValue = await resolveLookup(sourceValue, type, entityParentRid, orgUnitRid);
+      const mappedValue = await resolveLookup(sourceValue, type, orgId, orgUnitRid);
 
       if (mappedValue !== null) {
         // Mapping found - use it
@@ -141,12 +141,12 @@ async function applyLookups(payload, lookupConfigs, event) {
     return payload;
   }
 
-  const entityParentRid = event.entityParentRid || event.entity_parent_rid;
+  const orgId = event.orgId || event.entityParentRid || event.entity_parent_rid;
   const orgUnitRid = event.orgUnitRid || event.entityRid || event.entity_rid;
 
   log('debug', 'Applying lookups', {
     scope: 'applyLookups',
-    entityParentRid,
+    orgId,
     orgUnitRid,
     configCount: lookupConfigs.length,
   });
@@ -154,7 +154,7 @@ async function applyLookups(payload, lookupConfigs, event) {
   // Apply each lookup config sequentially
   for (const config of lookupConfigs) {
     try {
-      payload = await applyLookupConfig(payload, config, entityParentRid, orgUnitRid);
+      payload = await applyLookupConfig(payload, config, orgId, orgUnitRid);
     } catch (err) {
       // If unmappedBehavior is FAIL, throw error to stop delivery
       if (config.unmappedBehavior === 'FAIL') {
@@ -184,16 +184,14 @@ async function applyLookups(payload, lookupConfigs, event) {
  * Test lookup configurations against sample payload
  * Returns transformed payload and any errors encountered
  */
-async function testLookups(payload, lookupConfigs, entityParentRid, orgUnitRid) {
+async function testLookups(payload, lookupConfigs, orgId, orgUnitRid) {
   const errors = [];
   let testPayload = JSON.parse(JSON.stringify(payload)); // Deep clone
-
-  const _event = { entityParentRid, orgUnitRid };
 
   for (let i = 0; i < lookupConfigs.length; i++) {
     const config = lookupConfigs[i];
     try {
-      testPayload = await applyLookupConfig(testPayload, config, entityParentRid, orgUnitRid);
+      testPayload = await applyLookupConfig(testPayload, config, orgId, orgUnitRid);
     } catch (err) {
       errors.push({
         index: i,

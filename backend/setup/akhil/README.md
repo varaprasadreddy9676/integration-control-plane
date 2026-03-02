@@ -244,7 +244,7 @@ This is intentional — sending a wrong or missing service code would result in 
 }
 ```
 
-> Note: The Akhil API always returns HTTP 200. Check `status.errorCode` and `status.status` in the response body to determine success or failure. A `status` of `"Sucess"` (their spelling) with `errorCode: "200"` indicates success.
+> **Engine behaviour:** The delivery engine marks a delivery as **success when it receives HTTP 2xx** and failure on any non-2xx response. It does not inspect the response body. The `status.errorCode`/`status.status` fields above are for your own manual investigation in delivery logs — if Akhil returns HTTP 200 with a business error in the body, the engine will log it as a successful delivery. Monitor delivery logs and check the raw response body to catch business-level errors.
 
 ---
 
