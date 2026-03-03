@@ -186,7 +186,9 @@ async function createIndexes() {
         key: { source: 1, sourceId: 1 },
         name: 'source_id_unique_idx',
         unique: true,
-        partialFilterExpression: { sourceId: { $exists: true, $ne: null } },
+        // Keep partial expression compatible with older MongoDB servers.
+        // `$ne: null` gets rewritten internally to `$not/$eq` and can be rejected.
+        partialFilterExpression: { sourceId: { $exists: true } },
       },
       // Fallback uniqueness: orgId + eventKey + receivedAtBucket
       {

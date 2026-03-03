@@ -199,12 +199,34 @@ async function createIndexes() {
 
   const db = await mongodb.getDbSafe();
   const collection = db.collection('ai_interactions');
+  const existingIndexes = await collection.indexes();
 
-  await collection.createIndex({ orgId: 1, createdAt: -1 });
-  await collection.createIndex({ operation: 1, createdAt: -1 });
-  await collection.createIndex({ createdAt: 1 }, { expireAfterSeconds: 90 * 24 * 60 * 60 }); // 90 days TTL
+  const hasIndex = (name, key) =>
+    existingIndexes.some((idx) => idx.name === name || JSON.stringify(idx.key) === JSON.stringify(key));
 
-  log('info', 'AI interaction indexes created');
+  const ensureIndex = async (name, key, options = {}) => {
+    if (hasIndex(name, key)) return;
+    try {
+      await collection.createIndex(key, { name, ...options });
+      existingIndexes.push({ name, key });
+    } catch (err) {
+      // Existing index key with different name is safe; skip noisy startup warnings.
+      if (err.codeName === 'IndexOptionsConflict' || /already exists with a different name/i.test(err.message || '')) {
+        return;
+      }
+      throw err;
+    }
+  };
+
+  await ensureIndex('entity_created_idx', { orgId: 1, createdAt: -1 });
+  await ensureIndex('operation_created_idx', { operation: 1, createdAt: -1 });
+  await ensureIndex(
+    'ttl_idx',
+    { createdAt: 1 },
+    { expireAfterSeconds: 90 * 24 * 60 * 60 } // 90 days TTL
+  );
+
+  log('info', 'AI interaction indexes ensured');
 }
 
 module.exports = {
