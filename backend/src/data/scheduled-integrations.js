@@ -416,7 +416,7 @@ async function updateScheduledIntegration(orgId, id, updates) {
 
     const query = { _id: mongodb.toObjectId(id) };
     if (normalizedOrgId) {
-      query.$or = scheduledOrgQuery(normalizedOrgId).$or;
+      Object.assign(query, scheduledOrgQuery(normalizedOrgId));
     }
 
     // Prepare update document
@@ -439,7 +439,7 @@ async function updateScheduledIntegration(orgId, id, updates) {
 
     const result = await db.collection('scheduled_integrations').updateOne(query, { $set: updateDoc });
 
-    return result.modifiedCount > 0;
+    return result.matchedCount > 0;
   } catch (err) {
     logError(err, { scope: 'updateScheduledIntegration', id });
     return false;
@@ -464,7 +464,7 @@ async function deleteScheduledIntegration(orgId, id) {
     // Soft delete by marking as CANCELLED
     const query = { _id: mongodb.toObjectId(id) };
     if (normalizedOrgId) {
-      query.$or = scheduledOrgQuery(normalizedOrgId).$or;
+      Object.assign(query, scheduledOrgQuery(normalizedOrgId));
     }
 
     const result = await db.collection('scheduled_integrations').updateOne(query, {
@@ -477,7 +477,7 @@ async function deleteScheduledIntegration(orgId, id) {
     });
 
     log('info', 'Scheduled integration cancelled', { id, orgId: normalizedOrgId });
-    return result.modifiedCount > 0;
+    return result.matchedCount > 0;
   } catch (err) {
     logError(err, { scope: 'deleteScheduledIntegration', id, orgId: normalizedOrgId });
     return false;
