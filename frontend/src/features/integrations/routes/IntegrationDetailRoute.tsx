@@ -15,6 +15,7 @@ import type { IntegrationConfig } from '../../../mocks/types';
 import { IntegrationSigningSection } from '../components/IntegrationSigningSection';
 import { useDesignTokens, withAlpha, spacingToNumber, cssVar } from '../../../design-system/utils';
 import { useTenant } from '../../../app/tenant-context';
+import { useAuth } from '../../../app/auth-context';
 import { useIntegrationForm } from '../hooks';
 import { FormAlerts } from '../components/common';
 import { defaultScript } from './integrationDetail/utils/constants';
@@ -50,6 +51,8 @@ import { getSectionCompletion } from './integrationDetail/utils/sectionCompletio
 export const IntegrationDetailRoute = () => {
   const { spacing, token } = useDesignTokens();
   const colors = cssVar.legacy;
+  const { user } = useAuth();
+  const isPortalSession = !!(user as any)?.isPortalSession;
   const { tenant } = useTenant();
   const { id } = useParams();
   const location = useLocation();
@@ -790,6 +793,7 @@ const firstTime = addHours(now(), 1);
               onDuplicate={handleDuplicate}
               onExport={handleExport}
               onImport={handleImport}
+              isPortalSession={isPortalSession}
             />
           )}
           {isDetailLoading ? (

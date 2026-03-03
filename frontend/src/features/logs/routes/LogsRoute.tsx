@@ -13,6 +13,7 @@ import { formatDateTime, formatDateTimeWithSeconds } from '../../../utils/format
 import { useDesignTokens, withAlpha, spacingToNumber, cssVar } from '../../../design-system/utils';
 import { generateCurlCommand } from '../../../utils/curl';
 import { usePaginatedTable } from '../../../hooks/usePaginatedTable';
+import { useAuth } from '../../../app/auth-context';
 import dayjs from 'dayjs';
 
 const { RangePicker } = DatePicker;
@@ -42,6 +43,8 @@ const maskSecret = (value: unknown): string | null => {
 
 export const LogsRoute = () => {
   const { colors, spacing, token, borderRadius, shadows } = useDesignTokens();
+  const { user } = useAuth();
+  const isPortalSession = !!(user as any)?.isPortalSession;
   const { message: msgApi, modal } = App.useApp();
   const screens = Grid.useBreakpoint();
   const isNarrow = !screens.md;
@@ -743,12 +746,16 @@ export const LogsRoute = () => {
               </Button>
             </div>
             <Space size={spacingToNumber(spacing[2])} wrap>
-              <Button size="small" icon={<RedoOutlined />} onClick={handleBulkRetry}>
-                Retry
-              </Button>
-              <Button size="small" danger icon={<RedoOutlined />} onClick={handleBulkForceRetry}>
-                Force retry
-              </Button>
+              {!isPortalSession && (
+                <Button size="small" icon={<RedoOutlined />} onClick={handleBulkRetry}>
+                  Retry
+                </Button>
+              )}
+              {!isPortalSession && (
+                <Button size="small" danger icon={<RedoOutlined />} onClick={handleBulkForceRetry}>
+                  Force retry
+                </Button>
+              )}
               <Dropdown
                 trigger={['click']}
                 disabled={exportLoading}
@@ -775,9 +782,11 @@ export const LogsRoute = () => {
                   Export
                 </Button>
               </Dropdown>
-              <Button size="small" danger icon={<DeleteOutlined />} onClick={handleBulkDelete}>
-                Delete
-              </Button>
+              {!isPortalSession && (
+                <Button size="small" danger icon={<DeleteOutlined />} onClick={handleBulkDelete}>
+                  Delete
+                </Button>
+              )}
             </Space>
           </div>
         </div>
@@ -1559,7 +1568,7 @@ export const LogsRoute = () => {
                 const canRetry = record.status === 'FAILED';
                 const isRetrying = retryingLogs[record.id];
 
-                if (!canRetry) {
+                if (!canRetry || isPortalSession) {
                   return (
                     <Typography.Text style={{ color: cssVar.text.muted, fontSize: 12 }}>
                       —

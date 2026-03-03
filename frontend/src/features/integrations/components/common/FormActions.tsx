@@ -155,6 +155,12 @@ export interface FormActionsProps {
    * Size of the buttons
    */
   size?: 'small' | 'middle' | 'large';
+
+  /**
+   * Whether the current session is a portal (read-only) session.
+   * Hides Edit, Duplicate, Save, and Delete actions.
+   */
+  isPortalSession?: boolean;
 }
 
 /**
@@ -203,7 +209,8 @@ export const FormActions = ({
   testEnabledTooltip,
   spacing,
   colors,
-  size = 'large'
+  size = 'large',
+  isPortalSession = false
 }: FormActionsProps) => {
   // View mode - Show Test, Export, Duplicate, and Edit buttons
   if (mode === 'view' && !isEditMode) {
@@ -236,7 +243,7 @@ export const FormActions = ({
             {exportText || 'Export'}
           </Button>
         )}
-        {canDuplicate && onDuplicate && (
+        {!isPortalSession && canDuplicate && onDuplicate && (
           <Button
             onClick={onDuplicate}
             icon={<CopyOutlined />}
@@ -245,7 +252,7 @@ export const FormActions = ({
             {duplicateText || 'Duplicate'}
           </Button>
         )}
-        {onToggleEdit && (
+        {!isPortalSession && onToggleEdit && (
           <Button
             type="primary"
             icon={<EditOutlined />}

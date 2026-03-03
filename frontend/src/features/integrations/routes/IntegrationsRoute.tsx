@@ -3,6 +3,7 @@ import { App, Button, Dropdown, Modal, Select, Space, Tag, Typography, Card, Gri
 import { FilterOutlined, MoreOutlined, ReloadOutlined, SearchOutlined, CloseCircleOutlined, DownloadOutlined, CopyOutlined, DeleteOutlined, CheckOutlined, StopOutlined, EditOutlined, AppstoreOutlined, ThunderboltOutlined, PlusOutlined } from '@ant-design/icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigateWithParams } from '../../../utils/navigation';
+import { useAuth } from '../../../app/auth-context';
 import { StatusBadge } from '../../../components/common/StatusBadge';
 import { MetaTag } from '../../../components/common/MetaTag';
 import { ModernTable } from '../../../components/common/ModernTable';
@@ -21,6 +22,8 @@ export const IntegrationsRoute = ({ hideHeader = false, isActive = true }: Integ
   const navigate = useNavigateWithParams();
   const queryClient = useQueryClient();
   const { spacing, token } = useDesignTokens();
+  const { user } = useAuth();
+  const isPortalSession = !!(user as any)?.isPortalSession;
   const colors = cssVar.legacy;
   const { data = [], refetch, isLoading } = useQuery({
     queryKey: ['integrations'],
@@ -328,20 +331,24 @@ export const IntegrationsRoute = ({ hideHeader = false, isActive = true }: Integ
               </Typography.Text>
             </Space>
             <Space size="small">
-              <Button
-                size="small"
-                icon={<CheckOutlined />}
-                onClick={handleBulkEnable}
-              >
-                Enable
-              </Button>
-              <Button
-                size="small"
-                icon={<StopOutlined />}
-                onClick={handleBulkDisable}
-              >
-                Disable
-              </Button>
+              {!isPortalSession && (
+                <Button
+                  size="small"
+                  icon={<CheckOutlined />}
+                  onClick={handleBulkEnable}
+                >
+                  Enable
+                </Button>
+              )}
+              {!isPortalSession && (
+                <Button
+                  size="small"
+                  icon={<StopOutlined />}
+                  onClick={handleBulkDisable}
+                >
+                  Disable
+                </Button>
+              )}
               <Dropdown
                 trigger={['click']}
                 menu={{
@@ -371,14 +378,16 @@ export const IntegrationsRoute = ({ hideHeader = false, isActive = true }: Integ
                   Export
                 </Button>
               </Dropdown>
-              <Button
-                size="small"
-                danger
-                icon={<DeleteOutlined />}
-                onClick={handleBulkDelete}
-              >
-                Delete
-              </Button>
+              {!isPortalSession && (
+                <Button
+                  size="small"
+                  danger
+                  icon={<DeleteOutlined />}
+                  onClick={handleBulkDelete}
+                >
+                  Delete
+                </Button>
+              )}
             </Space>
           </div>
         </div>
@@ -498,14 +507,16 @@ export const IntegrationsRoute = ({ hideHeader = false, isActive = true }: Integ
               </Space>
             }
           >
-            <Space>
-              <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/integrations/new')}>
-                Create Event Rule
-              </Button>
-              <Button icon={<AppstoreOutlined />} onClick={() => navigate('/templates')}>
-                Browse Templates
-              </Button>
-            </Space>
+            {!isPortalSession && (
+              <Space>
+                <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate('/integrations/new')}>
+                  Create Event Rule
+                </Button>
+                <Button icon={<AppstoreOutlined />} onClick={() => navigate('/templates')}>
+                  Browse Templates
+                </Button>
+              </Space>
+            )}
           </Empty>
         </div>
       )}
@@ -641,7 +652,7 @@ export const IntegrationsRoute = ({ hideHeader = false, isActive = true }: Integ
                   checked={record.isActive}
                   onChange={(checked) => onQuickToggle(record, checked)}
                   size="small"
-                  disabled={record.isInherited}
+                  disabled={record.isInherited || isPortalSession}
                 />
               )
             },
@@ -668,19 +679,21 @@ export const IntegrationsRoute = ({ hideHeader = false, isActive = true }: Integ
                   trigger={['click']}
                   menu={{
                     items: [
-                      {
-                        key: 'edit',
-                        label: 'Edit',
-                        icon: <EditOutlined />,
-                        onClick: () => navigate(`/integrations/${record.id}`)
-                      },
-                      {
-                        key: 'duplicate',
-                        label: 'Duplicate',
-                        icon: <CopyOutlined />,
-                        onClick: () => onDuplicate(record),
-                        disabled: record.isInherited
-                      },
+                      ...(!isPortalSession ? [
+                        {
+                          key: 'edit',
+                          label: 'Edit',
+                          icon: <EditOutlined />,
+                          onClick: () => navigate(`/integrations/${record.id}`)
+                        },
+                        {
+                          key: 'duplicate',
+                          label: 'Duplicate',
+                          icon: <CopyOutlined />,
+                          onClick: () => onDuplicate(record),
+                          disabled: record.isInherited
+                        }
+                      ] : []),
                       {
                         key: 'test',
                         label: 'Send test event',
@@ -688,17 +701,19 @@ export const IntegrationsRoute = ({ hideHeader = false, isActive = true }: Integ
                         onClick: () => onTest(record.id),
                         disabled: !record.isActive
                       },
-                      {
-                        type: 'divider'
-                      },
-                      {
-                        key: 'delete',
-                        label: 'Delete',
-                        danger: true,
-                        icon: <DeleteOutlined />,
-                        onClick: () => onDelete(record),
-                        disabled: record.isInherited
-                      }
+                      ...(!isPortalSession ? [
+                        {
+                          type: 'divider' as const
+                        },
+                        {
+                          key: 'delete',
+                          label: 'Delete',
+                          danger: true,
+                          icon: <DeleteOutlined />,
+                          onClick: () => onDelete(record),
+                          disabled: record.isInherited
+                        }
+                      ] : [])
                     ]
                   }}
                 >

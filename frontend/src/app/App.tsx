@@ -425,19 +425,21 @@ export const App = () => {
       disabled: true
     },
     { type: 'divider' as const },
-    {
-      key: 'settings',
-      icon: <SettingOutlined />,
-      label: 'Organization Settings',
-      onClick: () => navigate('/settings')
-    },
-    {
-      key: 'permissions',
-      icon: <IdcardOutlined />,
-      label: 'My Permissions',
-      onClick: () => navigate('/admin/permissions')
-    },
-    { type: 'divider' as const },
+    ...(!isPortalSession ? [
+      {
+        key: 'settings',
+        icon: <SettingOutlined />,
+        label: 'Organization Settings',
+        onClick: () => navigate('/settings')
+      },
+      {
+        key: 'permissions',
+        icon: <IdcardOutlined />,
+        label: 'My Permissions',
+        onClick: () => navigate('/admin/permissions')
+      },
+      { type: 'divider' as const }
+    ] : []),
     {
       key: 'logout',
       icon: <LogoutOutlined />,
@@ -749,14 +751,16 @@ export const App = () => {
 
             {/* Right: Actions */}
             <Space size={spacingToNumber(spacing[2])}>
-              <Button
-                type="primary"
-                onClick={() => navigate('/integrations/new')}
-                icon={<ThunderboltOutlined />}
-                style={{ fontWeight: 600, height: 40, borderRadius: 8 }}
-              >
-                {!isMobile && 'New Integration'}
-              </Button>
+              {!isPortalSession && (
+                <Button
+                  type="primary"
+                  onClick={() => navigate('/integrations/new')}
+                  icon={<ThunderboltOutlined />}
+                  style={{ fontWeight: 600, height: 40, borderRadius: 8 }}
+                >
+                  {!isMobile && 'New Integration'}
+                </Button>
+              )}
 
               {/* Failed deliveries badge — only when there are failures */}
               {failedCount > 0 && (

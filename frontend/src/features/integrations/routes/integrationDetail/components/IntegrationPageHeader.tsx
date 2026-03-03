@@ -23,6 +23,7 @@ interface IntegrationPageHeaderProps {
   onDuplicate: () => void;
   onExport: () => void;
   onImport: () => void;
+  isPortalSession?: boolean;
 }
 
 export const IntegrationPageHeader = ({
@@ -42,7 +43,8 @@ export const IntegrationPageHeader = ({
   onEnterEditMode,
   onDuplicate,
   onExport,
-  onImport
+  onImport,
+  isPortalSession = false
 }: IntegrationPageHeaderProps) => {
   const statusChips = isCreate
     ? [
@@ -84,7 +86,7 @@ export const IntegrationPageHeader = ({
               {isActiveValue === false ? 'Paused' : 'Active'}
             </Typography.Text>
             <Form.Item name="isActive" valuePropName="checked" noStyle>
-              <Switch size="small" />
+              <Switch size="small" disabled={isPortalSession} />
             </Form.Item>
           </div>
         ) : undefined
@@ -117,6 +119,7 @@ export const IntegrationPageHeader = ({
             spacing={spacing}
             colors={colors}
             size="large"
+            isPortalSession={isPortalSession}
           />
         ) : undefined
       }
