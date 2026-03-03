@@ -209,6 +209,33 @@ router.patch(
   })
 );
 
+// ── DELETE /portal-profiles/:id ───────────────────────────────────────────────
+
+router.delete(
+  '/:id',
+  auth,
+  asyncHandler(async (req, res) => {
+    assertCanManage(req);
+    const existing = await profileData.getProfile(req.params.id);
+    if (!existing) throw new NotFoundError('Portal access profile not found');
+
+    if (req.user?.role === 'ORG_ADMIN' && existing.orgId !== Number(req.user.orgId)) {
+      throw new ForbiddenError('Not authorized to delete this profile');
+    }
+
+    const deleted = await profileData.deleteProfile(req.params.id);
+    if (!deleted) throw new NotFoundError('Portal access profile not found');
+
+    log('info', '[portal] Profile deleted', {
+      profileId: req.params.id,
+      orgId: existing.orgId,
+      deletedBy: req.user?.id,
+    });
+
+    res.json({ message: 'Portal access profile deleted successfully' });
+  })
+);
+
 // ── POST /portal-profiles/:id/rotate-link ─────────────────────────────────────
 
 router.post(

@@ -405,6 +405,9 @@ export const revokePortalProfileSessions = async (
 ): Promise<{ profile: PortalAccessProfile; message: string }> =>
   request(`/portal-profiles/${id}/revoke-sessions`, { method: 'POST' });
 
+export const deletePortalProfile = async (id: string): Promise<{ message: string }> =>
+  request(`/portal-profiles/${id}`, { method: 'DELETE' });
+
 export const exchangePortalLaunchCredential = async (
   pid: string,
   secret: string

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { Alert, Button, Card, Checkbox, Col, Drawer, Input, InputNumber, Modal, Row, Select, Space, Switch, Table, Tag, Tooltip, Typography, message } from 'antd';
-import { CopyOutlined, KeyOutlined, ReloadOutlined, StopOutlined } from '@ant-design/icons';
+import { CopyOutlined, DeleteOutlined, KeyOutlined, ReloadOutlined, StopOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { PageHeader } from '../../components/common/PageHeader';
 import { useAuth } from '../../app/auth-context';
@@ -23,6 +23,7 @@ import {
   updatePortalProfile,
   rotatePortalProfileLink,
   revokePortalProfileSessions,
+  deletePortalProfile,
   getCurrentOrgId,
   setCurrentOrgId,
   getIntegrations,
@@ -198,6 +199,7 @@ export const OrgDirectoryRoute = () => {
   const [rotatingId, setRotatingId] = useState<string | null>(null);
   const [revokingId, setRevokingId] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   // Org integrations loaded when the drawer opens — used for smart multi-selects
   const [orgIntegrations, setOrgIntegrations] = useState<{ id: string; name: string; direction?: string }[]>([]);
   const [orgIntegrationsLoading, setOrgIntegrationsLoading] = useState(false);
@@ -1284,7 +1286,7 @@ export const OrgDirectoryRoute = () => {
             }
             style={{ marginBottom: 16 }}
             closable
-            onClose={() => setCreateProfileResult(null)}
+            onClose={() => { setCreateProfileResult(null); setCreateProfileVisible(false); }}
           />
         )}
 
@@ -1461,6 +1463,37 @@ export const OrgDirectoryRoute = () => {
                       }}
                     >
                       Info
+                    </Button>
+                  </Tooltip>
+                  <Tooltip title="Permanently delete this portal profile">
+                    <Button
+                      size="small"
+                      danger
+                      icon={<DeleteOutlined />}
+                      loading={deletingId === record.id}
+                      onClick={() => {
+                        Modal.confirm({
+                          title: 'Delete portal profile?',
+                          content: `This will permanently delete "${record.name}". All existing sessions for this profile will immediately stop working. This cannot be undone.`,
+                          okText: 'Delete',
+                          okButtonProps: { danger: true },
+                          cancelText: 'Cancel',
+                          onOk: async () => {
+                            setDeletingId(record.id);
+                            try {
+                              await deletePortalProfile(record.id);
+                              messageApi.success('Profile deleted');
+                              if (profilesOrg) await loadProfiles(profilesOrg.orgId);
+                            } catch (err: any) {
+                              messageApi.error(err?.message || 'Failed to delete profile');
+                            } finally {
+                              setDeletingId(null);
+                            }
+                          },
+                        });
+                      }}
+                    >
+                      Delete
                     </Button>
                   </Tooltip>
                 </Space>

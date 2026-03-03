@@ -264,6 +264,21 @@ async function revokeAllSessions(profileId, updatedBy) {
 }
 
 /**
+ * Permanently delete a profile by id.
+ * Returns true if a document was deleted, false if it was not found.
+ */
+async function deleteProfile(profileId) {
+  let oid;
+  try {
+    oid = new ObjectId(profileId);
+  } catch {
+    return false;
+  }
+  const result = await col().deleteOne({ _id: oid });
+  return result.deletedCount > 0;
+}
+
+/**
  * Record a launch (update lastUsedAt) — best-effort, non-blocking.
  */
 async function recordProfileUsage(profileId) {
@@ -294,6 +309,7 @@ module.exports = {
   getProfile,
   getProfileWithSecret,
   updateProfile,
+  deleteProfile,
   rotateProfileLink,
   revokeAllSessions,
   recordProfileUsage,
