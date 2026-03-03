@@ -648,11 +648,12 @@ router.post(
       return randomizeDateString(input);
     };
 
-    const applyOverrides = (payload) => {
+    const applyOverrides = (payload, uniquePayloadId) => {
       const next = payload || {};
       if (!next.type) next.type = next.eventType || next.transaction_type;
       if (!next.datetime) next.datetime = datetime || nowMysql();
       if (datetime) next.datetime = datetime;
+      next.id = uniquePayloadId;
 
       next.entityRID = resolvedOrgUnitRid;
       next.entityParentID = resolvedOrgId;
@@ -680,7 +681,8 @@ router.post(
       const basePayload = sampleMap.get(eventType)
         ? JSON.parse(JSON.stringify(sampleMap.get(eventType)))
         : { type: eventType };
-      const payload = applyOverrides(basePayload);
+      const uniquePayloadId = `test-${resolvedOrgId}-${eventType}-${Date.now()}-${randomUUID().slice(0, 8)}`;
+      const payload = applyOverrides(basePayload, uniquePayloadId);
       return {
         topic: topicValue || 'notification',
         transactionType: eventType || 'UNKNOWN',

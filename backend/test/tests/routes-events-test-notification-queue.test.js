@@ -126,6 +126,22 @@ describe('POST /api/v1/events/test-notification-queue', () => {
     expect(db.query).toHaveBeenCalledTimes(1);
   });
 
+  it('stamps unique payload.id for each inserted test event', async () => {
+    const res = await request(app).post('/api/v1/events/test-notification-queue').send({ orgId: 33, orgUnitRid: 33 });
+
+    expect(res.status).toBe(200);
+    expect(db.query).toHaveBeenCalledTimes(2);
+
+    const firstPayload = JSON.parse(db.query.mock.calls[0][1].message);
+    const secondPayload = JSON.parse(db.query.mock.calls[1][1].message);
+
+    expect(typeof firstPayload.id).toBe('string');
+    expect(typeof secondPayload.id).toBe('string');
+    expect(firstPayload.id).toBeTruthy();
+    expect(secondPayload.id).toBeTruthy();
+    expect(firstPayload.id).not.toEqual(secondPayload.id);
+  });
+
   it('returns validation error instead of silently inserting zero rows when requested eventTypes do not match', async () => {
     const res = await request(app)
       .post('/api/v1/events/test-notification-queue')
