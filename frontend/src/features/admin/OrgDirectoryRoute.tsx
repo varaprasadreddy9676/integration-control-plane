@@ -235,15 +235,26 @@ export const OrgDirectoryRoute = () => {
         getIntegrations().catch(() => [] as any[]),
         getInboundIntegrations().catch(() => [] as any[]),
       ]);
+      // Deduplicate by id — an integration can appear in both outbound and inbound responses
+      const seenIds = new Set<string>();
       const all: { id: string; name: string; direction?: string }[] = [
         ...outbound.map((i: any) => ({ id: String(i.id), name: i.name, direction: 'outbound' })),
         ...inbound.map((i: any) => ({ id: String(i.id), name: i.name, direction: 'inbound' })),
-      ];
+      ].filter(({ id }) => {
+        if (seenIds.has(id)) return false;
+        seenIds.add(id);
+        return true;
+      });
       setOrgIntegrations(all);
-      // Derive unique tags across all integrations in this org
-      const tagSet = new Set<string>();
-      [...outbound, ...inbound].forEach((i: any) => (i.tags || []).forEach((t: string) => tagSet.add(t)));
-      setOrgTags(Array.from(tagSet).sort());
+      // Derive unique tags (case-insensitive dedup) across all integrations in this org
+      const tagMap = new Map<string, string>(); // lowercase key → original value
+      [...outbound, ...inbound].forEach((i: any) =>
+        (i.tags || []).forEach((t: string) => {
+          const key = t.toLowerCase();
+          if (!tagMap.has(key)) tagMap.set(key, t);
+        })
+      );
+      setOrgTags(Array.from(tagMap.values()).sort((a, b) => a.localeCompare(b)));
     } catch {
       setOrgIntegrations([]);
       setOrgTags([]);
