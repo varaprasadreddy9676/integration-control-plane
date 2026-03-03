@@ -7,6 +7,8 @@
 
 const express = require('express');
 const request = require('supertest');
+const { fetch } = require('../../src/utils/runtime');
+const { applyTransform } = require('../../src/services/transformer');
 
 // --- Mock setup ---
 
@@ -273,6 +275,51 @@ describe('Outbound Integrations Routes', () => {
 
       const res = await request(app).delete('/api/v1/outbound-integrations/nonexistent-id');
       expect(res.status).toBe(404);
+    });
+  });
+
+  describe('POST /api/v1/outbound-integrations/:id/test', () => {
+    it('executes all actions and infers SCRIPT mode when action.transformationMode is missing', async () => {
+      const multiActionIntegration = {
+        ...mockIntegrationDoc,
+        name: 'CleverTap - Appointment Confirmation',
+        type: 'APPOINTMENT_CONFIRMATION',
+        eventType: 'APPOINTMENT_CONFIRMATION',
+        actions: [
+          {
+            name: 'Profile Upload',
+            targetUrl: 'https://example.com/profile',
+            httpMethod: 'POST',
+            transformation: { script: 'return { d: [{ type: "profile" }] };' },
+          },
+          {
+            name: 'Event Upload',
+            targetUrl: 'https://example.com/event',
+            httpMethod: 'POST',
+            transformationMode: 'SCRIPT',
+            transformation: { script: 'return { d: [{ type: "event" }] };' },
+          },
+        ],
+      };
+
+      mockCollection.findOne.mockResolvedValueOnce(multiActionIntegration);
+      applyTransform.mockResolvedValue({ transformed: true });
+      fetch.mockImplementation(async () => ({
+        status: 200,
+        text: async () => 'ok',
+      }));
+
+      const res = await request(app)
+        .post('/api/v1/outbound-integrations/integration-id-123/test')
+        .send({ payload: { type: 'APPOINTMENT_CONFIRMATION', patient: { phone: '9533322607' } } });
+
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe('success');
+      expect(res.body.actionResults).toHaveLength(2);
+      expect(fetch).toHaveBeenCalledTimes(2);
+      expect(applyTransform).toHaveBeenCalledTimes(2);
+      expect(applyTransform.mock.calls[0][0].transformationMode).toBe('SCRIPT');
+      expect(applyTransform.mock.calls[1][0].transformationMode).toBe('SCRIPT');
     });
   });
 });

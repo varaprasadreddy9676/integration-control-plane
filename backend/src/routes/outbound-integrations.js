@@ -585,9 +585,19 @@ router.post(
             throw new Error(urlCheck.reason);
           }
 
-          // Apply action transformation
-          if (action.transformationMode === 'SCRIPT' && action.transformation?.script) {
-            const actionIntegration = { ...integration, transformation: action.transformation };
+          // Apply action transformation (infer mode for legacy actions that omitted transformationMode)
+          const hasActionTransformation = action.transformation && typeof action.transformation === 'object';
+          const hasActionScript =
+            typeof action.transformation?.script === 'string' && action.transformation.script.trim().length > 0;
+          const actionTransformationMode =
+            action.transformationMode || (hasActionTransformation ? (hasActionScript ? 'SCRIPT' : 'SIMPLE') : null);
+
+          if (hasActionTransformation || actionTransformationMode) {
+            const actionIntegration = {
+              ...integration,
+              transformation: hasActionTransformation ? action.transformation : integration.transformation,
+              transformationMode: actionTransformationMode || integration.transformationMode,
+            };
             transformed = await applyTransform(actionIntegration, incomingPayload, {
               eventType: integration.type,
               orgId: integration.orgId,

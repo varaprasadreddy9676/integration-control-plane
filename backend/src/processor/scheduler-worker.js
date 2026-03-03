@@ -453,11 +453,16 @@ async function deliverScheduledAction(
   let transformed = payload;
   const transformStart = Date.now();
   try {
-    if (action.transformation || action.transformationMode) {
+    const hasActionTransformation = action.transformation && typeof action.transformation === 'object';
+    const hasActionScript =
+      typeof action.transformation?.script === 'string' && action.transformation.script.trim().length > 0;
+    const actionTransformationMode = action.transformationMode || (hasActionTransformation ? (hasActionScript ? 'SCRIPT' : 'SIMPLE') : null);
+
+    if (hasActionTransformation || actionTransformationMode) {
       const actionAsIntegration = {
         ...integration,
-        transformation: action.transformation,
-        transformationMode: action.transformationMode,
+        transformation: hasActionTransformation ? action.transformation : integration.transformation,
+        transformationMode: actionTransformationMode || integration.transformationMode,
       };
       transformed = await applyTransform(actionAsIntegration, payload, {
         eventType: scheduled.eventType,
