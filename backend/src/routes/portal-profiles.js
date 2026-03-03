@@ -39,7 +39,12 @@ function resolveOrgId(req, bodyOrgId) {
   const callerOrgId = req.user?.orgId;
 
   if (role === 'SUPER_ADMIN' || role === 'ADMIN') {
-    const target = Number(bodyOrgId || req.orgId || req.query.orgId);
+    // req.query.orgId can be an array when the URL has ?orgId=x&orgId=y (e.g. from
+    // the frontend auto-appending orgId to a path that already contained it).
+    // Always use the first (explicit) value in that case.
+    const rawOrgId = bodyOrgId || req.orgId ||
+      (Array.isArray(req.query.orgId) ? req.query.orgId[0] : req.query.orgId);
+    const target = Number(rawOrgId);
     if (!target || !Number.isFinite(target)) {
       throw new ValidationError('orgId is required');
     }

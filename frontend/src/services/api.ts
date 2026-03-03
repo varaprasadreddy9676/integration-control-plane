@@ -181,7 +181,9 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const shouldAppendOrgId =
     currentOrgId &&
     currentOrgId > 0 &&
-    !path.startsWith('/admin');
+    !path.startsWith('/admin') &&
+    // Don't append if the caller already supplied orgId in the path/query
+    !/[?&]orgId=/.test(path);
 
   if (shouldAppendOrgId) {
     const separator = url.includes('?') ? '&' : '?';
