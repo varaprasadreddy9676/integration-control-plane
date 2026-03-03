@@ -577,12 +577,21 @@ async function recordLog(orgId, logPayload) {
           updateDoc.actionIndex = logPayload.actionIndex;
         }
 
+        const actionScopedQuery = {};
+        if (Number.isFinite(logPayload.actionIndex)) {
+          actionScopedQuery.actionIndex = logPayload.actionIndex;
+        }
+        if (typeof logPayload.actionName === 'string' && logPayload.actionName.trim()) {
+          actionScopedQuery.actionName = logPayload.actionName.trim();
+        }
+
         const updateQuery =
           queryField === 'traceId'
-            ? { traceId: existingLogId, orgId: normalizedOrgId }
+            ? { traceId: existingLogId, orgId: normalizedOrgId, ...actionScopedQuery }
             : queryField === 'correlationOrTraceId'
             ? {
                 orgId: normalizedOrgId,
+                ...actionScopedQuery,
                 $or: [{ traceId: existingLogId }, { correlationId: existingLogId }],
               }
             : { _id: existingLogId, orgId: normalizedOrgId };

@@ -254,6 +254,61 @@ describe('MongoDB Data Layer', () => {
         status: 'FAILED'
       });
     });
+
+    it('should scope traceId-based updates by action for multi-action logs', async () => {
+      mockCollection.updateOne
+        .mockResolvedValueOnce({ matchedCount: 0, modifiedCount: 0 })
+        .mockResolvedValueOnce({ matchedCount: 0, modifiedCount: 0 });
+      mockCollection.insertOne
+        .mockResolvedValueOnce({ insertedId: 'log-action-0' })
+        .mockResolvedValueOnce({ insertedId: 'log-action-1' });
+
+      await data.recordLog(1, {
+        traceId: 'trc-shared',
+        __KEEP___KEEP_integrationConfig__Id__: 'int-1',
+        __KEEP_integrationName__: 'CleverTap - Appointment Confirmation - Profile Upload',
+        eventType: 'APPOINTMENT_CONFIRMATION',
+        status: 'SUCCESS',
+        responseStatus: 200,
+        requestPayload: { d: [{ type: 'profile' }] },
+        actionName: 'Profile Upload',
+        actionIndex: 0,
+      });
+
+      await data.recordLog(1, {
+        traceId: 'trc-shared',
+        __KEEP___KEEP_integrationConfig__Id__: 'int-1',
+        __KEEP_integrationName__: 'CleverTap - Appointment Confirmation - Event Upload',
+        eventType: 'APPOINTMENT_CONFIRMATION',
+        status: 'SUCCESS',
+        responseStatus: 200,
+        requestPayload: { d: [{ type: 'event' }] },
+        actionName: 'Event Upload',
+        actionIndex: 1,
+      });
+
+      expect(mockCollection.updateOne).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({
+          traceId: 'trc-shared',
+          orgId: 1,
+          actionName: 'Profile Upload',
+          actionIndex: 0,
+        }),
+        expect.any(Object)
+      );
+      expect(mockCollection.updateOne).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          traceId: 'trc-shared',
+          orgId: 1,
+          actionName: 'Event Upload',
+          actionIndex: 1,
+        }),
+        expect.any(Object)
+      );
+      expect(mockCollection.insertOne).toHaveBeenCalledTimes(2);
+    });
   });
 
   describe('Dashboard Summary with Aggregation', () => {
