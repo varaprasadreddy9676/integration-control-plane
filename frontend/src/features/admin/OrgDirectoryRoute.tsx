@@ -23,6 +23,10 @@ import {
   updatePortalProfile,
   rotatePortalProfileLink,
   revokePortalProfileSessions,
+  getCurrentOrgId,
+  setCurrentOrgId,
+  getIntegrations,
+  getInboundIntegrations,
 } from '../../services/api';
 
 const OrgUnitsInline = ({
@@ -194,11 +198,15 @@ export const OrgDirectoryRoute = () => {
   const [rotatingId, setRotatingId] = useState<string | null>(null);
   const [revokingId, setRevokingId] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  // Org integrations loaded when the drawer opens — used for smart multi-selects
+  const [orgIntegrations, setOrgIntegrations] = useState<{ id: string; name: string; direction?: string }[]>([]);
+  const [orgIntegrationsLoading, setOrgIntegrationsLoading] = useState(false);
+  const [orgTags, setOrgTags] = useState<string[]>([]);
   const [profileForm, setProfileForm] = useState({
     name: '',
     role: 'VIEWER' as 'VIEWER' | 'INTEGRATION_EDITOR',
-    allowedIntegrationIds: '',
-    allowedTags: '',
+    allowedIntegrationIds: [] as string[],
+    allowedTags: [] as string[],
     allowedViews: ['dashboard', 'logs'] as string[],
     isActive: true,
     allowedOrigins: '',
@@ -216,10 +224,40 @@ export const OrgDirectoryRoute = () => {
     }
   }, []);
 
+  const loadOrgIntegrations = useCallback(async (orgId: number) => {
+    setOrgIntegrationsLoading(true);
+    // Temporarily scope all API requests to the target org so getIntegrations/getInboundIntegrations
+    // return data for the right org regardless of the global org switcher selection.
+    const savedOrgId = getCurrentOrgId();
+    setCurrentOrgId(orgId);
+    try {
+      const [outbound, inbound] = await Promise.all([
+        getIntegrations().catch(() => [] as any[]),
+        getInboundIntegrations().catch(() => [] as any[]),
+      ]);
+      const all: { id: string; name: string; direction?: string }[] = [
+        ...outbound.map((i: any) => ({ id: String(i.id), name: i.name, direction: 'outbound' })),
+        ...inbound.map((i: any) => ({ id: String(i.id), name: i.name, direction: 'inbound' })),
+      ];
+      setOrgIntegrations(all);
+      // Derive unique tags across all integrations in this org
+      const tagSet = new Set<string>();
+      [...outbound, ...inbound].forEach((i: any) => (i.tags || []).forEach((t: string) => tagSet.add(t)));
+      setOrgTags(Array.from(tagSet).sort());
+    } catch {
+      setOrgIntegrations([]);
+      setOrgTags([]);
+    } finally {
+      setCurrentOrgId(savedOrgId);
+      setOrgIntegrationsLoading(false);
+    }
+  }, []);
+
   const openProfilesDrawer = (org: AdminOrgSummary) => {
     setProfilesOrg(org);
     setProfilesVisible(true);
     loadProfiles(org.orgId);
+    loadOrgIntegrations(org.orgId);
   };
 
   const parseTags = (value: string) => {
@@ -1081,6 +1119,8 @@ export const OrgDirectoryRoute = () => {
           setProfilesVisible(false);
           setProfilesOrg(null);
           setProfiles([]);
+          setOrgIntegrations([]);
+          setOrgTags([]);
           setCreateProfileVisible(false);
           setCreateProfileResult(null);
         }}
@@ -1114,15 +1154,33 @@ export const OrgDirectoryRoute = () => {
                   { value: 'INTEGRATION_EDITOR', label: 'Editor (read + write)' },
                 ]}
               />
-              <Input
-                placeholder="Allowed Integration IDs (comma-separated, empty = all)"
+              <Select
+                mode="multiple"
+                style={{ width: '100%' }}
+                placeholder={orgIntegrationsLoading ? 'Loading integrations…' : 'Allowed integrations (empty = all)'}
+                loading={orgIntegrationsLoading}
                 value={profileForm.allowedIntegrationIds}
-                onChange={(e) => setProfileForm((prev) => ({ ...prev, allowedIntegrationIds: e.target.value }))}
+                onChange={(vals: string[]) => setProfileForm((prev) => ({ ...prev, allowedIntegrationIds: vals }))}
+                showSearch
+                optionFilterProp="label"
+                options={orgIntegrations.map((i) => ({
+                  value: i.id,
+                  label: i.name,
+                  title: `${i.direction === 'inbound' ? '↓ ' : '↑ '}${i.name} (${i.id})`,
+                }))}
+                notFoundContent={orgIntegrationsLoading ? 'Loading…' : 'No integrations found'}
+                maxTagCount="responsive"
               />
-              <Input
-                placeholder="Allowed Tags (comma-separated, empty = all)"
+              <Select
+                mode="multiple"
+                style={{ width: '100%' }}
+                placeholder="Allowed tags (empty = all)"
                 value={profileForm.allowedTags}
-                onChange={(e) => setProfileForm((prev) => ({ ...prev, allowedTags: e.target.value }))}
+                onChange={(vals: string[]) => setProfileForm((prev) => ({ ...prev, allowedTags: vals }))}
+                showSearch
+                options={orgTags.map((t) => ({ value: t, label: t }))}
+                notFoundContent={orgIntegrationsLoading ? 'Loading…' : 'No tags found for this org'}
+                maxTagCount="responsive"
               />
               <div>
                 <Typography.Text type="secondary" style={{ fontSize: 12 }}>Allowed Views</Typography.Text>
@@ -1159,19 +1217,19 @@ export const OrgDirectoryRoute = () => {
                   if (!profilesOrg) return;
                   setCreateProfileSaving(true);
                   try {
-                    const parseComma = (s: string) => s.split(',').map((t) => t.trim()).filter(Boolean);
+                    const parseOrigins = (s: string) => s.split(',').map((t) => t.trim()).filter(Boolean);
                     const res = await createPortalProfile({
                       orgId: profilesOrg.orgId,
                       name: profileForm.name.trim(),
                       role: profileForm.role,
-                      allowedIntegrationIds: parseComma(profileForm.allowedIntegrationIds),
-                      allowedTags: parseComma(profileForm.allowedTags),
+                      allowedIntegrationIds: profileForm.allowedIntegrationIds,
+                      allowedTags: profileForm.allowedTags,
                       allowedViews: profileForm.allowedViews,
-                      allowedOrigins: parseComma(profileForm.allowedOrigins),
+                      allowedOrigins: parseOrigins(profileForm.allowedOrigins),
                       isActive: profileForm.isActive,
                     });
                     setCreateProfileResult({ linkSecret: res.linkSecret, launchUrl: res.launchUrl });
-                    setProfileForm({ name: '', role: 'VIEWER', allowedIntegrationIds: '', allowedTags: '', allowedViews: ['dashboard', 'logs'], isActive: true, allowedOrigins: '' });
+                    setProfileForm({ name: '', role: 'VIEWER', allowedIntegrationIds: [], allowedTags: [], allowedViews: ['dashboard', 'logs'], isActive: true, allowedOrigins: '' });
                     await loadProfiles(profilesOrg.orgId);
                   } catch (err: any) {
                     messageApi.error(err?.message || 'Failed to create profile');
