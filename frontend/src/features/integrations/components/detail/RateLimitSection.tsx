@@ -28,7 +28,6 @@ export const RateLimitSection = ({ form, spacing }: RateLimitSectionProps) => {
       <Form.Item
         name={['rateLimits', 'enabled']}
         valuePropName="checked"
-        initialValue={false}
       >
         <Switch
           checkedChildren="Rate Limiting ON"
@@ -78,7 +77,6 @@ export const RateLimitSection = ({ form, spacing }: RateLimitSectionProps) => {
                   }
                 ]}
                 tooltip="Maximum number of requests allowed within the time window"
-                initialValue={100}
               >
                 <InputNumber
                   min={1}
@@ -111,7 +109,6 @@ export const RateLimitSection = ({ form, spacing }: RateLimitSectionProps) => {
                   }
                 ]}
                 tooltip="Duration of the rate limit window in seconds. Rate limits are enforced per window."
-                initialValue={60}
               >
                 <InputNumber
                   min={1}

@@ -30,6 +30,28 @@ const parseBooleanQuery = (value) => {
   return ['1', 'true', 'yes', 'y'].includes(value.trim().toLowerCase());
 };
 
+const readJsonArrayFile = (filePath) => {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    if (Array.isArray(parsed)) {
+      return parsed;
+    }
+    return [];
+  } catch (error) {
+    log('warn', 'Failed to load JSON array file for test event insertion', {
+      filePath,
+      error: error.message,
+    });
+    return [];
+  }
+};
+
+const normalizeEventType = (value) => {
+  if (typeof value !== 'string') return '';
+  const normalized = value.trim();
+  return normalized;
+};
+
 const ensureExportJobIndexes = async (dbConn) => {
   if (exportIndexesEnsured) return;
   const collection = dbConn.collection(EVENT_AUDIT_EXPORT_JOBS_COLLECTION);
@@ -499,20 +521,48 @@ router.post(
       });
     }
 
-    const clevertapPath = path.join(__dirname, '..', '..', 'setup', 'clevertap-integrations.json');
-    const eventTypesPath = path.join(__dirname, '..', '..', 'setup', 'event-types.json');
-    const clevertap = JSON.parse(fs.readFileSync(clevertapPath, 'utf8'));
-    const eventTypeConfig = JSON.parse(fs.readFileSync(eventTypesPath, 'utf8'));
-    const sampleMap = new Map(eventTypeConfig.map((entry) => [entry.eventType, entry.samplePayload]));
+    const setupRootPath = path.join(__dirname, '..', '..', 'setup');
+    const eventTypesPath = path.join(setupRootPath, 'event-types.json');
+    const eventTypeConfig = readJsonArrayFile(eventTypesPath);
+    const sampleMap = new Map(
+      eventTypeConfig.map((entry) => [normalizeEventType(entry?.eventType), entry?.samplePayload]).filter(([eventType]) => Boolean(eventType))
+    );
+    const eventTypeList = [...new Set(eventTypeConfig.map((entry) => normalizeEventType(entry?.eventType)).filter(Boolean))];
 
-    const eventTypeList = [...new Set(clevertap.map((entry) => entry.type || entry.eventType))].filter(Boolean);
-    const filteredEventTypes =
+    if (eventTypeList.length === 0) {
+      return res.status(500).json({
+        error: 'No event types configured for test event insertion',
+        code: 'EVENT_TYPES_NOT_CONFIGURED',
+      });
+    }
+
+    const requestedEventTypeSet =
       Array.isArray(eventTypes) && eventTypes.length > 0
-        ? eventTypeList.filter((type) => eventTypes.includes(type))
-        : eventTypeList;
+        ? new Set(eventTypes.map((item) => normalizeEventType(item)).filter(Boolean))
+        : null;
+
+    const filteredEventTypes = requestedEventTypeSet
+      ? eventTypeList.filter((type) => requestedEventTypeSet.has(type))
+      : eventTypeList;
+
+    if (requestedEventTypeSet && filteredEventTypes.length === 0) {
+      return res.status(400).json({
+        error: 'None of the requested eventTypes are available',
+        code: 'VALIDATION_ERROR',
+        requestedCount: requestedEventTypeSet.size,
+        availableCount: eventTypeList.length,
+      });
+    }
 
     const maxLimit = Number.isFinite(Number(limit)) ? Number(limit) : 0;
     const selectedEventTypes = maxLimit > 0 ? filteredEventTypes.slice(0, maxLimit) : filteredEventTypes;
+
+    if (selectedEventTypes.length === 0) {
+      return res.status(400).json({
+        error: 'No event types selected for insertion',
+        code: 'VALIDATION_ERROR',
+      });
+    }
 
     const nowMysql = () => new Date().toISOString().slice(0, 19).replace('T', ' ');
     const createdAtValue = createdAt || nowMysql();
@@ -669,6 +719,7 @@ router.post(
       orgId: resolvedOrgId,
       orgUnitRid: resolvedOrgUnitRid,
       inserted,
+      eventTypeSource: 'setup/event-types.json',
     });
 
     return res.json({
