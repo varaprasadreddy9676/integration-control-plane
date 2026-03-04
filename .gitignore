@@ -53,3 +53,6 @@ backend/logs/*
 !backend/logs/.gitkeep
 integration-gateway-frontend/dist/
 .aider*
+
+# Local AI worktrees
+.claude/worktrees/
