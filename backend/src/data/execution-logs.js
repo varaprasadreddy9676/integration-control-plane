@@ -459,14 +459,14 @@ async function getExecutionTrace(traceId, orgId) {
   const traceStatus = getTraceStatus(docs);
 
   const timeline = docs
-    .map((doc, index) => {
+    .flatMap((doc, index) => {
       const timestamp = doc.createdAt || doc.startedAt || new Date();
       const providerHeaders = doc.request?.headers || doc.requestHeaders || {};
       const responseStatus = doc.response?.statusCode || doc.responseStatus || null;
       const stageStatus = normalizeStatus(doc.status);
       const stageName = getStageName(doc, index);
 
-      return {
+      const baseStage = {
         step: stageName,
         name: stageName,
         timestamp,
@@ -484,11 +484,34 @@ async function getExecutionTrace(traceId, orgId) {
           messageId: doc.messageId || null,
           provider: providerHeaders.provider || null,
           channel: providerHeaders.channel || null,
+          source: 'execution_record',
         },
         request: doc.request || null,
         response: doc.response || null,
       };
+
+      const steps = Array.isArray(doc.steps)
+        ? doc.steps.map((step, stepIndex) => ({
+            step: step.name || `step_${stepIndex + 1}`,
+            name: step.name || `step_${stepIndex + 1}`,
+            timestamp: step.timestamp || timestamp,
+            durationMs: step.durationMs || null,
+            status: normalizeStatus(step.status || 'PENDING'),
+            error: step.error || null,
+            metadata: {
+              ...(step.metadata || {}),
+              source: 'execution_step',
+              parentStage: stageName,
+              parentStatus: stageStatus,
+            },
+            request: null,
+            response: null,
+          }))
+        : [];
+
+      return [baseStage, ...steps];
     })
+    .sort((a, b) => (safeDateMs(a.timestamp) || 0) - (safeDateMs(b.timestamp) || 0))
     .map((item, index, all) => ({
       ...item,
       gapMs:

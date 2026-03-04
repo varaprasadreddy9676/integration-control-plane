@@ -12,6 +12,14 @@ function setDb(database) {
   db = database;
 }
 
+function parseBoolean(value, fallback) {
+  if (value === undefined || value === null || value === '') return fallback;
+  const normalized = String(value).trim().toLowerCase();
+  if (['true', '1', 'yes', 'on'].includes(normalized)) return true;
+  if (['false', '0', 'no', 'off'].includes(normalized)) return false;
+  return fallback;
+}
+
 // Ensure logs directory exists
 const logDir = path.join(__dirname, '..', 'logs');
 if (!fs.existsSync(logDir)) {
@@ -53,20 +61,29 @@ const appLogger = createLogger({
   transports: [appFileTransport],
 });
 
-// Console mirror in non-production
-if (process.env.NODE_ENV !== 'production') {
+const runningInDocker = fs.existsSync('/.dockerenv');
+const consoleLoggingEnabled = parseBoolean(
+  process.env.LOG_TO_STDOUT,
+  process.env.NODE_ENV !== 'production' || runningInDocker,
+);
+
+// Console mirror when enabled. In production this is JSON-friendly for log aggregation.
+if (consoleLoggingEnabled) {
   appLogger.add(
     new transports.Console({
-      format: format.combine(
-        format.timestamp(),
-        format.colorize(),
-        format.printf(({ timestamp, level, message, meta = {} }) => {
-          const correlationId = meta.correlationId || meta.traceId || meta.requestId;
-          const prefix = correlationId ? `[${String(correlationId).substring(0, 12)}] ` : '';
-          const metaStr = Object.keys(meta).length ? JSON.stringify(meta) : '';
-          return `[${timestamp}] ${prefix}[${level}] ${message}${metaStr ? ` ${metaStr}` : ''}`;
-        }),
-      ),
+      format:
+        process.env.NODE_ENV === 'production'
+          ? jsonFormat
+          : format.combine(
+              format.timestamp(),
+              format.colorize(),
+              format.printf(({ timestamp, level, message, meta = {} }) => {
+                const correlationId = meta.correlationId || meta.traceId || meta.requestId;
+                const prefix = correlationId ? `[${String(correlationId).substring(0, 12)}] ` : '';
+                const metaStr = Object.keys(meta).length ? JSON.stringify(meta) : '';
+                return `[${timestamp}] ${prefix}[${level}] ${message}${metaStr ? ` ${metaStr}` : ''}`;
+              }),
+            ),
     }),
   );
 }
@@ -88,6 +105,14 @@ const accessLogger = createLogger({
   levels: { ...require('winston').config.npm.levels, http: 3 },
   transports: [accessFileTransport],
 });
+
+if (consoleLoggingEnabled) {
+  accessLogger.add(
+    new transports.Console({
+      format: format.printf(({ message }) => message),
+    }),
+  );
+}
 
 // Morgan writes via accessLogger so rotation applies to access logs too
 const requestLogger = morgan(

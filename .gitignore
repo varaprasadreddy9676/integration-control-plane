@@ -52,3 +52,4 @@ backend/src/data/state.json.*
 backend/logs/*
 !backend/logs/.gitkeep
 integration-gateway-frontend/dist/
+.aider*

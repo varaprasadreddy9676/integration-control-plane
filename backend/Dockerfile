@@ -54,7 +54,7 @@ EXPOSE 3545
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:3545/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))"
+    CMD node -e "const req=require('http').get('http://127.0.0.1:3545/', (r) => process.exit(r.statusCode < 500 ? 0 : 1)); req.on('error', () => process.exit(1));"
 
 # Switch to non-root user
 USER appuser

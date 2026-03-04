@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # MongoDB - Primary database
   mongodb:
@@ -23,21 +21,27 @@ services:
 
   # Backend API
   backend:
-    image: ghcr.io/varaprasadreddy9676/integration-control-plane-backend:main
-    # To build locally instead: comment the 'image' line above and uncomment the 'build' block below
-    # build:
-    #   context: ./backend
-    #   dockerfile: Dockerfile
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: integration-control-plane-backend:local
     container_name: integration-control-plane-backend
     restart: unless-stopped
     ports:
       - "3545:3545"
     environment:
       NODE_ENV: production
-      # MongoDB connection will be read from config.json mounted as volume
+      PORT: 3545
+      MONGODB_URI: ${MONGODB_URI:-mongodb://mongodb:27017/integration_gateway}
+      MONGODB_DATABASE: ${MONGODB_DATABASE:-integration_gateway}
+      API_KEY: ${API_KEY:-mdcs_dev_key_1f4a}
+      JWT_SECRET: ${JWT_SECRET:-change_me_dev_jwt_secret}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
+      API_RATE_LIMIT_ENABLED: ${API_RATE_LIMIT_ENABLED:-true}
+      API_RATE_LIMIT_MAX_REQUESTS: ${API_RATE_LIMIT_MAX_REQUESTS:-100}
+      API_RATE_LIMIT_WINDOW_SECONDS: ${API_RATE_LIMIT_WINDOW_SECONDS:-60}
+      INBOUND_MINIMAL_LOGGING: ${INBOUND_MINIMAL_LOGGING:-false}
     volumes:
-      # Mount config file (create from config.example.json first)
-      - ./backend/config.json:/app/config.json:ro
       # Optional: Mount logs directory
       - backend_logs:/app/logs
     networks:
@@ -46,7 +50,7 @@ services:
       mongodb:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3545/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      test: ["CMD", "node", "-e", "const req=require('http').get('http://127.0.0.1:3545/', (r) => process.exit(r.statusCode < 500 ? 0 : 1)); req.on('error', () => process.exit(1));"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -54,15 +58,15 @@ services:
 
   # Frontend
   frontend:
-    image: ghcr.io/varaprasadreddy9676/integration-control-plane-frontend:main
-    # To build locally instead: comment the 'image' line above and uncomment the 'build' block below
-    # build:
-    #   context: ./frontend
-    #   dockerfile: Dockerfile
-    #   args:
-    #     VITE_API_BASE_URL: http://localhost:3545/api/v1
-    #     VITE_APP_NAME: Integration Gateway
-    #     VITE_APP_VERSION: "2.0.0"
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:3545/api/v1}
+        VITE_API_KEY: ${VITE_API_KEY:-mdcs_dev_key_1f4a}
+        VITE_APP_NAME: ${VITE_APP_NAME:-Integration Gateway}
+        VITE_APP_VERSION: ${VITE_APP_VERSION:-2.0.0}
+    image: integration-control-plane-frontend:local
     container_name: integration-control-plane-frontend
     restart: unless-stopped
     ports:
@@ -72,7 +76,7 @@ services:
     depends_on:
       - backend
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1/health"]
       interval: 30s
       timeout: 3s
       retries: 3

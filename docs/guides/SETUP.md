@@ -205,7 +205,7 @@ VITE_APP_VERSION=2.0.0
 npm run dev
 ```
 
-Frontend runs on `http://localhost:5173`
+Frontend runs on `http://localhost:5175`
 
 **Production build:**
 ```bash
@@ -366,7 +366,7 @@ Full `config.json` reference:
 
     // CORS allowed origins
     "cors": {
-      "origin": ["http://localhost:5173", "https://yourdomain.com"],
+      "origin": ["http://localhost:5175", "https://yourdomain.com"],
       "credentials": true
     }
   },

@@ -28,6 +28,7 @@ const rolesRouter = require('./routes/roles');
 const auditRouter = require('./routes/audit');
 const outboundIntegrationsRouter = require('./routes/outbound-integrations');
 const inboundIntegrationsRouter = require('./routes/integrations');
+const inboundRuntimePublicRouter = require('./routes/inbound-runtime-public');
 const logsRouter = require('./routes/logs');
 const systemLogsRouter = require('./routes/system-logs');
 const clientErrorsRouter = require('./routes/client-errors');
@@ -110,6 +111,9 @@ async function bootstrap() {
   app.use(requestIdMiddleware); // Add request ID first for tracking
   app.use(requestLogger);
   app.use(rateLimit); // Rate limiting before auth
+
+  // Public inbound runtime endpoint. Uses per-integration inbound auth inside the runtime handler.
+  app.use(`${config.api.basePrefix}/public/integrations`, inboundRuntimePublicRouter);
 
   // Auth routes (no API key required)
   app.use(`${config.api.basePrefix}/auth`, authRouter);

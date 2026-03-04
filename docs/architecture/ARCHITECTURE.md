@@ -19,7 +19,7 @@ Complete system design and technical architecture for Integration Gateway.
 
 ## System Overview
 
-Integration Gateway is a bi-directional integration platform that connects healthcare systems with external services through event-driven webhooks (outbound) and real-time API proxying (inbound).
+Integration Gateway is a bi-directional integration platform for multi-tenant SaaS products (healthcare and non-healthcare) that connects internal systems with external services through event-driven webhooks (outbound) and real-time API proxying (inbound).
 
 ### Design Principles
 
@@ -45,7 +45,7 @@ Integration Gateway is a bi-directional integration platform that connects healt
 │  ┌────────────────────────────────────────────────────────────┐ │
 │  │  Middleware Stack                                          │ │
 │  │  • Authentication (API Key + JWT)                          │ │
-│  │  • Rate Limiting (Global + Per-Org + Per-Integration)     │ │
+│  │  • Rate Limiting (Global + Per-Integration for inbound)    │ │
 │  │  • Organization Context                                    │ │
 │  │  • Request Logging & Correlation                           │ │
 │  │  • Error Handling                                          │ │
@@ -88,7 +88,7 @@ Integration Gateway is a bi-directional integration platform that connects healt
 │                                                                   │
 │  ┌────────────────────────────────────────────────────────────┐ │
 │  │  Data Access Layer                                         │ │
-│  │  • MongoDB Abstraction (28+ collections)                   │ │
+│  │  • MongoDB Abstraction (20+ collections)                   │ │
 │  │  • MySQL Pool Management (read-only event source)          │ │
 │  │  • Connection Resilience (auto-reconnect, pool recreation) │ │
 │  │  • Query Optimization                                      │ │
@@ -137,17 +137,15 @@ Integration Gateway is a bi-directional integration platform that connects healt
 
 **Technology**: Express.js 4.21 + Node.js 18+
 
-**Middleware Stack** (order matters):
+**Middleware Stack** (high-level):
 ```javascript
-1. Request ID Generator (correlation tracking)
-2. CORS Handler (origin validation)
-3. Body Parser (JSON, 10MB limit)
-4. Authentication (API Key or JWT Bearer)
-5. Rate Limiter (global, per-org, per-integration)
-6. Organization Context (orgId extraction and validation)
-7. Request Logger (structured logging)
-8. Route Handlers
-9. Error Handler (centralized error response)
+1. CORS Handler
+2. JSON Body Parser
+3. Request ID Generator
+4. Request Logger
+5. Global Rate Limiter
+6. Route Handlers (public inbound + authenticated admin/runtime routes)
+7. Error Handler
 ```
 
 **API Routes** (`/api/v1`):
@@ -155,7 +153,8 @@ Integration Gateway is a bi-directional integration platform that connects healt
 - `/outbound-integrations` - Outbound webhook CRUD
 - `/inbound-integrations` - Inbound proxy CRUD
 - `/scheduled-jobs` - Scheduled batch jobs CRUD, execution, logs, test datasource
-- `/integrations/:type` - Runtime proxy execution (POST only)
+- `/integrations/:type` - Runtime proxy execution (method must match configured integration method)
+- `/public/integrations/:type` - Public runtime endpoint with per-integration inbound auth
 - `/logs` - Delivery logs (list, detail, export)
 - `/execution-logs` - Step-by-step execution traces
 - `/dlq` - Dead letter queue management
@@ -188,7 +187,7 @@ Integration Gateway is a bi-directional integration platform that connects healt
 
 **Authentication Builder** (`auth/`)
 - Generates authentication headers for outbound requests
-- Supported types: NONE, API_KEY, BEARER, BASIC, OAUTH2, CUSTOM_HEADERS
+- Supported types: NONE, API_KEY, BEARER, BASIC, OAUTH1, OAUTH2, CUSTOM, CUSTOM_HEADERS
 - OAuth2 client credentials flow with token caching
 - HMAC-SHA256 webhook signing
 
@@ -746,11 +745,11 @@ The system supports three distinct integration patterns:
 
 ### INBOUND (Real-Time API Proxy)
 
-**Purpose**: Proxy real-time API calls from client to external APIs
+**Purpose**: Proxy real-time API calls from clients/vendors to external APIs
 
 **Characteristics**:
 - **Sync**: Request/response pattern
-- **Triggered by**: Client HTTP request to `/api/v1/integrations/:type`
+- **Triggered by**: HTTP request to `/api/v1/integrations/:type` or `/api/v1/public/integrations/:type`
 - **Delivery**: Synchronous proxy
 - **Timeout**: 30 seconds default
 
@@ -795,7 +794,7 @@ The system supports three distinct integration patterns:
 **Error Handling**:
 - Retry on 5xx errors (max 3 attempts)
 - Exponential backoff
-- DLQ creation on final failure
+- No DLQ creation for inbound runtime failures (response returned directly to caller)
 - Return 502/504 to client
 
 ---
@@ -1191,29 +1190,28 @@ Schedule next execution (for CRON)
 **API Key Authentication**:
 - Simple key-based auth for external clients
 - Header: `X-API-Key: your-api-key`
-- Configured in `backend/config.json`
+- Configured via `API_KEY` environment variable (or config file override)
 - No expiration
 - Use for service-to-service communication
 
 **JWT Authentication**:
 - Token-based auth for web UI users
 - Header: `Authorization: Bearer <jwt-token>`
-- Expiration: 7 days (configurable)
-- Refresh on activity
+- Expiration: 12 hours by default (configurable)
 - Signed with `jwtSecret` from config
 
 **Organization Context**:
-- All requests require `orgId` query parameter
-- Validates user has access to orgId
-- Filters all queries by orgId
+- Org-scoped routes require organization context (`orgId` from JWT and/or query)
+- Validates user has access to requested org context
+- Filters org-scoped queries by orgId
 - Prevents cross-organization data access
 
 ### Authorization
 
 **Role-Based Access Control (RBAC)**:
-- **ADMIN**: Full access to all orgs and admin features
-- **USER**: Access to assigned orgId only
-- **API_KEY**: Limited to API operations
+- Built-in roles include:
+  - `SUPER_ADMIN`, `ADMIN`, `ORG_ADMIN`
+  - `INTEGRATION_EDITOR`, `VIEWER`, `ORG_USER`, `API_KEY`
 
 **Middleware Enforcement**:
 ```javascript
@@ -1225,20 +1223,15 @@ router.get('/integrations', requireAuth(), checkOrgAccess());
 ### Rate Limiting
 
 **Global Rate Limit**:
-- 1000 requests per minute per IP
+- 100 requests per minute per IP by default (configurable)
 - Applied before authentication
 - Prevents brute force attacks
 
-**Per-Organization Rate Limit**:
-- 100 requests per minute per orgId
-- Applied after authentication
-- Prevents abuse by a single organization
-
 **Per-Integration Rate Limit**:
-- Configurable per integration
+- Configurable per inbound integration
 - Sliding window implementation
 - Returns 429 with Retry-After header
-- Auto-creates DLQ entry for rate-limited requests
+- Captures rate-limit failures in execution logs
 
 ### Network Security
 

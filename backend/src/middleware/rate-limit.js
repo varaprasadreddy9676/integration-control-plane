@@ -20,13 +20,22 @@ function maskHeaders(headers = {}) {
 
 function extractInboundContext(req) {
   const basePrefix = config.api?.basePrefix || '/api/v1';
-  const inboundPrefix = `${basePrefix}/integrations/`;
   const path = req.path || '';
-  if (!path.startsWith(inboundPrefix)) {
+
+  const inboundPrefixes = [`${basePrefix}/integrations/`, `${basePrefix}/public/integrations/`];
+  let matchedPrefix = null;
+  for (const prefix of inboundPrefixes) {
+    if (path.startsWith(prefix)) {
+      matchedPrefix = prefix;
+      break;
+    }
+  }
+
+  if (!matchedPrefix) {
     return null;
   }
 
-  const type = decodeURIComponent(path.slice(inboundPrefix.length)).trim();
+  const type = decodeURIComponent(path.slice(matchedPrefix.length)).trim();
   if (!type) return null;
 
   const orgIdRaw = req.query?.orgId;

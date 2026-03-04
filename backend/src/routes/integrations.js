@@ -8,9 +8,11 @@
 const express = require('express');
 const router = express.Router();
 const axios = require('axios');
+const multer = require('multer');
 const mongodb = require('../mongodb');
 const data = require('../data');
-const { buildAuthHeaders } = require('../processor/auth-helper');
+const runtimeConfig = require('../config');
+const { buildAuthHeaders, clearCachedToken } = require('../processor/auth-helper');
 const { applyTransform, applyResponseTransform } = require('../services/transformer');
 const { maskSensitiveData } = require('../utils/mask');
 const { log } = require('../logger');
@@ -86,6 +88,63 @@ const isRetryableError = (error) => {
   return code === 'ECONNABORTED' || code === 'ETIMEDOUT' || code === 'ENOTFOUND' || code === 'ECONNREFUSED';
 };
 
+const DEFAULT_INBOUND_FILE_SIZE_MB = 50;
+const MAX_INBOUND_FILE_SIZE_MB = 100;
+const DEFAULT_INBOUND_FILE_SIZE_BYTES = DEFAULT_INBOUND_FILE_SIZE_MB * 1024 * 1024;
+const MAX_INBOUND_FILE_SIZE_BYTES = MAX_INBOUND_FILE_SIZE_MB * 1024 * 1024;
+const createInboundMultipartUpload = (fileSizeBytes) =>
+  multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: fileSizeBytes, files: 1 },
+  }).single('file');
+
+const INBOUND_BODY_METHODS = new Set(['POST', 'PUT', 'PATCH']);
+const TOKEN_AUTH_TYPES = new Set(['OAUTH2', 'CUSTOM']);
+
+const createNoopExecutionLogger = () => ({
+  start: async () => {},
+  addStep: async () => {},
+  updateStatus: async () => {},
+  fail: async () => {},
+  success: async () => {},
+});
+
+const isInboundMinimalLoggingEnabled = () => runtimeConfig.logging?.inboundMinimalMode === true;
+
+const resolveHttpMethod = (config) => String(config?.httpMethod || 'POST').toUpperCase();
+
+const resolveTimeoutMs = (config) => {
+  const raw = Number(config?.timeoutMs ?? config?.timeout);
+  if (Number.isFinite(raw) && raw > 0) return raw;
+  return 30000;
+};
+
+const resolveContentType = (config) => {
+  const raw = config?.contentType;
+  if (!raw || typeof raw !== 'string') return 'application/json';
+  return raw;
+};
+
+const normalizeInboundFileSizeMb = (value, fallback = DEFAULT_INBOUND_FILE_SIZE_MB) => {
+  const raw = Number(value);
+  if (!Number.isFinite(raw) || raw <= 0) return fallback;
+  return Math.min(MAX_INBOUND_FILE_SIZE_MB, Math.max(1, Math.floor(raw)));
+};
+
+const resolveInboundMaxFileSizeMb = (config) =>
+  normalizeInboundFileSizeMb(config?.maxInboundFileSizeMb, DEFAULT_INBOUND_FILE_SIZE_MB);
+
+const resolveInboundMaxFileSizeBytes = (config) => resolveInboundMaxFileSizeMb(config) * 1024 * 1024;
+
+const isMultipartContentType = (contentType) => String(contentType || '').toLowerCase().includes('multipart/form-data');
+
+const isPdfUpload = (file) => {
+  if (!file) return false;
+  const mime = String(file.mimetype || '').toLowerCase();
+  const name = String(file.originalname || '').toLowerCase();
+  return mime === 'application/pdf' || name.endsWith('.pdf');
+};
+
 const mapIntegrationConfig = (integration) => {
   if (!integration) return integration;
   const mapped = { ...integration };
@@ -126,6 +185,16 @@ function validateCommunicationAction(action) {
 function validateInboundPayload(payload) {
   if (!payload?.name || !payload?.type) {
     return 'Missing required fields: name, type';
+  }
+
+  if (payload.maxInboundFileSizeMb !== undefined) {
+    const maxInboundFileSizeMb = Number(payload.maxInboundFileSizeMb);
+    if (!Number.isFinite(maxInboundFileSizeMb)) {
+      return 'maxInboundFileSizeMb must be a number when provided';
+    }
+    if (maxInboundFileSizeMb < 1 || maxInboundFileSizeMb > MAX_INBOUND_FILE_SIZE_MB) {
+      return `maxInboundFileSizeMb must be between 1 and ${MAX_INBOUND_FILE_SIZE_MB}`;
+    }
   }
 
   if (payload.rateLimits !== undefined && payload.rateLimits !== null) {
@@ -185,6 +254,79 @@ function resolveTargetUrlTemplate(template, context = {}) {
     if (!expr) return '';
     const value = getByPath(context, expr);
     return value === undefined || value === null ? '' : String(value);
+  });
+}
+
+async function parseInboundRuntimeRequest(req, res, next) {
+  const method = String(req.method || '').toUpperCase();
+  if (!INBOUND_BODY_METHODS.has(method)) {
+    return next();
+  }
+
+  const isMultipart = req.is('multipart/form-data');
+  if (!isMultipart) {
+    return next();
+  }
+
+  let inboundFileSizeBytes = DEFAULT_INBOUND_FILE_SIZE_BYTES;
+  const resolvedOrgId = Number(req.query?.orgId || req.orgId);
+  if (Number.isFinite(resolvedOrgId) && resolvedOrgId > 0 && req.params?.type) {
+    try {
+      const db = await mongodb.getDbSafe();
+      const inboundConfig = await db.collection('integration_configs').findOne(
+        Object.assign(
+          {
+            type: req.params.type,
+            direction: 'INBOUND',
+            isActive: true,
+          },
+          buildOrgScopeQuery(resolvedOrgId)
+        ),
+        {
+          projection: {
+            maxInboundFileSizeMb: 1,
+          },
+        }
+      );
+      inboundFileSizeBytes = resolveInboundMaxFileSizeBytes(inboundConfig);
+    } catch (error) {
+      log('warn', 'Failed to resolve per-integration inbound file size, using default limit', {
+        type: req.params.type,
+        orgId: resolvedOrgId,
+        error: error.message,
+      });
+    }
+  }
+
+  const effectiveFileSizeBytes = Math.min(inboundFileSizeBytes, MAX_INBOUND_FILE_SIZE_BYTES);
+  const upload = createInboundMultipartUpload(effectiveFileSizeBytes);
+
+  return upload(req, res, (err) => {
+    if (err) {
+      const isTooLarge = err.code === 'LIMIT_FILE_SIZE';
+      const effectiveFileSizeMb = Math.floor(effectiveFileSizeBytes / (1024 * 1024));
+      return res.status(isTooLarge ? 413 : 400).json({
+        error: isTooLarge ? 'FILE_TOO_LARGE' : 'INVALID_MULTIPART_REQUEST',
+        message: isTooLarge
+          ? `File exceeds maximum size of ${effectiveFileSizeMb}MB`
+          : err.message || 'Invalid multipart form-data payload',
+      });
+    }
+
+    if (req.file) {
+      req.inboundFile = {
+        fieldName: req.file.fieldname,
+        originalName: req.file.originalname,
+        mimeType: req.file.mimetype,
+        sizeBytes: req.file.size,
+        buffer: req.file.buffer,
+        base64: req.file.buffer ? req.file.buffer.toString('base64') : '',
+      };
+    } else {
+      req.inboundFile = null;
+    }
+
+    return next();
   });
 }
 
@@ -263,6 +405,7 @@ router.post('/', async (req, res) => {
       timeout = 10000,
       retryCount = 3,
       contentType = 'application/json',
+      maxInboundFileSizeMb = DEFAULT_INBOUND_FILE_SIZE_MB,
       isActive = true,
       actions = null, // NEW: Support actions array for COMMUNICATION integrations
     } = req.body;
@@ -306,8 +449,10 @@ router.post('/', async (req, res) => {
       streamResponse: !!streamResponse,
       rateLimits: normalizeRateLimits(rateLimits),
       timeout,
+      timeoutMs: timeout,
       retryCount,
       contentType,
+      maxInboundFileSizeMb: normalizeInboundFileSizeMb(maxInboundFileSizeMb),
       isActive,
       actions: actions || null, // NEW: Support actions array
       createdAt: new Date(),
@@ -355,6 +500,15 @@ router.put('/:id([0-9a-fA-F]{24})', async (req, res) => {
     delete updateData._id; // Remove _id if present
     if (Object.prototype.hasOwnProperty.call(updateData, 'rateLimits')) {
       updateData.rateLimits = normalizeRateLimits(updateData.rateLimits);
+    }
+    if (Object.prototype.hasOwnProperty.call(updateData, 'timeout')) {
+      updateData.timeoutMs = updateData.timeout;
+    }
+    if (Object.prototype.hasOwnProperty.call(updateData, 'timeoutMs') && !Object.prototype.hasOwnProperty.call(updateData, 'timeout')) {
+      updateData.timeout = updateData.timeoutMs;
+    }
+    if (Object.prototype.hasOwnProperty.call(updateData, 'maxInboundFileSizeMb')) {
+      updateData.maxInboundFileSizeMb = normalizeInboundFileSizeMb(updateData.maxInboundFileSizeMb);
     }
     updateData.updatedAt = new Date();
 
@@ -676,10 +830,12 @@ router.post('/:id([0-9a-fA-F]{24})/refresh-token', async (req, res) => {
 const handleInboundRuntime = async (req, res) => {
   const { type } = req.params;
   const { orgId, ...queryParams } = req.query;
-  const requestBody = req.body || {};
+  let requestBody = req.body || {};
   const correlationId = req.id; // From request-id middleware
   const resolvedOrgId = Number(orgId || req.orgId);
-  let executionLogger = null;
+  const minimalLoggingEnabled = isInboundMinimalLoggingEnabled();
+  let executionLogger = createNoopExecutionLogger();
+  let persistIntegrationLogFn = async () => {};
 
   log('info', 'Inbound integration request received', {
     type,
@@ -727,25 +883,98 @@ const handleInboundRuntime = async (req, res) => {
       targetUrl: config.targetUrl,
     });
 
-    executionLogger = createExecutionLogger({
-      traceId: correlationId,
-      direction: 'INBOUND',
-      triggerType: 'MANUAL',
-      integrationConfigId: config._id,
-      integrationName: config.name,
-      orgId: resolvedOrgId,
-      messageId: correlationId || null,
-      request: {
-        url: req.originalUrl,
-        method: req.method,
-        headers: req.headers || {},
-        body: requestBody || {},
-      },
-    });
+    const configuredMethod = resolveHttpMethod(config);
+    const inboundMethod = String(req.method || '').toUpperCase();
+    if (inboundMethod !== configuredMethod) {
+      res.set('Allow', configuredMethod);
+      return res.status(405).json({
+        error: 'METHOD_NOT_ALLOWED',
+        message: `Integration '${type}' only accepts ${configuredMethod}`,
+        expectedMethod: configuredMethod,
+      });
+    }
 
-    await executionLogger.start().catch((err) => {
-      log('warn', 'Failed to start execution logger', { error: err.message, correlationId });
-    });
+    const expectedContentType = resolveContentType(config);
+    const expectsMultipart = isMultipartContentType(expectedContentType);
+    const isMultipartRequest = req.is('multipart/form-data');
+    const maxInboundFileSizeBytes = resolveInboundMaxFileSizeBytes(config);
+    const maxInboundFileSizeMb = resolveInboundMaxFileSizeMb(config);
+
+    if (expectsMultipart && !isMultipartRequest && INBOUND_BODY_METHODS.has(inboundMethod)) {
+      return res.status(415).json({
+        error: 'UNSUPPORTED_MEDIA_TYPE',
+        message: `Integration '${type}' expects multipart/form-data`,
+      });
+    }
+
+    if (!expectsMultipart && isMultipartRequest) {
+      return res.status(415).json({
+        error: 'UNSUPPORTED_MEDIA_TYPE',
+        message: `Integration '${type}' expects ${expectedContentType}`,
+      });
+    }
+
+    if (expectsMultipart && INBOUND_BODY_METHODS.has(inboundMethod)) {
+      if (!req.inboundFile) {
+        return res.status(400).json({
+          error: 'FILE_REQUIRED',
+          message: 'Multipart integration requires a file field named "file"',
+        });
+      }
+      if (!isPdfUpload(req.inboundFile)) {
+        return res.status(400).json({
+          error: 'INVALID_FILE_TYPE',
+          message: 'Only PDF files are supported for this integration',
+        });
+      }
+      if (req.inboundFile.sizeBytes > maxInboundFileSizeBytes) {
+        return res.status(413).json({
+          error: 'FILE_TOO_LARGE',
+          message: `File exceeds maximum size of ${maxInboundFileSizeMb}MB`,
+        });
+      }
+
+      requestBody = {
+        ...(requestBody && typeof requestBody === 'object' ? requestBody : {}),
+        file: {
+          fieldName: req.inboundFile.fieldName,
+          originalName: req.inboundFile.originalName,
+          mimeType: req.inboundFile.mimeType,
+          sizeBytes: req.inboundFile.sizeBytes,
+        },
+      };
+    }
+
+    if (!minimalLoggingEnabled) {
+      executionLogger = createExecutionLogger({
+        traceId: correlationId,
+        direction: 'INBOUND',
+        triggerType: 'MANUAL',
+        integrationConfigId: config._id,
+        integrationName: config.name,
+        orgId: resolvedOrgId,
+        messageId: correlationId || null,
+        request: {
+          url: req.originalUrl,
+          method: req.method,
+          headers: req.headers || {},
+          body: requestBody || {},
+        },
+      });
+
+      persistIntegrationLogFn = async (...args) => logIntegration(...args);
+
+      await executionLogger.start().catch((err) => {
+        log('warn', 'Failed to start execution logger', { error: err.message, correlationId });
+      });
+    } else {
+      log('debug', 'Inbound minimal logging enabled', {
+        correlationId,
+        type,
+        orgId: resolvedOrgId,
+        integrationId: config._id?.toString(),
+      });
+    }
 
     // 2. Validate inbound authentication (if configured)
     if (config.inboundAuthType && config.inboundAuthType !== 'NONE') {
@@ -759,7 +988,7 @@ const handleInboundRuntime = async (req, res) => {
           })
           .catch(() => {});
 
-        await logIntegration(config, 'FAILED', {
+        await persistIntegrationLogFn(config, 'FAILED', {
           request: { body: requestBody, query: queryParams, headers: maskSensitiveData(req.headers) },
           response: { status: 401 },
           error: {
@@ -839,7 +1068,7 @@ const handleInboundRuntime = async (req, res) => {
             res.set('Retry-After', rateResult.retryAfter);
           }
 
-          await logIntegration(config, 'FAILED', {
+          await persistIntegrationLogFn(config, 'FAILED', {
             request: { body: requestBody, query: queryParams, headers: maskSensitiveData(req.headers) },
             response: { status: 429 },
             error: {
@@ -906,6 +1135,15 @@ const handleInboundRuntime = async (req, res) => {
             body: requestBody,
             query: queryParams,
             headers: req.headers,
+            file: req.inboundFile
+              ? {
+                  fieldName: req.inboundFile.fieldName,
+                  originalName: req.inboundFile.originalName,
+                  mimeType: req.inboundFile.mimeType,
+                  sizeBytes: req.inboundFile.sizeBytes,
+                  base64: req.inboundFile.base64,
+                }
+              : null,
           };
 
           transformedRequest = await applyTransform(
@@ -1029,6 +1267,15 @@ const handleInboundRuntime = async (req, res) => {
       body: requestBody,
       query: queryParams,
       headers: req.headers,
+      file: req.inboundFile
+        ? {
+            fieldName: req.inboundFile.fieldName,
+            originalName: req.inboundFile.originalName,
+            mimeType: req.inboundFile.mimeType,
+            sizeBytes: req.inboundFile.sizeBytes,
+            base64: req.inboundFile.base64,
+          }
+        : null,
     };
     const resolvedTargetUrl = resolveTargetUrlTemplate(config.targetUrl, {
       ...requestContext,
@@ -1046,6 +1293,10 @@ const handleInboundRuntime = async (req, res) => {
     // Declared before transform/auth error paths so logging can safely reference them.
     let authHeaders;
     let outboundHeaders;
+    const configuredHttpMethod = resolveHttpMethod(config);
+    const resolvedTimeoutMs = resolveTimeoutMs(config);
+    const resolvedContentType = resolveContentType(config);
+    const usesTokenAuth = TOKEN_AUTH_TYPES.has(String(config.outgoingAuthType || '').toUpperCase());
 
     const basePayload = req.method === 'GET' ? queryParams : requestBody;
     let transformedRequest = basePayload;
@@ -1089,7 +1340,7 @@ const handleInboundRuntime = async (req, res) => {
         })
         .catch(() => {});
 
-      await logIntegration(config, 'FAILED', {
+      await persistIntegrationLogFn(config, 'FAILED', {
         request: {
           body: requestBody,
           query: queryParams,
@@ -1125,11 +1376,11 @@ const handleInboundRuntime = async (req, res) => {
 
     // 4. Build auth headers for external API
     try {
-      authHeaders = await buildAuthHeaders(config, config.httpMethod || 'POST', resolvedTargetUrl);
-      outboundHeaders = {
-        ...authHeaders,
-        'Content-Type': 'application/json',
-      };
+      authHeaders = await buildAuthHeaders(config, configuredHttpMethod, resolvedTargetUrl);
+      outboundHeaders = { ...authHeaders };
+      if (configuredHttpMethod !== 'GET' && resolvedContentType) {
+        outboundHeaders['Content-Type'] = resolvedContentType;
+      }
 
       log('debug', 'Auth headers built', {
         correlationId,
@@ -1137,10 +1388,10 @@ const handleInboundRuntime = async (req, res) => {
       });
 
       await executionLogger
-        .addStep('outbound_auth', {
+        .addStep(usesTokenAuth ? 'token_request' : 'outbound_auth', {
           status: 'success',
           durationMs: 0,
-          metadata: { authType: config.outgoingAuthType },
+          metadata: { authType: config.outgoingAuthType, tokenAuth: usesTokenAuth },
         })
         .catch(() => {});
     } catch (error) {
@@ -1150,14 +1401,15 @@ const handleInboundRuntime = async (req, res) => {
       });
 
       await executionLogger
-        .addStep('outbound_auth', {
+        .addStep(usesTokenAuth ? 'token_request' : 'outbound_auth', {
           status: 'failed',
           durationMs: 0,
+          metadata: { authType: config.outgoingAuthType, tokenAuth: usesTokenAuth },
           error: { message: error.message },
         })
         .catch(() => {});
 
-      await logIntegration(config, 'FAILED', {
+      await persistIntegrationLogFn(config, 'FAILED', {
         request: {
           body: requestBody,
           query: queryParams,
@@ -1210,7 +1462,7 @@ const handleInboundRuntime = async (req, res) => {
       try {
         log('info', 'Starting streaming response', {
           correlationId,
-          method: config.httpMethod || 'POST',
+          method: configuredHttpMethod,
           url: resolvedTargetUrl,
         });
 
@@ -1218,12 +1470,12 @@ const handleInboundRuntime = async (req, res) => {
 
         // Make streaming request
         const streamResponse = await axios({
-          method: config.httpMethod || 'POST',
+          method: configuredHttpMethod,
           url: resolvedTargetUrl,
-          headers: { ...authHeaders, 'Content-Type': 'application/json' },
-          params: config.httpMethod === 'GET' ? transformedRequest : undefined,
-          data: config.httpMethod !== 'GET' ? transformedRequest : undefined,
-          timeout: config.timeoutMs || 30000,
+          headers: outboundHeaders,
+          params: configuredHttpMethod === 'GET' ? transformedRequest : undefined,
+          data: configuredHttpMethod !== 'GET' ? transformedRequest : undefined,
+          timeout: resolvedTimeoutMs,
           responseType: 'stream', // Enable streaming
           validateStatus: null,
         });
@@ -1234,12 +1486,12 @@ const handleInboundRuntime = async (req, res) => {
           .addStep('http_request', {
             status: streamResponse.status < 400 ? 'success' : 'failed',
             durationMs: httpDuration,
-            metadata: {
-              statusCode: streamResponse.status,
-              method: config.httpMethod || 'POST',
-              url: resolvedTargetUrl,
-              streaming: true,
-            },
+              metadata: {
+                statusCode: streamResponse.status,
+                method: configuredHttpMethod,
+                url: resolvedTargetUrl,
+                streaming: true,
+              },
           })
           .catch(() => {});
 
@@ -1248,7 +1500,7 @@ const handleInboundRuntime = async (req, res) => {
           // For errors, we need to read the stream body for logging
           const errorBody = await readStreamBody(streamResponse.data, 5000);
 
-          await logIntegration(config, 'FAILED', {
+          await persistIntegrationLogFn(config, 'FAILED', {
             request: {
               body: requestBody,
               query: queryParams,
@@ -1257,7 +1509,7 @@ const handleInboundRuntime = async (req, res) => {
             },
             upstream: {
               url: resolvedTargetUrl,
-              method: config.httpMethod || 'POST',
+              method: configuredHttpMethod,
               status: streamResponse.status,
               responseTime: httpDuration,
               response: errorBody,
@@ -1316,7 +1568,7 @@ const handleInboundRuntime = async (req, res) => {
             })
             .catch(() => {});
 
-          await logIntegration(config, 'SUCCESS', {
+          await persistIntegrationLogFn(config, 'SUCCESS', {
             request: {
               body: maskSensitiveData(requestBody),
               query: queryParams,
@@ -1325,7 +1577,7 @@ const handleInboundRuntime = async (req, res) => {
             },
             upstream: {
               url: resolvedTargetUrl,
-              method: config.httpMethod || 'POST',
+              method: configuredHttpMethod,
               status: streamResponse.status,
               responseTime,
               response: '[STREAMED - not logged]',
@@ -1363,7 +1615,7 @@ const handleInboundRuntime = async (req, res) => {
             })
             .catch(() => {});
 
-          await logIntegration(config, 'FAILED', {
+          await persistIntegrationLogFn(config, 'FAILED', {
             request: {
               body: requestBody,
               query: queryParams,
@@ -1372,7 +1624,7 @@ const handleInboundRuntime = async (req, res) => {
             },
             upstream: {
               url: resolvedTargetUrl,
-              method: config.httpMethod || 'POST',
+              method: configuredHttpMethod,
               status: streamResponse.status,
               responseTime: Date.now() - startTime,
             },
@@ -1416,7 +1668,7 @@ const handleInboundRuntime = async (req, res) => {
           })
           .catch(() => {});
 
-        await logIntegration(config, 'FAILED', {
+        await persistIntegrationLogFn(config, 'FAILED', {
           request: {
             body: requestBody,
             query: queryParams,
@@ -1448,26 +1700,30 @@ const handleInboundRuntime = async (req, res) => {
 
     // === BUFFERED PATH: Original behavior with transformations ===
     try {
-      for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      const standardMaxAttempts = maxAttempts;
+      let authRefreshRetryRemaining = usesTokenAuth ? 1 : 0;
+      let maxLoopAttempts = standardMaxAttempts + authRefreshRetryRemaining;
+
+      for (let attempt = 1; attempt <= maxLoopAttempts; attempt += 1) {
         const httpStart = Date.now();
         attemptsUsed = attempt;
         try {
           log('debug', 'Calling external API', {
             correlationId,
-            method: config.httpMethod || 'POST',
+            method: configuredHttpMethod,
             url: resolvedTargetUrl,
-            timeout: config.timeoutMs || 30000,
+            timeout: resolvedTimeoutMs,
             attempt,
             maxAttempts,
           });
 
           upstreamResponse = await axios({
-            method: config.httpMethod || 'POST',
+            method: configuredHttpMethod,
             url: resolvedTargetUrl,
-            headers: { ...authHeaders, 'Content-Type': 'application/json' },
-            params: config.httpMethod === 'GET' ? transformedRequest : undefined,
-            data: config.httpMethod !== 'GET' ? transformedRequest : undefined,
-            timeout: config.timeoutMs || 30000,
+            headers: outboundHeaders,
+            params: configuredHttpMethod === 'GET' ? transformedRequest : undefined,
+            data: configuredHttpMethod !== 'GET' ? transformedRequest : undefined,
+            timeout: resolvedTimeoutMs,
             validateStatus: null, // Don't throw on non-2xx status
           });
 
@@ -1488,7 +1744,7 @@ const handleInboundRuntime = async (req, res) => {
               durationMs: httpDuration,
               metadata: {
                 statusCode: upstreamResponse.status,
-                method: config.httpMethod || 'POST',
+                method: configuredHttpMethod,
                 url: resolvedTargetUrl,
                 attempt,
                 maxAttempts,
@@ -1497,7 +1753,53 @@ const handleInboundRuntime = async (req, res) => {
             })
             .catch(() => {});
 
-          if (upstreamResponse.status >= 400 && isRetryableStatus(upstreamResponse.status) && attempt < maxAttempts) {
+          if (upstreamResponse.status === 401 && usesTokenAuth && authRefreshRetryRemaining > 0) {
+            authRefreshRetryRemaining -= 1;
+            maxLoopAttempts = standardMaxAttempts + authRefreshRetryRemaining;
+
+            await executionLogger
+              .addStep('token_refresh', {
+                status: 'success',
+                durationMs: 0,
+                metadata: {
+                  reason: 'upstream_401',
+                  attempt,
+                },
+              })
+              .catch(() => {});
+
+            if (config._id) {
+              await clearCachedToken(config._id).catch((err) => {
+                log('warn', 'Failed to clear cached token for inbound 401 retry', {
+                  correlationId,
+                  configId: config._id.toString(),
+                  error: err.message,
+                });
+              });
+            }
+
+            authHeaders = await buildAuthHeaders(config, configuredHttpMethod, resolvedTargetUrl);
+            outboundHeaders = { ...authHeaders };
+            if (configuredHttpMethod !== 'GET' && resolvedContentType) {
+              outboundHeaders['Content-Type'] = resolvedContentType;
+            }
+
+            await executionLogger
+              .addStep('token_request', {
+                status: 'success',
+                durationMs: 0,
+                metadata: { authType: config.outgoingAuthType, refreshedAfter401: true },
+              })
+              .catch(() => {});
+
+            continue;
+          }
+
+          if (
+            upstreamResponse.status >= 400 &&
+            isRetryableStatus(upstreamResponse.status) &&
+            attempt < standardMaxAttempts
+          ) {
             const delayMs = computeRetryDelayMs(attempt);
             log('warn', 'Retrying inbound integration call', {
               correlationId,
@@ -1519,7 +1821,7 @@ const handleInboundRuntime = async (req, res) => {
               status: 'failed',
               durationMs: Date.now() - httpStart,
               metadata: {
-                method: config.httpMethod || 'POST',
+                method: configuredHttpMethod,
                 url: resolvedTargetUrl,
                 attempt,
                 maxAttempts,
@@ -1528,7 +1830,7 @@ const handleInboundRuntime = async (req, res) => {
             })
             .catch(() => {});
 
-          if (isRetryableError(error) && attempt < maxAttempts) {
+          if (isRetryableError(error) && attempt < standardMaxAttempts) {
             const delayMs = computeRetryDelayMs(attempt);
             log('warn', 'Retrying inbound integration call after error', {
               correlationId,
@@ -1565,7 +1867,7 @@ const handleInboundRuntime = async (req, res) => {
         };
 
         // Log failure
-        await logIntegration(config, 'FAILED', {
+        await persistIntegrationLogFn(config, 'FAILED', {
           request: {
             body: requestBody,
             query: queryParams,
@@ -1574,7 +1876,7 @@ const handleInboundRuntime = async (req, res) => {
           },
           upstream: {
             url: resolvedTargetUrl,
-            method: config.httpMethod || 'POST',
+            method: configuredHttpMethod,
             status: upstreamResponse.status,
             responseTime,
             response: maskSensitiveData(upstreamResponse.data),
@@ -1644,7 +1946,7 @@ const handleInboundRuntime = async (req, res) => {
           .catch(() => {});
 
         // Log failure
-        await logIntegration(config, 'FAILED', {
+        await persistIntegrationLogFn(config, 'FAILED', {
           request: {
             body: requestBody,
             query: queryParams,
@@ -1653,7 +1955,7 @@ const handleInboundRuntime = async (req, res) => {
           },
           upstream: {
             url: resolvedTargetUrl,
-            method: config.httpMethod || 'POST',
+            method: configuredHttpMethod,
             status: upstreamResponse.status,
             responseTime,
             response: maskSensitiveData(upstreamResponse.data),
@@ -1689,7 +1991,7 @@ const handleInboundRuntime = async (req, res) => {
       }
 
       // 8. Log success
-      await logIntegration(config, 'SUCCESS', {
+      await persistIntegrationLogFn(config, 'SUCCESS', {
         request: {
           body: maskSensitiveData(requestBody),
           query: queryParams,
@@ -1698,7 +2000,7 @@ const handleInboundRuntime = async (req, res) => {
         },
         upstream: {
           url: resolvedTargetUrl,
-          method: config.httpMethod || 'POST',
+          method: configuredHttpMethod,
           status: upstreamResponse.status,
           responseTime,
           response: maskSensitiveData(upstreamResponse.data),
@@ -1737,11 +2039,11 @@ const handleInboundRuntime = async (req, res) => {
       if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
         log('error', 'External API timeout', {
           correlationId,
-          timeout: config.timeoutMs || 30000,
+          timeout: resolvedTimeoutMs,
           responseTime,
         });
 
-        await logIntegration(config, 'TIMEOUT', {
+        await persistIntegrationLogFn(config, 'TIMEOUT', {
           request: {
             body: requestBody,
             query: queryParams,
@@ -1751,7 +2053,7 @@ const handleInboundRuntime = async (req, res) => {
           response: { status: 504 },
           upstream: {
             url: resolvedTargetUrl,
-            method: config.httpMethod || 'POST',
+            method: configuredHttpMethod,
             responseTime,
           },
           error: {
@@ -1774,7 +2076,7 @@ const handleInboundRuntime = async (req, res) => {
           error: 'UPSTREAM_TIMEOUT',
           message: 'External API did not respond in time',
           details: {
-            timeout: config.timeoutMs || 30000,
+            timeout: resolvedTimeoutMs,
           },
         });
       }
@@ -1787,7 +2089,7 @@ const handleInboundRuntime = async (req, res) => {
           code: error.code,
         });
 
-        await logIntegration(config, 'FAILED', {
+        await persistIntegrationLogFn(config, 'FAILED', {
           request: {
             body: requestBody,
             query: queryParams,
@@ -1797,7 +2099,7 @@ const handleInboundRuntime = async (req, res) => {
           response: { status: 502 },
           upstream: {
             url: resolvedTargetUrl,
-            method: config.httpMethod || 'POST',
+            method: configuredHttpMethod,
             responseTime,
           },
           error: {
@@ -1853,8 +2155,9 @@ const handleInboundRuntime = async (req, res) => {
   }
 };
 
-router.post('/:type', handleInboundRuntime);
-router.get('/:type', handleInboundRuntime);
+router.post('/:type', parseInboundRuntimeRequest, handleInboundRuntime);
+router.put('/:type', parseInboundRuntimeRequest, handleInboundRuntime);
+router.get('/:type', parseInboundRuntimeRequest, handleInboundRuntime);
 
 /**
  * Validate inbound authentication
@@ -1991,3 +2294,5 @@ async function logIntegration(config, status, details) {
 }
 
 module.exports = router;
+module.exports.handleInboundRuntime = handleInboundRuntime;
+module.exports.parseInboundRuntimeRequest = parseInboundRuntimeRequest;

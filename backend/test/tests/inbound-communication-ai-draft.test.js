@@ -134,4 +134,44 @@ describe('Inbound COMMUNICATION AI Draft compatibility', () => {
     expect(response.status).toBe(400);
     expect(response.body.error).toContain('targetUrl');
   });
+
+  it('persists maxInboundFileSizeMb when provided for multipart inbound integrations', async () => {
+    const response = await request(app)
+      .post('/?orgId=84')
+      .send({
+        direction: 'INBOUND',
+        name: 'Lab Attachment Inbound',
+        type: 'lab-attachment',
+        targetUrl: 'https://example.com/lab/upload',
+        httpMethod: 'POST',
+        contentType: 'multipart/form-data',
+        maxInboundFileSizeMb: 25,
+      });
+
+    expect(response.status).toBe(201);
+    expect(response.body.success).toBe(true);
+    expect(mockIntegrationCollection.insertOne).toHaveBeenCalledWith(
+      expect.objectContaining({
+        maxInboundFileSizeMb: 25,
+      })
+    );
+  });
+
+  it('rejects maxInboundFileSizeMb outside allowed range', async () => {
+    const response = await request(app)
+      .post('/?orgId=84')
+      .send({
+        direction: 'INBOUND',
+        name: 'Lab Attachment Too Large',
+        type: 'lab-attachment-too-large',
+        targetUrl: 'https://example.com/lab/upload',
+        httpMethod: 'POST',
+        contentType: 'multipart/form-data',
+        maxInboundFileSizeMb: 250,
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toContain('maxInboundFileSizeMb must be between 1 and 100');
+    expect(mockIntegrationCollection.insertOne).not.toHaveBeenCalled();
+  });
 });

@@ -77,6 +77,7 @@ function mapIntegrationFromMongo(doc) {
     inboundAuthConfig: doc.inboundAuthConfig || null, // INBOUND authentication config
     responseTransformation: doc.responseTransformation || null, // INBOUND response transformation
     streamResponse: !!doc.streamResponse, // INBOUND response streaming
+    maxInboundFileSizeMb: doc.maxInboundFileSizeMb ?? 50,
     rateLimits: doc.rateLimits || null, // Per-integration rate limiting
     isActive: !!doc.isActive,
     timeoutMs: doc.timeoutMs,

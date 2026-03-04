@@ -25,6 +25,8 @@ export const HttpConfigFields = ({
 }: HttpConfigFieldsProps) => {
   // Watch streamResponse field for inbound mode
   const streamResponse = Form.useWatch('streamResponse', form);
+  const contentType = Form.useWatch('contentType', form);
+  const isInboundMultipart = mode === 'inbound' && String(contentType || '').toLowerCase().includes('multipart/form-data');
 
   // Context-aware labels
   const getLabel = (baseLabel: string) => {
@@ -218,6 +220,37 @@ export const HttpConfigFields = ({
             />
           </Form.Item>
         </Col>
+
+        {isInboundMultipart && (
+          <Col xs={24} md={12}>
+            <Form.Item
+              name="maxInboundFileSizeMb"
+              label="Max Inbound File Size (MB)"
+              normalize={(value) => {
+                const num = Number(value);
+                return Number.isFinite(num) ? num : value;
+              }}
+              rules={[
+                { required: true, message: 'Max inbound file size is required' },
+                {
+                  validator: (_, value) => {
+                    const num = Number(value);
+                    if (!Number.isFinite(num)) {
+                      return Promise.reject(new Error('Max inbound file size must be a number'));
+                    }
+                    if (num < 1 || num > 100) {
+                      return Promise.reject(new Error('Max inbound file size must be between 1 MB and 100 MB'));
+                    }
+                    return Promise.resolve();
+                  }
+                }
+              ]}
+              extra="Per-integration upload limit for multipart requests (PDF only)."
+            >
+              <Input type="number" size="large" placeholder="50" suffix="MB" />
+            </Form.Item>
+          </Col>
+        )}
 
         {/* Stream Response - Only for Inbound Mode */}
         {mode === 'inbound' && (

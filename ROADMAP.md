@@ -6,7 +6,7 @@
 
 ## Current Status: v1.0.0 (Released Q1 2026)
 
-The Integration Gateway is production-ready with a comprehensive feature set for managing outbound webhooks, inbound API proxies, and scheduled automation workflows.
+The Integration Gateway has a production-used core feature set for outbound webhooks, inbound API proxies, and scheduled automation workflows, with high-scale hardening tracked in the v1.2.0 roadmap.
 
 ### Delivered Features
 
@@ -225,6 +225,37 @@ uptimeScore    = 100 if worker running and last event <1h ago, else 0
 ## v1.2.0 - Resilience & Scale (Q3 2026)
 
 **Theme**: Handle failure modes gracefully at higher volumes.
+
+---
+
+### 0. High-Scale Production Readiness Track (Added March 2026)
+
+**Problem**: Current inbound runtime handles moderate production traffic, but high-throughput workloads are limited by synchronous processing and heavy per-request persistence logging.
+
+**Recent benchmark evidence** (March 4, 2026):
+- Current rich logging mode (`INBOUND_MINIMAL_LOGGING=false`): ~113-130 req/s under 50-100 concurrent clients
+- Minimal inbound logging mode (`INBOUND_MINIMAL_LOGGING=true`): ~1305-1398 req/s under 20-100 concurrent clients
+- Measured profile report: `artifacts/load-test/inbound-logging-profile-20260304T112350Z.md`
+
+**Roadmap scope**:
+- Async ingest path: queue-first inbound mode with sync/async selectable per integration
+- Distributed rate limiting: Redis-backed limiter for multi-instance correctness and lower write contention
+- Split logging architecture:
+  - Hot path: minimal request persistence for low latency
+  - Async pipeline: full audit/event payload capture with back-pressure controls
+- Horizontal scaling baseline:
+  - Multi-replica backend behind load balancer
+  - Repeatable soak/load profiles in CI and pre-release checks
+- Production operations hardening:
+  - SLO definitions (availability, latency, error budget)
+  - Alerting + runbooks + scheduled failure drills
+
+**Exit criteria for "high-scale production-grade"**:
+- Sustained >=1000 req/s on inbound baseline profile at <=100 concurrent clients
+- p99 latency <=150ms on baseline profile
+- 0% data-loss in async ingest durability tests
+- Verified multi-instance limiter correctness under burst traffic
+- SLO dashboards and on-call runbooks approved by ops
 
 ---
 
@@ -580,6 +611,10 @@ Features are prioritized based on:
 - Circuit breaker auto-recovery rate: >80%
 - Kafka throughput: 1M+ events/day per instance
 - Request batching reduces average API calls by >50% for high-volume integrations
+- Inbound baseline throughput: >=1000 req/s at 100 concurrent clients (queue-first + minimal hot-path logging mode)
+- Inbound baseline p99 latency: <=150ms under the same profile
+- Redis distributed limiter passes burst correctness tests across >=3 backend replicas
+- SLO + runbook coverage: 100% for availability/latency/error budget pages
 
 ### v2.0.0
 - Multi-region latency: <100ms API latency globally
@@ -599,7 +634,7 @@ Features are prioritized based on:
 
 ---
 
-**Last Updated**: February 2026
+**Last Updated**: March 2026
 
 **Maintainers**: Integration Gateway Core Team
 

@@ -45,7 +45,8 @@ While there are other webhook services (like Svix) or API Gateways (like Kong), 
   - Delivery mode support: `IMMEDIATE`, `DELAYED`, `RECURRING`.
   - Signing secret rotation/removal endpoints.
 - Inbound/runtime integrations (`/api/v1/integrations`)
-  - Runtime trigger endpoints (`GET/POST /api/v1/integrations/:type`).
+  - Runtime trigger endpoints (`GET/POST/PUT /api/v1/integrations/:type`).
+  - Public runtime trigger endpoints (`GET/POST/PUT /api/v1/public/integrations/:type`) with per-integration inbound auth.
   - Inbound auth checks (`NONE`, `API_KEY`, `BEARER`, `BASIC`).
   - Outbound auth support in delivery path (`NONE`, `API_KEY`, `BASIC`, `BEARER`, `OAUTH1`, `OAUTH2`, `CUSTOM`, `CUSTOM_HEADERS`).
   - Optional streamed upstream response forwarding.
@@ -137,26 +138,26 @@ docker-compose.dev.yml      # Dev stack with hot reload
 
 ## Run With Docker (Recommended)
 
-1. Clone and prepare config.
+1. Clone repository.
 
 ```bash
 git clone https://github.com/varaprasadreddy9676/integration-control-plane.git
 cd integration-control-plane
-cp backend/config.example.json backend/config.json
 ```
 
-2. Edit `backend/config.json` before startup.
+2. (Optional) Create a root `.env` to override defaults.
 
-- Required:
-  - `port`: keep `3545` (matches compose port mapping).
-  - `mongodb.uri`: use Docker service hostname, for example:
-    - `mongodb://mongodb:27017/integration_gateway`
-  - `security.apiKey`: set a strong random value.
-  - `security.jwtSecret`: set a strong random value.
-- Recommended:
-  - Keep `eventSource.type` empty unless you intentionally want a global default source.
-- Optional:
-  - `db.*` only if you want shared/global MySQL connectivity.
+Example:
+
+```bash
+cat > .env <<'EOF'
+API_KEY=change_me_dev_key
+JWT_SECRET=change_me_dev_secret
+MONGODB_URI=mongodb://mongodb:27017/integration_gateway
+MONGODB_DATABASE=integration_gateway
+FRONTEND_URL=http://localhost
+EOF
+```
 
 3. Start services.
 
@@ -164,12 +165,17 @@ cp backend/config.example.json backend/config.json
 docker compose up -d --build
 ```
 
-4. Verify.
+4. Verify containers and liveness.
 
 ```bash
 docker compose ps
+curl http://localhost:3545/
 curl http://localhost:3545/health
 ```
+
+Notes:
+- `GET /` is a liveness check endpoint for container health.
+- `GET /health` reports system/dependency health and can return non-200 when dependencies degrade.
 
 5. Create first admin user.
 
@@ -182,7 +188,7 @@ docker compose exec backend node scripts/create-user.js \
 
 6. Access app.
 
-- Frontend: `http://localhost`
+- Frontend: `http://localhost/integration-gateway/` (root `http://localhost` also works in Docker nginx setup)
 - Backend API base: `http://localhost:3545/api/v1`
 
 ## Local Development
@@ -192,13 +198,20 @@ docker compose exec backend node scripts/create-user.js \
 ```bash
 cd backend
 npm install
-cp config.example.json config.json
 ```
 
-For local (non-Docker), set in `backend/config.json`:
+For local (non-Docker), configure either env vars or `backend/config.json`.
+Minimum required:
 
-- `mongodb.uri` -> `mongodb://localhost:27017/integration_gateway`
-- secure `security.apiKey` and `security.jwtSecret`
+- `MONGODB_URI=mongodb://localhost:27017/integration_gateway`
+- `API_KEY=<your api key>`
+- `JWT_SECRET=<your jwt secret>`
+
+If you prefer file config:
+
+```bash
+cp config.example.json config.json
+```
 
 Start:
 

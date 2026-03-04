@@ -19,8 +19,15 @@ COPY . .
 
 # Build argument for API URL (can be overridden at build time)
 ARG VITE_API_BASE_URL=http://localhost:3545/api/v1
+ARG VITE_API_KEY=mdcs_dev_key_1f4a
 ARG VITE_APP_NAME="Integration Gateway"
 ARG VITE_APP_VERSION="2.0.0"
+
+# Ensure Vite sees these values during build (they override .env defaults)
+ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
+ENV VITE_API_KEY=${VITE_API_KEY}
+ENV VITE_APP_NAME=${VITE_APP_NAME}
+ENV VITE_APP_VERSION=${VITE_APP_VERSION}
 
 # Build the application
 RUN npm run build
@@ -49,7 +56,7 @@ EXPOSE 80
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-  CMD wget --quiet --tries=1 --spider http://localhost/ || exit 1
+  CMD wget --quiet --tries=1 --spider http://127.0.0.1/health || exit 1
 
 # Start nginx
 CMD ["nginx", "-g", "daemon off;"]

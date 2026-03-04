@@ -107,6 +107,7 @@ const defaultConfig = {
     maxSize: '20m',       // rotate when file hits 20 MB
     maxFiles: '14d',      // keep 14 days of rotated files
     compress: true,       // gzip rotated files
+    inboundMinimalMode: parseBoolean(process.env.INBOUND_MINIMAL_LOGGING, false),
   },
   rateLimit: {
     enabled: parseBoolean(process.env.API_RATE_LIMIT_ENABLED, true),

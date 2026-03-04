@@ -293,6 +293,9 @@ async function addIntegration(orgId, payload) {
         inboundAuthConfig: payload.inboundAuthConfig || null, // INBOUND authentication config
         responseTransformation: payload.responseTransformation || null, // INBOUND response transformation
         streamResponse: !!payload.streamResponse, // INBOUND response streaming
+        maxInboundFileSizeMb: Number.isFinite(Number(payload.maxInboundFileSizeMb))
+          ? Math.max(1, Math.min(100, Math.floor(Number(payload.maxInboundFileSizeMb))))
+          : 50,
         rateLimits: payload.rateLimits || null, // Per-integration rate limiting
         isActive: payload.isActive !== false,
         timeoutMs: payload.timeoutMs,

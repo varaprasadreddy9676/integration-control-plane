@@ -466,19 +466,12 @@ return {
       });
     }
     const queryString = new URLSearchParams(queryEntries).toString();
-    const url = `${base}/integrations/${encodeURIComponent(integrationConfig.type)}?${queryString}`;
+    const url = `${base}/public/integrations/${encodeURIComponent(integrationConfig.type)}?${queryString}`;
 
     if (integrationConfig.inboundAuthType === 'API_KEY') {
       const headerName = (integrationConfig.inboundAuthConfig?.headerName || 'x-api-key').toLowerCase();
-      if (headerName === 'x-api-key') {
-        const value = inboundKey || apiKey || '<API_KEY>';
-        headers.push(`-H "X-API-Key: ${value}"`);
-      } else {
-        headers.push(`-H "X-API-Key: ${apiKey || '<API_KEY>'}"`);
-        headers.push(`-H "${headerName}: ${inboundKey || '<INBOUND_API_KEY>'}"`);
-      }
-    } else {
-      headers.push(`-H "X-API-Key: ${apiKey || '<API_KEY>'}"`);
+      const value = inboundKey || apiKey || '<INBOUND_API_KEY>';
+      headers.push(`-H "${headerName}: ${value}"`);
     }
 
     if (httpMethod !== 'GET') {
@@ -615,6 +608,7 @@ return {
         timeout: integration.timeout || 10000,
         retryCount: integration.retryCount || 3,
         contentType: integration.contentType || 'application/json',
+        maxInboundFileSizeMb: integration.maxInboundFileSizeMb || 50,
         streamResponse: integration.streamResponse || false,
         rateLimits: integration.rateLimits || { enabled: false, maxRequests: 100, windowSeconds: 60 },
         communicationConfig: integration.actions?.[0]?.communicationConfig || {
@@ -736,6 +730,7 @@ return {
         payload.timeout = values.timeout || 10000;
         payload.retryCount = values.retryCount || 3;
         payload.contentType = values.contentType || 'application/json';
+        payload.maxInboundFileSizeMb = Number(values.maxInboundFileSizeMb) > 0 ? Number(values.maxInboundFileSizeMb) : 50;
         payload.streamResponse = values.streamResponse || false;
         payload.responseTransformation = {
           mode: 'SCRIPT',
@@ -823,6 +818,7 @@ return {
           timeout: 10000,
           retryCount: 3,
           contentType: 'application/json',
+          maxInboundFileSizeMb: 50,
           inboundAuthType: 'NONE',
           rateLimits: {
             enabled: false,
@@ -1554,6 +1550,16 @@ return {
                             <Text>{form.getFieldValue('retryCount') || 3}</Text>
                           </div>
                           <div style={{ display: 'flex', gap: spacing[2] }}>
+                            <Text type="secondary" style={{ minWidth: 150 }}>Content-Type:</Text>
+                            <Text>{form.getFieldValue('contentType') || 'application/json'}</Text>
+                          </div>
+                          {String(form.getFieldValue('contentType') || '').toLowerCase().includes('multipart/form-data') && (
+                            <div style={{ display: 'flex', gap: spacing[2] }}>
+                              <Text type="secondary" style={{ minWidth: 150 }}>Max File Size:</Text>
+                              <Text>{form.getFieldValue('maxInboundFileSizeMb') || 50} MB</Text>
+                            </div>
+                          )}
+                          <div style={{ display: 'flex', gap: spacing[2] }}>
                             <Text type="secondary" style={{ minWidth: 150 }}>Stream Response:</Text>
                             <Tag color={form.getFieldValue('streamResponse') ? 'green' : 'default'}>
                               {form.getFieldValue('streamResponse') ? 'Enabled' : 'Disabled'}
@@ -1782,18 +1788,16 @@ return {
       >
         <Space direction="vertical" size="small" style={{ width: '100%' }}>
           <Text type="secondary">
-            Provide the gateway API key to include it in the curl command.
+            This endpoint is public; add only the integration-level credentials configured for this inbound flow.
           </Text>
-          <Input.Password
-            placeholder="Gateway API Key (X-API-Key)"
-            value={curlApiKey}
-            onChange={(e) => setCurlApiKey(e.target.value)}
-          />
           {integration?.inboundAuthType === 'API_KEY' && (
             <Input.Password
-              placeholder="Inbound API Key (if required by integration)"
-              value={curlInboundKey}
-              onChange={(e) => setCurlInboundKey(e.target.value)}
+              placeholder="Integration API Key"
+              value={curlApiKey}
+              onChange={(e) => {
+                setCurlApiKey(e.target.value);
+                setCurlInboundKey(e.target.value);
+              }}
             />
           )}
           {curlQueryParams.length > 0 && (

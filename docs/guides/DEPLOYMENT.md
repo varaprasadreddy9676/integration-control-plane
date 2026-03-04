@@ -9,10 +9,10 @@ In production, you should **never** run the database and the application on the 
 ### The Application Tier (Stateless)
 The `backend` container (API and background workers) and the `frontend` container (Nginx serving React) are completely stateless.
 - **Horizontal Scaling**: You can spin up multiple instances of the `backend` container behind a load balancer.
-- **Background Workers**: The workers (Delivery, Scheduler, DLQ) use MongoDB for checkpointing and state management, meaning it is **safe to run multiple backend containers simultaneously**. They will naturally distribute the load without processing the same event twice.
+- **Background Workers**: Workers use MongoDB state/checkpoint collections. Multi-instance operation is supported, but you should validate duplicate-handling semantics for your workload before scaling aggressively.
 
 ### The Database Tier (Stateful)
-- **MongoDB**: This is the **mandatory** primary datastore. In production, you MUST use a **MongoDB Replica Set** (minimum 3 nodes) or a managed service like MongoDB Atlas. The application relies on MongoDB for high availability and ACID transactions during worker checkpointing.
+- **MongoDB**: This is the **mandatory** primary datastore. In production, use a **MongoDB Replica Set** (minimum 3 nodes) or a managed service like MongoDB Atlas.
 - **MySQL/Kafka (Optional)**: If you use these as event sources, they should also be managed clusters.
 
 ## 2. Environment Variables & Configuration
@@ -24,8 +24,8 @@ These must be securely generated and injected into the backend container:
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `SECURITY_API_KEY` | The master API key for programmatic admin access. | `generate_a_long_random_string` |
-| `SECURITY_JWT_SECRET` | Secret used to sign user and magic link tokens. | `generate_an_even_longer_random_string` |
+| `API_KEY` | API key expected by backend middleware. | `generate_a_long_random_string` |
+| `JWT_SECRET` | Secret used to sign JWT tokens. | `generate_an_even_long_random_string` |
 | `MONGODB_URI` | Connection string to your MongoDB cluster. | `mongodb+srv://user:pass@cluster.mongodb.net/integration_gateway` |
 
 ### Important URL Configurations
@@ -33,7 +33,6 @@ The backend needs to know where it is hosted and where the frontend is hosted fo
 
 | Variable | Description |
 |----------|-------------|
-| `PUBLIC_URL` | The public-facing URL of the backend API (e.g., `https://api.gateway.yourdomain.com`). |
 | `FRONTEND_URL` | The public-facing URL of the frontend UI (e.g., `https://gateway.yourdomain.com`). Used for alert emails and embedded portal links. |
 
 ## 3. High Availability (HA) Guidelines
@@ -46,10 +45,11 @@ Place a Layer 7 Load Balancer (like AWS ALB, Nginx, or HAProxy) in front of the 
 
 ### Health Checks
 Configure your orchestrator (Kubernetes, ECS, Docker Swarm) to use the built-in health endpoints:
-- **Backend**: `HTTP GET /health` (Expect 200 OK)
-- **Frontend**: `HTTP GET /health` (Expect 200 OK)
+- **Backend liveness**: `HTTP GET /` (expect non-5xx)
+- **Backend dependency health**: `HTTP GET /health` (may return non-200 when degraded)
+- **Frontend**: `HTTP GET /health` (expect 200)
 
-If the backend loses connection to MongoDB, the `/health` endpoint will start failing, and your orchestrator should restart or cycle the container.
+Use `/` for restart/liveness decisions and `/health` for monitoring/alerting.
 
 ## 4. Resource Limits & Tuning
 
@@ -93,19 +93,17 @@ docker run -d \
   -p 3545:3545 \
   -e NODE_ENV=production \
   -e MONGODB_URI="mongodb+srv://admin:pass@prod-cluster.xyz.mongodb.net/integration_gateway" \
-  -e SECURITY_API_KEY="super_secret_api_key" \
-  -e SECURITY_JWT_SECRET="super_secret_jwt_signature_key" \
+  -e API_KEY="super_secret_api_key" \
+  -e JWT_SECRET="super_secret_jwt_signature_key" \
   -e FRONTEND_URL="https://icplane.yourcompany.com" \
-  -e PUBLIC_URL="https://api-icplane.yourcompany.com" \
+  -e MONGODB_DATABASE="integration_gateway" \
   -e NODE_OPTIONS="--max-old-space-size=2048" \
-  -v /path/to/your/custom-config.json:/app/config.json:ro \
   ghcr.io/varaprasadreddy9676/integration-control-plane-backend:main
 ```
 
 ## 6. URL Path Configuration
 
-By default, the Docker image is built to serve the frontend from the **root path (`/`)**.
+By default, the Docker image serves the SPA at root and supports `/integration-gateway/` asset pathing.
 
 - **Why?** This is the most portable setting for modern Docker environments and reverse proxies.
-- **Custom Subpaths**: If you MUST serve the app from a subpath (e.g., `yourdomain.com/portal/`), you should handle this routing at your **Load Balancer** or **Reverse Proxy** level by stripping the prefix before passing traffic to the container.
-- **Legacy Note**: You may see a `.htaccess` file or old references to `/event-gateway/`. These are legacy Apache configurations and are **ignored** by the Docker Nginx setup.
+- **Custom Subpaths**: If you must serve from a different prefix (e.g., `yourdomain.com/portal/`), handle rewrite/routing at your reverse proxy.

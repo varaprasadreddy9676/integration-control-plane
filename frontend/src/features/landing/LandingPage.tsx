@@ -8,6 +8,7 @@ import HeroSection from './sections/HeroSection';
 import { LoginModal } from './LoginModal';
 import FeaturesSection from './sections/FeaturesSection';
 import ObservabilitySection from './sections/ObservabilitySection';
+import PerformanceSection from './sections/PerformanceSection';
 import MultiTenantSection from './sections/MultiTenantSection';
 import AIAssistantSection from './sections/AIAssistantSection';
 import OpenSourceSection from './sections/OpenSourceSection';
@@ -67,6 +68,7 @@ function LandingPageContent() {
         <HeroSection onLoginClick={() => setLoginOpen(true)} />
         <FeaturesSection />
         <ObservabilitySection />
+        <PerformanceSection />
         <MultiTenantSection />
         <AIAssistantSection />
         <OpenSourceSection />
