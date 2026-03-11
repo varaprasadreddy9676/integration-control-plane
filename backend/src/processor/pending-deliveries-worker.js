@@ -2,6 +2,12 @@ const config = require('../config');
 const mongodb = require('../mongodb');
 const { log } = require('../logger');
 const { deliverSingleAction } = require('./delivery-engine');
+const {
+  markWorkerRunError,
+  markWorkerRunStart,
+  markWorkerRunSuccess,
+  setWorkerState,
+} = require('../worker-heartbeat');
 
 /**
  * Process pending INBOUND COMMUNICATION jobs
@@ -209,11 +215,13 @@ async function processPendingDeliveries() {
     if (processedCount > 0) {
       log('info', `Processed ${processedCount} INBOUND COMMUNICATION job(s)`);
     }
+    return processedCount;
   } catch (error) {
     log('error', 'Failed to process pending deliveries', {
       error: error.message,
       stack: error.stack,
     });
+    throw error;
   }
 }
 
@@ -226,15 +234,37 @@ function startPendingDeliveriesWorker() {
 
   if (!enabled) {
     log('info', 'Pending deliveries worker disabled via config');
+    setWorkerState('pendingDeliveriesWorker', {
+      enabled: false,
+      running: false,
+      intervalMs: null,
+    });
     return;
   }
 
   log('info', `Starting pending deliveries worker (interval: ${intervalMs}ms)`);
 
+  setWorkerState('pendingDeliveriesWorker', {
+    enabled: true,
+    running: true,
+    startedAt: new Date(),
+    intervalMs,
+    meta: {
+      batchSize: 10,
+    },
+  });
+
   setInterval(async () => {
     try {
-      await processPendingDeliveries();
+      markWorkerRunStart('pendingDeliveriesWorker');
+      const processedCount = await processPendingDeliveries();
+      markWorkerRunSuccess('pendingDeliveriesWorker', {
+        meta: {
+          lastProcessedCount: processedCount,
+        },
+      });
     } catch (error) {
+      markWorkerRunError('pendingDeliveriesWorker', error);
       log('error', 'Pending deliveries worker error', {
         error: error.message,
       });
@@ -242,11 +272,21 @@ function startPendingDeliveriesWorker() {
   }, intervalMs);
 
   // Process immediately on startup
-  processPendingDeliveries().catch((error) => {
-    log('error', 'Initial pending deliveries processing failed', {
-      error: error.message,
+  markWorkerRunStart('pendingDeliveriesWorker');
+  processPendingDeliveries()
+    .then((processedCount) => {
+      markWorkerRunSuccess('pendingDeliveriesWorker', {
+        meta: {
+          lastProcessedCount: processedCount,
+        },
+      });
+    })
+    .catch((error) => {
+      markWorkerRunError('pendingDeliveriesWorker', error);
+      log('error', 'Initial pending deliveries processing failed', {
+        error: error.message,
+      });
     });
-  });
 }
 
 module.exports = {

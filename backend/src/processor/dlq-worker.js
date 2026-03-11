@@ -11,6 +11,13 @@ const { fetch, AbortController } = require('../utils/runtime');
 const config = require('../config');
 const { deliverSingleAction } = require('./delivery-engine');
 const { maskSensitiveData } = require('../utils/mask');
+const {
+  markWorkerRunError,
+  markWorkerRunStart,
+  markWorkerRunSuccess,
+  setWorkerState,
+  stopWorker,
+} = require('../worker-heartbeat');
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const TOKEN_AUTH_TYPES = new Set(['OAUTH2', 'CUSTOM']);
@@ -752,6 +759,7 @@ async function processDLQRetries() {
   }
 
   isProcessing = true;
+  markWorkerRunStart('dlqWorker');
 
   try {
     // Get entries ready for retry (limit to 50 per cycle to avoid overload)
@@ -822,7 +830,16 @@ async function processDLQRetries() {
       failed: failedCount,
       abandoned: abandonedCount,
     });
+    markWorkerRunSuccess('dlqWorker', {
+      meta: {
+        processed: entries.length,
+        succeeded: successCount,
+        failed: failedCount,
+        abandoned: abandonedCount,
+      },
+    });
   } catch (error) {
+    markWorkerRunError('dlqWorker', error);
     log('error', 'DLQ worker error', {
       error: error.message,
       stack: error.stack,
@@ -840,6 +857,16 @@ function startDLQWorker() {
     log('warn', 'DLQ worker already running');
     return;
   }
+
+  setWorkerState('dlqWorker', {
+    enabled: true,
+    running: true,
+    startedAt: new Date(),
+    thresholdMs: 180000,
+    meta: {
+      cron: '*/1 * * * *',
+    },
+  });
 
   // Run every 1 minute
   workerTask = cron.schedule('*/1 * * * *', async () => {
@@ -859,6 +886,7 @@ function stopDLQWorker() {
   if (workerTask) {
     workerTask.stop();
     workerTask = null;
+    stopWorker('dlqWorker');
     log('info', 'DLQ worker stopped');
   }
 }

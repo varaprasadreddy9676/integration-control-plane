@@ -54,6 +54,19 @@ class EventSourceAdapter {
   getName() {
     return this.constructor.name;
   }
+
+  /**
+   * Runtime status surface for monitoring.
+   * Subclasses can override to expose connection/poll/runtime details.
+   *
+   * @returns {Promise<object>|object}
+   */
+  async getRuntimeStatus() {
+    return {
+      adapterName: this.getName(),
+      connectionStatus: 'unknown',
+    };
+  }
 }
 
 module.exports = { EventSourceAdapter };

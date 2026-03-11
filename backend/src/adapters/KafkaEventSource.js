@@ -52,6 +52,20 @@ class KafkaEventSource extends EventSourceAdapter {
     this.reconnecting = false;
     this.consumer = null;
     this.handler = null;
+    this.connected = false;
+    this.lastConnectAt = null;
+    this.lastDisconnectAt = null;
+    this.lastMessageAt = null;
+    this.lastErrorAt = null;
+    this.lastErrorMessage = null;
+    this.lastOffset = null;
+    this.lastTopic = null;
+    this.lastPartition = null;
+    this.reconnectAttempt = 0;
+    this.lastReconnectReason = null;
+    this.lastBackoffMs = null;
+    this.nextReconnectAt = null;
+    this.reconnectTimer = null;
   }
 
   // ---------------------------------------------------------------------------
@@ -67,6 +81,16 @@ class KafkaEventSource extends EventSourceAdapter {
   async stop() {
     log('info', `[Kafka:${this.orgId}] Stopping`);
     this.stopped = true;
+    this.connected = false;
+    this.lastDisconnectAt = new Date();
+    this.nextReconnectAt = null;
+    this.lastBackoffMs = null;
+    this.reconnectAttempt = 0;
+    this.lastReconnectReason = null;
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
 
     if (this.consumer) {
       try {
@@ -81,6 +105,34 @@ class KafkaEventSource extends EventSourceAdapter {
 
   getName() {
     return `KafkaEventSource[org=${this.orgId}]`;
+  }
+
+  getRuntimeStatus() {
+    return {
+      adapterName: this.getName(),
+      orgId: this.orgId,
+      sourceType: 'kafka',
+      running: !this.stopped,
+      connectionStatus: this.connected ? 'connected' : (this.reconnecting ? 'reconnecting' : (this.stopped ? 'stopped' : 'disconnected')),
+      brokers: this.brokers,
+      topic: this.topic,
+      groupId: this.groupId,
+      clientId: this.clientId,
+      reconnecting: this.reconnecting,
+      connected: this.connected,
+      reconnectAttempt: this.reconnectAttempt,
+      lastReconnectReason: this.lastReconnectReason,
+      lastBackoffMs: this.lastBackoffMs,
+      nextReconnectAt: this.nextReconnectAt ? this.nextReconnectAt.toISOString() : null,
+      lastConnectAt: this.lastConnectAt ? this.lastConnectAt.toISOString() : null,
+      lastDisconnectAt: this.lastDisconnectAt ? this.lastDisconnectAt.toISOString() : null,
+      lastMessageAt: this.lastMessageAt ? this.lastMessageAt.toISOString() : null,
+      lastErrorAt: this.lastErrorAt ? this.lastErrorAt.toISOString() : null,
+      lastErrorMessage: this.lastErrorMessage,
+      lastOffset: this.lastOffset,
+      lastTopic: this.lastTopic,
+      lastPartition: this.lastPartition,
+    };
   }
 
   // ---------------------------------------------------------------------------
@@ -111,6 +163,17 @@ class KafkaEventSource extends EventSourceAdapter {
 
       await this.consumer.connect();
       await this.consumer.subscribe({ topic: this.topic, fromBeginning: this.fromBeginning });
+      this.connected = true;
+      this.lastConnectAt = new Date();
+      this.lastErrorMessage = null;
+      this.reconnectAttempt = 0;
+      this.lastReconnectReason = null;
+      this.lastBackoffMs = null;
+      this.nextReconnectAt = null;
+      if (this.reconnectTimer) {
+        clearTimeout(this.reconnectTimer);
+        this.reconnectTimer = null;
+      }
 
       log('info', `[Kafka:${this.orgId}] Connected and subscribed`, { topic: this.topic });
 
@@ -123,30 +186,61 @@ class KafkaEventSource extends EventSourceAdapter {
 
       this.reconnecting = false;
     } catch (err) {
+      this.connected = false;
+      this.lastErrorAt = new Date();
+      this.lastErrorMessage = err.message;
       logError(err, { scope: `KafkaEventSource[${this.orgId}].connect` });
 
       if (!this.stopped) {
-        log('warn', `[Kafka:${this.orgId}] Connection failed, retrying in 10s`);
-        setTimeout(() => this._connect(), 10_000);
+        this._scheduleReconnect(10_000, `connect_failed:${err.message}`);
       }
     }
   }
 
+  _scheduleReconnect(delayMs, reason) {
+    if (this.stopped) return;
+
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+
+    this.reconnecting = true;
+    this.reconnectAttempt += 1;
+    this.lastReconnectReason = reason;
+    this.lastBackoffMs = delayMs;
+    this.nextReconnectAt = new Date(Date.now() + delayMs);
+
+    log('warn', `[Kafka:${this.orgId}] Reconnecting scheduled`, {
+      delayMs,
+      reconnectAttempt: this.reconnectAttempt,
+      reason,
+    });
+
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
+      this._connect();
+    }, delayMs);
+  }
+
   _setupErrorHandlers() {
     this.consumer.on('consumer.crash', ({ error }) => {
+      this.connected = false;
+      this.lastDisconnectAt = new Date();
+      this.lastErrorAt = new Date();
+      this.lastErrorMessage = error?.message || 'Kafka consumer crash';
       logError(error, { scope: `KafkaEventSource[${this.orgId}].crash` });
       if (!this.stopped && !this.reconnecting) {
-        this.reconnecting = true;
-        log('warn', `[Kafka:${this.orgId}] Crashed, reconnecting in 5s`);
-        setTimeout(() => this._connect(), 5_000);
+        this._scheduleReconnect(5_000, `consumer_crash:${error?.message || 'unknown'}`);
       }
     });
 
     this.consumer.on('consumer.disconnect', () => {
+      this.connected = false;
+      this.lastDisconnectAt = new Date();
       log('warn', `[Kafka:${this.orgId}] Disconnected`);
       if (!this.stopped && !this.reconnecting) {
-        this.reconnecting = true;
-        setTimeout(() => this._connect(), 5_000);
+        this._scheduleReconnect(5_000, 'consumer_disconnect');
       }
     });
   }
@@ -169,10 +263,16 @@ class KafkaEventSource extends EventSourceAdapter {
         eventId: event.eventId,
         eventType: event.event_type,
       });
+      this.lastMessageAt = new Date();
+      this.lastOffset = message.offset;
+      this.lastTopic = topic;
+      this.lastPartition = partition;
 
       const ctx = this._createContext(topic, partition, message.offset);
       await this.handler(event, ctx);
     } catch (err) {
+      this.lastErrorAt = new Date();
+      this.lastErrorMessage = err.message;
       logError(err, {
         scope: `KafkaEventSource[${this.orgId}].handleMessage`,
         topic,

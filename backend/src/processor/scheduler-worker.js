@@ -8,7 +8,13 @@ const { calculateNextOccurrence } = require('../services/scheduler');
 const { applyTransform } = require('../services/transformer');
 const { validateTargetUrl } = require('../utils/url-check');
 const { withTimeout } = require('../utils/timeout');
-const { updateHeartbeat } = require('../worker-heartbeat');
+const {
+  markWorkerRunError,
+  markWorkerRunStart,
+  markWorkerRunSuccess,
+  setWorkerState,
+  stopWorker,
+} = require('../worker-heartbeat');
 const { createExecutionLogger } = require('../utils/execution-logger');
 const { checkRateLimit } = require('../middleware/rate-limiter');
 
@@ -57,11 +63,30 @@ function startSchedulerWorker() {
 
   if (!enabled) {
     log('info', 'Scheduler worker disabled via config');
+    setWorkerState('schedulerWorker', {
+      enabled: false,
+      running: false,
+      intervalMs: null,
+      meta: {
+        batchSize: null,
+      },
+    });
     return () => {};
   }
 
   let running = false;
   let pollCount = 0;
+
+  setWorkerState('schedulerWorker', {
+    enabled: true,
+    running: true,
+    startedAt: new Date(),
+    intervalMs,
+    meta: {
+      batchSize,
+      dbTimeout,
+    },
+  });
 
   const timer = setInterval(async () => {
     if (running) {
@@ -75,7 +100,11 @@ function startSchedulerWorker() {
 
     try {
       // Update heartbeat at start of cycle
-      updateHeartbeat('schedulerWorker');
+      markWorkerRunStart('schedulerWorker', {
+        meta: {
+          pollCount,
+        },
+      });
 
       log('info', `[SCHEDULER #${pollCount}] Cycle started`, {
         intervalMs,
@@ -363,7 +392,21 @@ function startSchedulerWorker() {
         failed: failedCount,
         recurringCreated: recurringCreatedCount,
       });
+      markWorkerRunSuccess('schedulerWorker', {
+        meta: {
+          pollCount,
+          cycleDurationMs: cycleTime,
+          sentCount,
+          failedCount,
+          recurringCreatedCount,
+        },
+      });
     } catch (err) {
+      markWorkerRunError('schedulerWorker', err, {
+        meta: {
+          pollCount,
+        },
+      });
       logError(err, {
         scope: 'scheduler-worker:cycle',
         pollCount,
@@ -374,7 +417,10 @@ function startSchedulerWorker() {
   }, intervalMs);
 
   log('info', `Scheduler worker started (interval ${intervalMs}ms, batch ${batchSize})`);
-  return () => clearInterval(timer);
+  return () => {
+    clearInterval(timer);
+    stopWorker('schedulerWorker');
+  };
 }
 
 /**

@@ -10,7 +10,13 @@ const config = require('../config');
 const _data = require('../data');
 const mongodb = require('../mongodb');
 const { log, logError } = require('../logger');
-const { updateHeartbeat } = require('../worker-heartbeat');
+const {
+  markWorkerRunError,
+  markWorkerRunStart,
+  markWorkerRunSuccess,
+  setWorkerState,
+  stopWorker,
+} = require('../worker-heartbeat');
 const { getDeliveryWorkerManager } = require('./delivery-worker-manager');
 const { processRetries } = require('./retry-handler');
 
@@ -23,6 +29,14 @@ function startDeliveryWorker() {
 
   if (!enabled) {
     log('info', 'Delivery worker disabled via config');
+    setWorkerState('deliveryWorker', {
+      enabled: false,
+      running: false,
+      intervalMs: null,
+      meta: {
+        retryIntervalMs: null,
+      },
+    });
     return async () => {};
   }
 
@@ -36,14 +50,31 @@ function startDeliveryWorker() {
   const retryIntervalMs = config.worker?.retryIntervalMs || 60_000;
   const dbTimeout = config.worker?.dbOperationTimeoutMs || 30_000;
 
+  setWorkerState('deliveryWorker', {
+    enabled: true,
+    running: true,
+    startedAt: new Date(),
+    intervalMs: retryIntervalMs,
+    meta: {
+      retryIntervalMs,
+      dbTimeout,
+    },
+  });
+
   const retryTimer = setInterval(async () => {
     try {
-      updateHeartbeat('deliveryWorker');
+      markWorkerRunStart('deliveryWorker');
       const retryCount = await processRetries(0, dbTimeout);
+      markWorkerRunSuccess('deliveryWorker', {
+        meta: {
+          lastRetryBatchCount: retryCount,
+        },
+      });
       if (retryCount > 0) {
         log('info', 'Processed retry attempts', { retryCount });
       }
     } catch (err) {
+      markWorkerRunError('deliveryWorker', err);
       log('error', 'Retry processing failed', { error: err.message });
     }
   }, retryIntervalMs);
@@ -107,6 +138,7 @@ function startDeliveryWorker() {
     clearInterval(retryTimer);
     if (watchdogTimer) clearInterval(watchdogTimer);
     await manager.stop();
+    stopWorker('deliveryWorker');
     log('info', 'Delivery worker stopped');
   };
 }

@@ -7,6 +7,14 @@ const { applyTransform } = require('../services/transformer');
 const { buildAuthHeaders } = require('./auth-helper');
 const axios = require('axios');
 const { createExecutionLogger } = require('../utils/execution-logger');
+const {
+  markWorkerRunError,
+  markWorkerRunStart,
+  markWorkerRunSuccess,
+  setWorkerState,
+  stopWorker,
+  updateHeartbeat,
+} = require('../worker-heartbeat');
 
 /**
  * Scheduled Job Worker
@@ -18,6 +26,7 @@ class ScheduledJobWorker {
   constructor() {
     this.scheduledTasks = new Map(); // jobId -> cron task
     this.isRunning = false;
+    this.heartbeatTimer = null;
   }
 
   /**
@@ -30,6 +39,16 @@ class ScheduledJobWorker {
     }
 
     this.isRunning = true;
+    setWorkerState('scheduledJobWorker', {
+      enabled: true,
+      running: true,
+      startedAt: new Date(),
+      thresholdMs: 180000,
+      meta: {
+        scheduledTaskCount: this.scheduledTasks.size,
+      },
+    });
+    this.startHeartbeat();
     log('info', 'Starting scheduled job worker');
 
     try {
@@ -38,8 +57,31 @@ class ScheduledJobWorker {
     } catch (error) {
       log('error', 'Failed to start scheduled job worker', { error: error.message });
       this.isRunning = false;
+      markWorkerRunError('scheduledJobWorker', error);
       throw error;
     }
+  }
+
+  startHeartbeat() {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+    }
+
+    updateHeartbeat('scheduledJobWorker', {
+      running: this.isRunning,
+      meta: {
+        scheduledTaskCount: this.scheduledTasks.size,
+      },
+    });
+
+    this.heartbeatTimer = setInterval(() => {
+      updateHeartbeat('scheduledJobWorker', {
+        running: this.isRunning,
+        meta: {
+          scheduledTaskCount: this.scheduledTasks.size,
+        },
+      });
+    }, 30000);
   }
 
   /**
@@ -97,6 +139,11 @@ class ScheduledJobWorker {
         });
 
         this.scheduledTasks.set(jobId, task);
+        updateHeartbeat('scheduledJobWorker', {
+          meta: {
+            scheduledTaskCount: this.scheduledTasks.size,
+          },
+        });
 
         log('info', 'Job scheduled with cron', {
           jobId,
@@ -119,6 +166,11 @@ class ScheduledJobWorker {
         const intervalId = setInterval(() => this.executeJob(jobConfig), intervalMs);
 
         this.scheduledTasks.set(jobId, intervalId);
+        updateHeartbeat('scheduledJobWorker', {
+          meta: {
+            scheduledTaskCount: this.scheduledTasks.size,
+          },
+        });
 
         log('info', 'Job scheduled with interval', {
           jobId,
@@ -150,6 +202,11 @@ class ScheduledJobWorker {
       }
 
       this.scheduledTasks.delete(jobId);
+      updateHeartbeat('scheduledJobWorker', {
+        meta: {
+          scheduledTaskCount: this.scheduledTasks.size,
+        },
+      });
 
       log('info', 'Job unscheduled', { jobId });
     }
@@ -162,6 +219,13 @@ class ScheduledJobWorker {
   async executeJob(jobConfig) {
     const correlationId = uuidv4();
     const startTime = Date.now();
+    markWorkerRunStart('scheduledJobWorker', {
+      meta: {
+        lastJobId: jobConfig._id.toString(),
+        lastJobName: jobConfig.name,
+        scheduledTaskCount: this.scheduledTasks.size,
+      },
+    });
 
     log('info', 'Executing scheduled job', {
       jobId: jobConfig._id.toString(),
@@ -347,6 +411,15 @@ class ScheduledJobWorker {
         duration: Date.now() - startTime,
         status: deliveryResult.status,
       });
+      markWorkerRunSuccess('scheduledJobWorker', {
+        meta: {
+          lastJobId: jobConfig._id.toString(),
+          lastJobName: jobConfig.name,
+          lastDurationMs: Date.now() - startTime,
+          lastRecordsFetched: executionLog.recordsFetched || 0,
+          scheduledTaskCount: this.scheduledTasks.size,
+        },
+      });
     } catch (error) {
       executionLog.status = 'FAILED';
       executionLog.error = {
@@ -400,6 +473,14 @@ class ScheduledJobWorker {
         error: error.message,
         errorStage: executionLog.errorContext?.stage,
         duration: Date.now() - startTime,
+      });
+      markWorkerRunError('scheduledJobWorker', error, {
+        meta: {
+          lastJobId: jobConfig._id.toString(),
+          lastJobName: jobConfig.name,
+          lastDurationMs: Date.now() - startTime,
+          scheduledTaskCount: this.scheduledTasks.size,
+        },
       });
     } finally {
       executionLog.completedAt = new Date();
@@ -497,6 +578,15 @@ class ScheduledJobWorker {
     }
 
     this.isRunning = false;
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
+    stopWorker('scheduledJobWorker', {
+      meta: {
+        scheduledTaskCount: this.scheduledTasks.size,
+      },
+    });
     log('info', 'Scheduled job worker stopped');
   }
 }

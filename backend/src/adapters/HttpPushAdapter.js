@@ -28,6 +28,17 @@ class HttpPushAdapter extends EventSourceAdapter {
   getName() {
     return `HttpPushAdapter[org=${this.orgId}]`;
   }
+
+  getRuntimeStatus() {
+    return {
+      adapterName: this.getName(),
+      orgId: this.orgId,
+      connectionStatus: 'not_applicable',
+      running: true,
+      mode: 'push',
+      note: 'HTTP push adapters do not maintain a persistent upstream connection.',
+    };
+  }
 }
 
 module.exports = { HttpPushAdapter };

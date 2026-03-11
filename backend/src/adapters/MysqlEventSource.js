@@ -103,6 +103,14 @@ class MysqlEventSource extends EventSourceAdapter {
     this.running = false;
     this.stopped = false;
     this.pollCount = 0;
+    this.lastPollStartedAt = null;
+    this.lastPollFinishedAt = null;
+    this.lastSuccessAt = null;
+    this.lastErrorAt = null;
+    this.lastErrorMessage = null;
+    this.lastRowsFetched = 0;
+    this.lastCheckpoint = null;
+    this.consecutiveErrors = 0;
   }
 
   // ---------------------------------------------------------------------------
@@ -131,10 +139,19 @@ class MysqlEventSource extends EventSourceAdapter {
       this.running = true;
       this.pollCount++;
       updateHeartbeat('deliveryWorker');
+      this.lastPollStartedAt = new Date();
 
       try {
         await this._pollCycle(handler);
+        this.lastPollFinishedAt = new Date();
+        this.lastSuccessAt = this.lastPollFinishedAt;
+        this.lastErrorMessage = null;
+        this.consecutiveErrors = 0;
       } catch (err) {
+        this.lastPollFinishedAt = new Date();
+        this.lastErrorAt = this.lastPollFinishedAt;
+        this.lastErrorMessage = err.message;
+        this.consecutiveErrors += 1;
         logError(err, { scope: `MysqlEventSource[${this.orgId}].pollCycle` });
       } finally {
         this.running = false;
@@ -168,14 +185,69 @@ class MysqlEventSource extends EventSourceAdapter {
     return `MysqlEventSource[org=${this.orgId}, table=${this.table}]`;
   }
 
+  async getRuntimeStatus() {
+    const health = {
+      adapterName: this.getName(),
+      orgId: this.orgId,
+      sourceType: 'mysql',
+      table: this.table,
+      running: !!this.timer && !this.stopped,
+      polling: this.running,
+      pollIntervalMs: this.pollIntervalMs,
+      batchSize: this.batchSize,
+      pollCount: this.pollCount,
+      lastPollStartedAt: this.lastPollStartedAt ? this.lastPollStartedAt.toISOString() : null,
+      lastPollFinishedAt: this.lastPollFinishedAt ? this.lastPollFinishedAt.toISOString() : null,
+      lastSuccessAt: this.lastSuccessAt ? this.lastSuccessAt.toISOString() : null,
+      lastErrorAt: this.lastErrorAt ? this.lastErrorAt.toISOString() : null,
+      lastErrorMessage: this.lastErrorMessage,
+      lastRowsFetched: this.lastRowsFetched,
+      lastCheckpoint: this.lastCheckpoint,
+      consecutiveErrors: this.consecutiveErrors,
+      connectionStatus: 'unknown',
+      connectionProbe: null,
+      filters: {
+        orgUnitIds: this.orgUnitIdFilter,
+        eventTypes: this.eventTypeFilter,
+      },
+    };
+
+    try {
+      const activePool = this.poolProvider ? this.poolProvider() : this.pool;
+      if (!activePool || typeof activePool.query !== 'function') {
+        health.connectionStatus = 'unavailable';
+        health.connectionProbe = { ok: false, error: 'MySQL pool unavailable' };
+        return health;
+      }
+
+      const startedAt = Date.now();
+      await activePool.query('SELECT 1');
+      health.connectionStatus = 'connected';
+      health.connectionProbe = {
+        ok: true,
+        responseTimeMs: Date.now() - startedAt,
+      };
+    } catch (error) {
+      health.connectionStatus = 'error';
+      health.connectionProbe = {
+        ok: false,
+        error: error.message,
+      };
+    }
+
+    return health;
+  }
+
   // ---------------------------------------------------------------------------
   // Poll cycle
   // ---------------------------------------------------------------------------
 
   async _pollCycle(handler) {
     const checkpoint = await withTimeout(this._getCheckpoint(), this.dbTimeoutMs, `getCheckpoint[${this.orgId}]`);
+    this.lastCheckpoint = checkpoint;
 
     const rows = await withTimeout(this._fetchRows(checkpoint), this.dbTimeoutMs, `fetchRows[${this.orgId}]`);
+    this.lastRowsFetched = rows.length;
 
     if (rows.length === 0) return;
 
@@ -312,11 +384,13 @@ class MysqlEventSource extends EventSourceAdapter {
     const maxId = await this._fetchMaxId();
     await this._setCheckpoint(maxId);
     log('info', `[MySQL:${this.orgId}] Bootstrapped checkpoint at id=${maxId}`);
+    this.lastCheckpoint = maxId;
     return maxId;
   }
 
   async _setCheckpoint(lastProcessedId) {
     const db = await mongodb.getDbSafe();
+    this.lastCheckpoint = lastProcessedId;
     await db.collection('source_checkpoints').updateOne(
       { source: 'mysql', sourceIdentifier: this.sourceIdentifier, orgId: this.orgId },
       {
