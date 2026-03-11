@@ -89,7 +89,7 @@ export default function HeroSection({ onLoginClick }: HeroSectionProps) {
           start: 'top top',
           end: '+=200%',
           pin: true,
-          scrub: 1.0,
+          scrub: 1.5,
           anticipatePin: 1,
           invalidateOnRefresh: true,
           onLeaveBack: () => {
@@ -108,43 +108,43 @@ export default function HeroSection({ onLoginClick }: HeroSectionProps) {
       scrollTl.fromTo(
         microLabelRef.current,
         { x: 0, opacity: 1 },
-        { x: '-5vw', opacity: 0, ease: 'power3.in' },
-        0.65
+        { x: '-3vw', opacity: 0, ease: 'power2.inOut' },
+        0.55
       );
 
       scrollTl.fromTo(
         headlineRef.current,
         { x: 0, opacity: 1 },
-        { x: '-7vw', opacity: 0, ease: 'power3.in' },
-        0.67
+        { x: '-5vw', opacity: 0, ease: 'power2.inOut' },
+        0.58
       );
 
       scrollTl.fromTo(
         subheadRef.current,
         { x: 0, opacity: 1 },
-        { x: '-6vw', opacity: 0, ease: 'power3.in' },
-        0.69
+        { x: '-4vw', opacity: 0, ease: 'power2.inOut' },
+        0.61
       );
 
       scrollTl.fromTo(
         ctaRef.current,
         { y: 0, opacity: 1 },
-        { y: '5vh', opacity: 0, ease: 'power3.in' },
-        0.71
+        { y: '3vh', opacity: 0, ease: 'power2.inOut' },
+        0.64
       );
 
       scrollTl.fromTo(
         pillsRef.current,
         { y: 0, opacity: 1 },
-        { y: '5vh', opacity: 0, ease: 'power3.in' },
-        0.73
+        { y: '3vh', opacity: 0, ease: 'power2.inOut' },
+        0.67
       );
 
       scrollTl.fromTo(
         imageRef.current,
         { x: 0, opacity: 1 },
-        { x: '8vw', opacity: 0, ease: 'power3.in' },
-        0.67
+        { x: '5vw', opacity: 0, ease: 'power2.inOut' },
+        0.58
       );
     }, section);
 
@@ -224,12 +224,20 @@ export default function HeroSection({ onLoginClick }: HeroSectionProps) {
             </div>
           </div>
 
-          {/* Right — Dashboard image */}
+          {/* Right — Dashboard image with luminous glows */}
           <div
             ref={imageRef}
             className="w-full lg:w-[44vw] lg:h-[72vh] relative"
+            style={{ perspective: '1000px' }}
           >
-            <div className="dashboard-shadow rounded-2xl overflow-hidden border border-[var(--card-border)]">
+            {/* Huly-inspired background ambient glows */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-blue-500/20 rounded-full blur-[100px] pointer-events-none mix-blend-screen opacity-60 dark:opacity-40" />
+            <div className="absolute top-1/4 -right-1/4 w-[80%] h-[80%] bg-purple-500/15 rounded-full blur-[90px] pointer-events-none mix-blend-screen opacity-70 dark:opacity-50" />
+
+            <div className="dashboard-shadow rounded-2xl overflow-hidden border border-[var(--card-border)] relative z-10 transform-gpu" style={{
+              transform: 'rotateY(-4deg) rotateX(2deg)',
+              transformStyle: 'preserve-3d'
+            }}>
               <MediaAsset
                 src={`${import.meta.env.BASE_URL}images/${theme}/${MEDIA_FILE}`}
                 alt="Integration Gateway Dashboard"

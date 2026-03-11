@@ -28,6 +28,7 @@
     "test": "cd test && npm install && npm test",
     "test:ci": "cd test && npm install --prefer-offline && npm run test:ci",
     "test:install": "cd test && npm install",
+    "postinstall": "node scripts/node14-compat-patch.js",
     "prepare": "husky || true",
     "simulator": "node webhook-simulator.js"
   },

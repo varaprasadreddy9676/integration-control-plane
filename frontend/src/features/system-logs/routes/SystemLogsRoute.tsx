@@ -48,6 +48,8 @@ export default function SystemLogsRoute() {
   const [pollIdFilter, setPollIdFilter] = useState<string>(''); // filter by specific poll ID
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
+  const [refreshCountdown, setRefreshCountdown] = useState<number>(5);
+  const [manualRefreshPending, setManualRefreshPending] = useState(false);
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
   const [exportLoading, setExportLoading] = useState(false);
   const [serverStats, setServerStats] = useState<any>(null);
@@ -314,8 +316,13 @@ export default function SystemLogsRoute() {
     }
   };
 
-  const fetchLogs = async () => {
-    setLoading(true);
+  const fetchLogs = async ({ silent = false, manual = false }: { silent?: boolean; manual?: boolean } = {}) => {
+    if (!silent) {
+      setLoading(true);
+    }
+    if (manual) {
+      setManualRefreshPending(true);
+    }
     try {
       // TODO: Backend should support server-side pagination (page/offset params)
       // For now, using client-side pagination with 100 record limit
@@ -332,7 +339,12 @@ export default function SystemLogsRoute() {
       const errorMessage = error instanceof Error ? error.message : 'Failed to fetch system logs';
       msgApi.error(errorMessage);
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
+      if (manual) {
+        setManualRefreshPending(false);
+      }
     }
   };
 
@@ -404,14 +416,32 @@ export default function SystemLogsRoute() {
   useEffect(() => {
     if (!autoRefresh) return;
 
+    const refreshSeconds = 5;
+    const updateCountdown = () => {
+      const elapsedMs = Date.now() - lastRefresh.getTime();
+      const remainingSeconds = Math.max(0, Math.ceil((refreshSeconds * 1000 - elapsedMs) / 1000));
+      setRefreshCountdown(remainingSeconds > 0 ? remainingSeconds : 0);
+    };
+
+    updateCountdown();
+    const countdownInterval = setInterval(updateCountdown, 1000);
+
     const interval = setInterval(() => {
-      fetchLogs();
+      fetchLogs({ silent: true });
       // Clear selection on auto-refresh to prevent data corruption
       setSelectedRowKeys([]);
-    }, 5000); // Refresh every 5 seconds
+    }, refreshSeconds * 1000);
 
-    return () => clearInterval(interval);
-  }, [autoRefresh, levelFilter, searchFilter]);
+    return () => {
+      clearInterval(interval);
+      clearInterval(countdownInterval);
+    };
+  }, [autoRefresh, levelFilter, searchFilter, errorCategoryFilter, lastRefresh]);
+
+  useEffect(() => {
+    if (autoRefresh) return;
+    setRefreshCountdown(5);
+  }, [autoRefresh]);
 
   const levelTone: Record<string, { bg: string; text: string; border: string; icon: any; dotColor: string }> = {
     error: {
@@ -1047,12 +1077,14 @@ export default function SystemLogsRoute() {
             background: withAlpha(cssVar.bg.surface, 0.9)
           }}
         >
-          <Typography.Text type="secondary" style={{ color: cssVar.text.secondary }}>Auto-refresh</Typography.Text>
+          <Typography.Text type="secondary" style={{ color: cssVar.text.secondary }}>
+            {autoRefresh ? `Auto-refresh in ${refreshCountdown}s` : 'Auto-refresh off'}
+          </Typography.Text>
           <Switch checked={autoRefresh} onChange={() => setAutoRefresh(!autoRefresh)} />
           <Divider type="vertical" style={{ margin: 0 }} />
           <Button
             type={autoRefresh ? 'primary' : 'default'}
-            icon={<ReloadOutlined spin={loading} />}
+            icon={<ReloadOutlined />}
             onClick={() => setAutoRefresh(!autoRefresh)}
             size="small"
           >
@@ -1077,7 +1109,7 @@ export default function SystemLogsRoute() {
         ].map((item) => (
           <Card
             key={item.title}
-            bordered
+            variant="outlined"
             hoverable={item.filter !== ''}
             onClick={() => item.filter && handleQuickStatusFilter(item.filter)}
             style={{
@@ -1089,7 +1121,7 @@ export default function SystemLogsRoute() {
               transition: transitions.all,
               background: statusFilter === item.filter && item.filter ? withAlpha(item.tone, 0.05) : cssVar.bg.surface
             }}
-            bodyStyle={{ padding: 0 }}
+            styles={{ body: { padding: 0 } }}
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: spacing[2] }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: spacing[1] }}>
@@ -1216,13 +1248,14 @@ export default function SystemLogsRoute() {
           style={{ minWidth: 140, flex: isNarrow ? '1 1 auto' : '0 0 180px' }}
           prefix={<SearchOutlined style={{ color: cssVar.text.muted }} />}
         />
-        <Input.Search
+        <Input
           placeholder="Search messages..."
           allowClear
           size="small"
           value={searchFilter}
           onChange={(e) => setSearchFilter(e.target.value)}
           style={{ minWidth: 180, flex: '1 1 240px' }}
+          prefix={<SearchOutlined style={{ color: cssVar.text.muted }} />}
         />
         <div style={{ display: 'flex', gap: spacing['1.5'], marginLeft: isNarrow ? 0 : 'auto', flex: '0 0 auto', whiteSpace: 'nowrap' }}>
           {hasActiveFilters && (
@@ -1234,8 +1267,8 @@ export default function SystemLogsRoute() {
               Clear Filters
             </Button>
           )}
-          <Button icon={<ReloadOutlined />} onClick={fetchLogs} loading={loading} size="small">
-            Refresh
+          <Button icon={<ReloadOutlined />} onClick={() => fetchLogs({ manual: true, silent: true })} loading={manualRefreshPending} size="small">
+            {manualRefreshPending ? 'Refreshing…' : 'Refresh'}
           </Button>
         </div>
       </div>
@@ -1248,7 +1281,7 @@ export default function SystemLogsRoute() {
             border: `1px solid ${cssVar.border.default}`,
             boxShadow: shadows.xl
           }}
-          bodyStyle={{ padding: 0 }}
+          styles={{ body: { padding: 0 } }}
         >
           <ModernTable<PollGroupRow>
             columns={columns}
@@ -1290,7 +1323,7 @@ export default function SystemLogsRoute() {
                   <Typography.Text type="secondary" style={{ display: 'block', marginBottom: spacing[4], color: cssVar.text.secondary }}>
                     System logs from the last 24 hours will appear here
                   </Typography.Text>
-                  <Button onClick={fetchLogs} icon={<ReloadOutlined />}>
+                  <Button onClick={() => fetchLogs({ manual: true, silent: true })} icon={<ReloadOutlined />}>
                     Refresh Logs
                   </Button>
                 </div>

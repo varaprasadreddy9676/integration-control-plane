@@ -1,9 +1,9 @@
 const express = require('express');
-const fs = require('node:fs');
-const fsp = require('node:fs/promises');
-const os = require('node:os');
-const path = require('node:path');
-const { randomUUID } = require('node:crypto');
+const fs = require('fs');
+const fsp = require('fs/promises');
+const os = require('os');
+const path = require('path');
+const { randomUUID } = require('crypto');
 const data = require('../data');
 const { log } = require('../logger');
 const mongodb = require('../mongodb');

@@ -1,5 +1,6 @@
 const express = require('express');
 const request = require('supertest');
+const axios = require('axios');
 
 const mockIntegrationCollection = {
   findOne: jest.fn(),
@@ -16,8 +17,11 @@ jest.mock('../../src/mongodb', () => ({
   })
 }));
 
-jest.mock('../../src/data', () => ({}));
+jest.mock('../../src/data', () => ({
+  recordLog: jest.fn().mockResolvedValue(undefined),
+}));
 jest.mock('../../src/processor/auth-helper', () => ({ buildAuthHeaders: jest.fn() }));
+jest.mock('axios', () => jest.fn());
 jest.mock('../../src/services/transformer', () => ({
   applyTransform: jest.fn(),
   applyResponseTransform: jest.fn()
@@ -33,6 +37,9 @@ jest.mock('../../src/services/communication/adapter-registry', () => ({
 }));
 
 const integrationsRouter = require('../../src/routes/integrations');
+const { applyTransform } = require('../../src/services/transformer');
+const { buildAuthHeaders } = require('../../src/processor/auth-helper');
+const { createExecutionLogger } = require('../../src/utils/execution-logger');
 
 function buildApp() {
   const app = express();
@@ -55,6 +62,19 @@ describe('Inbound COMMUNICATION AI Draft compatibility', () => {
     mockIntegrationCollection.findOne.mockResolvedValue(null);
     mockIntegrationCollection.insertOne.mockResolvedValue({ insertedId: { toString: () => '507f1f77bcf86cd799439011' } });
     mockIntegrationCollection.updateOne.mockResolvedValue({ matchedCount: 1 });
+    createExecutionLogger.mockReturnValue({
+      start: jest.fn().mockResolvedValue(undefined),
+      addStep: jest.fn().mockResolvedValue(undefined),
+      updateStatus: jest.fn().mockResolvedValue(undefined),
+      fail: jest.fn().mockResolvedValue(undefined),
+      success: jest.fn().mockResolvedValue(undefined),
+    });
+    buildAuthHeaders.mockResolvedValue({});
+    axios.mockResolvedValue({
+      status: 200,
+      data: { ok: true },
+      headers: {},
+    });
   });
 
   it('creates inbound email integration when AI draft includes valid SMTP action', async () => {
@@ -173,5 +193,100 @@ describe('Inbound COMMUNICATION AI Draft compatibility', () => {
     expect(response.status).toBe(400);
     expect(response.body.error).toContain('maxInboundFileSizeMb must be between 1 and 100');
     expect(mockIntegrationCollection.insertOne).not.toHaveBeenCalled();
+  });
+
+  it('persists lookup configs for inbound integrations', async () => {
+    const response = await request(app)
+      .post('/?orgId=84')
+      .send({
+        direction: 'INBOUND',
+        name: 'Pathkind Result Inbound',
+        type: 'pathkind-result-inbound',
+        targetUrl: 'https://medicsprime.in/api/lab',
+        httpMethod: 'POST',
+        lookups: [
+          {
+            type: 'PATHKIND_TEST_TO_GRID_TEST',
+            sourceTemplate: '{{sourceContext.vendorCode}}|{{sourceContext.externalTestCode}}',
+            targetField: 'gridTestCode',
+            targetValueField: 'code',
+            unmappedBehavior: 'FAIL',
+          },
+        ],
+      });
+
+    expect(response.status).toBe(201);
+    expect(mockIntegrationCollection.insertOne).toHaveBeenCalledWith(
+      expect.objectContaining({
+        lookups: [
+          expect.objectContaining({
+            type: 'PATHKIND_TEST_TO_GRID_TEST',
+            sourceTemplate: '{{sourceContext.vendorCode}}|{{sourceContext.externalTestCode}}',
+            targetField: 'gridTestCode',
+            targetValueField: 'code',
+          }),
+        ],
+      })
+    );
+  });
+
+  it('passes inbound lookups into request transformation at runtime', async () => {
+    mockIntegrationCollection.findOne.mockResolvedValue({
+      _id: { toString: () => '507f1f77bcf86cd799439012' },
+      name: 'Pathkind Result Runtime',
+      type: 'pathkind-result-runtime',
+      direction: 'INBOUND',
+      orgId: 84,
+      isActive: true,
+      targetUrl: 'https://medicsprime.in/api/lab',
+      httpMethod: 'POST',
+      requestTransformation: {
+        mode: 'SCRIPT',
+        script: 'return payload;',
+      },
+      responseTransformation: null,
+      lookups: [
+        {
+          type: 'PATHKIND_TEST_TO_GRID_TEST',
+          sourceTemplate: '{{sourceContext.vendorCode}}|{{sourceContext.externalTestCode}}',
+          targetField: 'gridTestCode',
+          targetValueField: 'code',
+          unmappedBehavior: 'FAIL',
+        },
+      ],
+      outgoingAuthType: 'NONE',
+      outgoingAuthConfig: {},
+      retryCount: 1,
+      timeout: 5000,
+      contentType: 'application/json',
+      streamResponse: false,
+    });
+    applyTransform.mockResolvedValue({
+      gridTestCode: 'LAB001',
+      gridTestName: 'HAEMOGLOBIN',
+    });
+
+    const response = await request(app)
+      .post('/pathkind-result-runtime?orgId=84')
+      .send({
+        ResultData: [{ TestCode: 'HB', TestResult: '13.2' }],
+      });
+
+    expect(response.status).toBe(200);
+    expect(applyTransform).toHaveBeenCalledWith(
+      expect.objectContaining({
+        lookups: [
+          expect.objectContaining({
+            type: 'PATHKIND_TEST_TO_GRID_TEST',
+            targetValueField: 'code',
+          }),
+        ],
+      }),
+      expect.any(Object),
+      expect.objectContaining({
+        eventType: 'pathkind-result-runtime',
+        orgId: 84,
+      })
+    );
   });
 });

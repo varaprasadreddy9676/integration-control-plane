@@ -186,7 +186,7 @@ async function aggregateOverviewCollection(db, collection, match, fields) {
             $sum: {
               $cond: [
                 {
-                  $in: [`$${fields.statusField}`, ['FAILED', 'failed', 'SKIPPED', 'skipped', 'ABANDONED', 'abandoned']],
+                  $in: [`$${fields.statusField}`, ['FAILED', 'failed', 'ABANDONED', 'abandoned']],
                 },
                 1,
                 0,
@@ -271,7 +271,7 @@ async function aggregateTimeseriesCollection(db, collection, match, fields, inte
             $sum: {
               $cond: [
                 {
-                  $in: [`$${fields.statusField}`, ['FAILED', 'failed', 'SKIPPED', 'skipped', 'ABANDONED', 'abandoned']],
+                  $in: [`$${fields.statusField}`, ['FAILED', 'failed', 'ABANDONED', 'abandoned']],
                 },
                 1,
                 0,
@@ -476,7 +476,7 @@ router.get(
       const p95ResponseTime = computePercentileFromBuckets(mergedBuckets, responseTimeCount, 0.95);
 
       const successful = statusCounts.SUCCESS || 0;
-      const failed = (statusCounts.FAILED || 0) + (statusCounts.SKIPPED || 0) + (statusCounts.ABANDONED || 0);
+      const failed = (statusCounts.FAILED || 0) + (statusCounts.ABANDONED || 0);
       const retrying = statusCounts.RETRYING || 0;
       const pending = statusCounts.PENDING || 0;
       const successRate = total > 0 ? Math.round((successful / total) * 10000) / 100 : 0;

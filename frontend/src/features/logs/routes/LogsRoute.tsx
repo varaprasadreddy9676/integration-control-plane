@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect } from 'react';
 import { App, Button, Card, DatePicker, Input, Select, Space, Tag, Typography, Timeline, Divider, Tabs, Grid, Dropdown, Modal, Skeleton } from 'antd';
-import { DownloadOutlined, RedoOutlined, HistoryOutlined, ReloadOutlined, ClockCircleOutlined, CheckCircleOutlined, CloseCircleOutlined, DeleteOutlined, CopyOutlined } from '@ant-design/icons';
+import { DownloadOutlined, RedoOutlined, HistoryOutlined, ReloadOutlined, ClockCircleOutlined, CheckCircleOutlined, CloseCircleOutlined, DeleteOutlined, CopyOutlined, SearchOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { useSearchParams, useLocation } from 'react-router-dom';
 import { PageHeader } from '../../../components/common/PageHeader';
@@ -41,6 +41,50 @@ const maskSecret = (value: unknown): string | null => {
   return `${value.slice(0, 2)}${'*'.repeat(Math.max(4, value.length - 4))}${value.slice(-2)}`;
 };
 
+const DAY_OF_WEEK_OPTIONS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const SCHEDULED_TRIGGER_TYPES = new Set(['SCHEDULE', 'SCHEDULED']);
+
+const deriveDateRangeFromDays = (value: string | null): [string, string] | null => {
+  const parsedDays = Number.parseInt(String(value || ''), 10);
+  if (!Number.isFinite(parsedDays) || parsedDays <= 0) return null;
+  const end = dayjs().endOf('day');
+  const start = parsedDays <= 1 ? dayjs().startOf('day') : dayjs().subtract(parsedDays - 1, 'day').startOf('day');
+  return [start.toISOString(), end.toISOString()];
+};
+
+const normalizeHourFilter = (value: string | null): string | undefined => {
+  if (value == null || value === '') return undefined;
+  const hour = Number.parseInt(String(value), 10);
+  if (!Number.isFinite(hour) || hour < 0 || hour > 23) return undefined;
+  return String(hour);
+};
+
+const normalizeDayOfWeekFilter = (value: string | null): string | undefined => {
+  if (value == null || value === '') return undefined;
+  const raw = String(value).trim();
+  if (!raw) return undefined;
+  if (/^\d+$/.test(raw)) {
+    const numeric = Number.parseInt(raw, 10);
+    if (numeric >= 0 && numeric <= 6) return DAY_OF_WEEK_OPTIONS[numeric];
+    if (numeric >= 1 && numeric <= 7) return DAY_OF_WEEK_OPTIONS[(numeric + 6) % 7];
+    return undefined;
+  }
+  const upper = raw.toUpperCase();
+  return DAY_OF_WEEK_OPTIONS.find((day) => day.toUpperCase() === upper) || undefined;
+};
+
+const deriveFlowFilterFromParams = (direction: string | null, triggerType: string | null): string | undefined => {
+  const normalizedDirection = direction ? String(direction).toUpperCase() : '';
+  const normalizedTriggerType = triggerType ? String(triggerType).toUpperCase() : '';
+  if (normalizedDirection === 'SCHEDULED' || SCHEDULED_TRIGGER_TYPES.has(normalizedTriggerType)) {
+    return 'SCHEDULED';
+  }
+  if (['INBOUND', 'OUTBOUND', 'COMMUNICATION'].includes(normalizedDirection)) {
+    return normalizedDirection;
+  }
+  return undefined;
+};
+
 export const LogsRoute = () => {
   const { colors, spacing, token, borderRadius, shadows } = useDesignTokens();
   const { user } = useAuth();
@@ -54,6 +98,9 @@ export const LogsRoute = () => {
   const [integrationFilter, setIntegrationFilter] = useState<string>();
   const [eventTypeFilter, setEventTypeFilter] = useState<string>();
   const [flowFilter, setFlowFilter] = useState<string>();
+  const [errorCategoryFilter, setErrorCategoryFilter] = useState<string>();
+  const [hourFilter, setHourFilter] = useState<string>();
+  const [dayOfWeekFilter, setDayOfWeekFilter] = useState<string>();
   const [dateRange, setDateRange] = useState<[string, string] | null>(getTodayDateRange());
   const [search, setSearch] = useState('');
   const [expandedLogDetails, setExpandedLogDetails] = useState<Record<string, DeliveryLog>>({});
@@ -62,20 +109,71 @@ export const LogsRoute = () => {
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
   const [exportLoading, setExportLoading] = useState(false);
   const [showMoreFilters, setShowMoreFilters] = useState(false);
+  const [manualRefreshPending, setManualRefreshPending] = useState(false);
+  const [refreshCountdown, setRefreshCountdown] = useState<number | null>(null);
 
   useEffect(() => {
     const hasStatusParam = searchParams.has('status');
     const statusParam = searchParams.get('status') || undefined;
+    const hasIntegrationParam = searchParams.has('integrationId');
+    const integrationParam = searchParams.get('integrationId') || undefined;
+    const hasEventTypeParam = searchParams.has('eventType');
+    const eventTypeParam = searchParams.get('eventType') || undefined;
+    const hasDirectionParam = searchParams.has('direction');
+    const hasTriggerTypeParam = searchParams.has('triggerType');
+    const derivedFlowFilter = deriveFlowFilterFromParams(searchParams.get('direction'), searchParams.get('triggerType'));
+    const hasErrorCategoryParam = searchParams.has('errorCategory');
+    const errorCategoryParam = searchParams.get('errorCategory') || undefined;
+    const hasHourParam = searchParams.has('hour');
+    const normalizedHourFilter = normalizeHourFilter(searchParams.get('hour'));
+    const hasDayOfWeekParam = searchParams.has('dayOfWeek');
+    const normalizedDayOfWeekFilter = normalizeDayOfWeekFilter(searchParams.get('dayOfWeek'));
     const dateRangeParam = searchParams.get('dateRange');
     const hasDateRangeParam = searchParams.has('dateRange');
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
+    const hasDaysParam = searchParams.has('days');
+    const derivedDateRange = deriveDateRangeFromDays(searchParams.get('days'));
     let consumedPrefillParams = false;
 
     if (hasStatusParam && statusParam !== statusFilter) {
       setStatusFilter(statusParam);
-      consumedPrefillParams = true;
     }
+    if (hasStatusParam) consumedPrefillParams = true;
+
+    if (hasIntegrationParam && integrationParam !== integrationFilter) {
+      setIntegrationFilter(integrationParam);
+    }
+    if (hasIntegrationParam) consumedPrefillParams = true;
+
+    if (hasEventTypeParam && eventTypeParam !== eventTypeFilter) {
+      setEventTypeFilter(eventTypeParam);
+      setShowMoreFilters(true);
+    }
+    if (hasEventTypeParam) consumedPrefillParams = true;
+
+    if ((hasDirectionParam || hasTriggerTypeParam) && derivedFlowFilter !== flowFilter) {
+      setFlowFilter(derivedFlowFilter);
+    }
+    if (hasDirectionParam || hasTriggerTypeParam) consumedPrefillParams = true;
+
+    if (hasErrorCategoryParam && errorCategoryParam !== errorCategoryFilter) {
+      setErrorCategoryFilter(errorCategoryParam);
+      setShowMoreFilters(true);
+    }
+    if (hasErrorCategoryParam) consumedPrefillParams = true;
+
+    if (hasHourParam && normalizedHourFilter !== hourFilter) {
+      setHourFilter(normalizedHourFilter);
+      setShowMoreFilters(true);
+    }
+    if (hasHourParam) consumedPrefillParams = true;
+
+    if (hasDayOfWeekParam && normalizedDayOfWeekFilter !== dayOfWeekFilter) {
+      setDayOfWeekFilter(normalizedDayOfWeekFilter);
+      setShowMoreFilters(true);
+    }
+    if (hasDayOfWeekParam) consumedPrefillParams = true;
 
     if (hasDateRangeParam && dateRangeParam === 'all') {
       if (dateRange !== null) {
@@ -87,6 +185,11 @@ export const LogsRoute = () => {
         setDateRange([startDate, endDate]);
       }
       consumedPrefillParams = true;
+    } else if (hasDaysParam && derivedDateRange) {
+      if (!dateRange || dateRange[0] !== derivedDateRange[0] || dateRange[1] !== derivedDateRange[1]) {
+        setDateRange(derivedDateRange);
+      }
+      consumedPrefillParams = true;
     }
 
     // Header shortcut params should prefill once, then be removed so users
@@ -94,17 +197,36 @@ export const LogsRoute = () => {
     if (consumedPrefillParams) {
       const nextParams = new URLSearchParams(searchParams);
       nextParams.delete('status');
+      nextParams.delete('integrationId');
+      nextParams.delete('eventType');
+      nextParams.delete('direction');
+      nextParams.delete('triggerType');
+      nextParams.delete('errorCategory');
+      nextParams.delete('hour');
+      nextParams.delete('dayOfWeek');
       nextParams.delete('dateRange');
       nextParams.delete('startDate');
       nextParams.delete('endDate');
+      nextParams.delete('days');
       setSearchParams(nextParams, { replace: true });
     }
-  }, [searchParams, setSearchParams, statusFilter, dateRange]);
+  }, [
+    searchParams,
+    setSearchParams,
+    statusFilter,
+    integrationFilter,
+    eventTypeFilter,
+    flowFilter,
+    errorCategoryFilter,
+    hourFilter,
+    dayOfWeekFilter,
+    dateRange
+  ]);
 
   // Clear selection when filters change to prevent data corruption
   useEffect(() => {
     setSelectedRowKeys([]);
-  }, [statusFilter, integrationFilter, eventTypeFilter, flowFilter, search, dateRange]);
+  }, [statusFilter, integrationFilter, eventTypeFilter, flowFilter, errorCategoryFilter, hourFilter, dayOfWeekFilter, search, dateRange]);
 
   // Refetch whenever the user navigates to this page — including clicking the
   // sidebar link while already on this route (location.key changes every time).
@@ -117,7 +239,7 @@ export const LogsRoute = () => {
   const { currentPage, pageSize, getPaginationConfig } = usePaginatedTable({
     defaultPageSize: 15,
     pageSizeOptions: ['10', '15', '25', '50', '100'],
-    resetDeps: [statusFilter, integrationFilter, eventTypeFilter, flowFilter, search, dateRange],
+    resetDeps: [statusFilter, integrationFilter, eventTypeFilter, flowFilter, errorCategoryFilter, hourFilter, dayOfWeekFilter, search, dateRange],
     syncWithUrl: true // Enable URL params for bookmarkable pages
   });
 
@@ -139,12 +261,11 @@ export const LogsRoute = () => {
     ? 'INBOUND'
     : flowFilter === 'OUTBOUND'
       ? 'OUTBOUND'
-      : flowFilter === 'SCHEDULED'
-        ? 'SCHEDULED'
-        : flowFilter === 'COMMUNICATION'
+      : flowFilter === 'COMMUNICATION'
           ? 'COMMUNICATION'
           : undefined;
-  const resolvedTriggerType = flowFilter === 'SCHEDULED' ? 'SCHEDULE' : undefined;
+  const resolvedTriggerType = flowFilter === 'SCHEDULED' ? 'SCHEDULED' : undefined;
+  const timezoneOffset = hourFilter || dayOfWeekFilter ? String(new Date().getTimezoneOffset()) : undefined;
 
   const resolvedDateRange = useMemo(() => {
     if (!dateRange?.[0] || !dateRange?.[1]) return null;
@@ -154,14 +275,18 @@ export const LogsRoute = () => {
     ] as [string, string];
   }, [dateRange]);
 
-  const { data: logsResponse, refetch: refetchLogs, isFetching: logsFetching } = useQuery<PaginatedResponse<DeliveryLog>>({
-    queryKey: ['logs', statusFilter, integrationFilter, eventTypeFilter, flowFilter, search, resolvedDateRange, currentPage, pageSize],
+  const { data: logsResponse, refetch: refetchLogs, isFetching: logsFetching, dataUpdatedAt: logsUpdatedAt } = useQuery<PaginatedResponse<DeliveryLog>>({
+    queryKey: ['logs', statusFilter, integrationFilter, eventTypeFilter, flowFilter, errorCategoryFilter, hourFilter, dayOfWeekFilter, search, resolvedDateRange, currentPage, pageSize],
     queryFn: () => getLogs({
       status: statusFilter === 'PENDING_OR_RETRYING' ? undefined : statusFilter, // Don't send special filter to backend
       integrationId: integrationFilter,
       eventType: eventTypeFilter,
       direction: resolvedDirection,
       triggerType: resolvedTriggerType,
+      errorCategory: errorCategoryFilter,
+      hour: hourFilter,
+      dayOfWeek: dayOfWeekFilter,
+      timezoneOffset,
       search,
       dateRange: resolvedDateRange,
       page: currentPage,
@@ -172,14 +297,47 @@ export const LogsRoute = () => {
 
   const logs = logsResponse?.data || [];
   const pagination = logsResponse?.pagination;
+  const isInitialLogsLoading = logsFetching && !logsResponse;
 
   const { data: integrations = [] } = useQuery({ queryKey: ['integrations'], queryFn: getIntegrations });
   const { data: eventTypes = [] } = useQuery<string[]>({ queryKey: ['event-types'], queryFn: getEventTypes });
-  const { data: stats, refetch: refetchStats } = useQuery({
-    queryKey: ['log-stats'],
-    queryFn: getLogStatsSummary,
+  const { data: stats, refetch: refetchStats, dataUpdatedAt: statsUpdatedAt } = useQuery({
+    queryKey: ['log-stats', integrationFilter, eventTypeFilter, flowFilter, errorCategoryFilter, hourFilter, dayOfWeekFilter, search, resolvedDateRange],
+    queryFn: () => getLogStatsSummary({
+      integrationId: integrationFilter,
+      eventType: eventTypeFilter,
+      direction: resolvedDirection,
+      triggerType: resolvedTriggerType,
+      errorCategory: errorCategoryFilter,
+      hour: hourFilter,
+      dayOfWeek: dayOfWeekFilter,
+      timezoneOffset,
+      search,
+      dateRange: resolvedDateRange
+    }),
     refetchInterval: refreshInterval
   });
+  const latestRefreshAt = Math.max(logsUpdatedAt || 0, statsUpdatedAt || 0);
+
+  useEffect(() => {
+    if (!refreshInterval) {
+      setRefreshCountdown(null);
+      return;
+    }
+
+    const updateCountdown = () => {
+      if (!latestRefreshAt) {
+        setRefreshCountdown(refreshSeconds);
+        return;
+      }
+      const nextRefreshAt = latestRefreshAt + refreshInterval;
+      setRefreshCountdown(Math.max(0, Math.ceil((nextRefreshAt - Date.now()) / 1000)));
+    };
+
+    updateCountdown();
+    const timer = window.setInterval(updateCountdown, 1000);
+    return () => window.clearInterval(timer);
+  }, [latestRefreshAt, refreshInterval, refreshSeconds]);
 
   const clearExportFilter = (key: string) => {
     switch (key) {
@@ -194,6 +352,15 @@ export const LogsRoute = () => {
         break;
       case 'eventType':
         setEventTypeFilter(undefined);
+        break;
+      case 'errorCategory':
+        setErrorCategoryFilter(undefined);
+        break;
+      case 'hour':
+        setHourFilter(undefined);
+        break;
+      case 'dayOfWeek':
+        setDayOfWeekFilter(undefined);
         break;
       case 'date':
         setDateRange(null);
@@ -228,6 +395,15 @@ export const LogsRoute = () => {
     if (eventTypeFilter) {
       chips.push({ key: 'eventType', label: `Event: ${eventTypeFilter}`, onClear: () => clearExportFilter('eventType') });
     }
+    if (errorCategoryFilter) {
+      chips.push({ key: 'errorCategory', label: `Error: ${errorCategoryFilter}`, onClear: () => clearExportFilter('errorCategory') });
+    }
+    if (hourFilter) {
+      chips.push({ key: 'hour', label: `Hour: ${hourFilter.padStart(2, '0')}:00`, onClear: () => clearExportFilter('hour') });
+    }
+    if (dayOfWeekFilter) {
+      chips.push({ key: 'dayOfWeek', label: `Day: ${dayOfWeekFilter}`, onClear: () => clearExportFilter('dayOfWeek') });
+    }
     if (dateRange?.[0] && dateRange?.[1]) {
       const startLabel = dayjs(dateRange[0]).format('YYYY-MM-DD');
       const endLabel = dayjs(dateRange[1]).format('YYYY-MM-DD');
@@ -239,7 +415,7 @@ export const LogsRoute = () => {
       chips.push({ key: 'search', label: `Search: ${display}`, onClear: () => clearExportFilter('search') });
     }
     return chips;
-  }, [statusFilter, flowFilter, integrationFilter, eventTypeFilter, dateRange, search, integrations]);
+  }, [statusFilter, flowFilter, integrationFilter, eventTypeFilter, errorCategoryFilter, hourFilter, dayOfWeekFilter, dateRange, search, integrations]);
 
   const filtered = useMemo(() => {
     // Handle "Pending" filter - show both PENDING and RETRYING
@@ -465,6 +641,10 @@ export const LogsRoute = () => {
       eventType: eventTypeFilter,
       direction: resolvedDirection,
       triggerType: resolvedTriggerType,
+      errorCategory: errorCategoryFilter,
+      hour: hourFilter,
+      dayOfWeek: dayOfWeekFilter,
+      timezoneOffset,
       search: search || undefined,
       dateRange: dateRange || undefined
     };
@@ -605,6 +785,15 @@ export const LogsRoute = () => {
   // Quick status filter handler
   const handleQuickStatusFilter = (status: string) => {
     setStatusFilter(statusFilter === status ? undefined : status);
+  };
+
+  const handleManualRefresh = async () => {
+    setManualRefreshPending(true);
+    try {
+      await Promise.all([refetchLogs(), refetchStats()]);
+    } finally {
+      setManualRefreshPending(false);
+    }
   };
 
   return (
@@ -850,12 +1039,14 @@ export const LogsRoute = () => {
             { value: 'COMMUNICATION', label: 'Communication' }
           ]}
         />
-        <Input.Search
+        <Input
           placeholder="Search message, target URL, or error"
           allowClear
           size="small"
+          value={search}
           onChange={(e) => setSearch(e.target.value)}
           style={{ minWidth: 200, flex: '1 1 220px' }}
+          prefix={<SearchOutlined style={{ color: cssVar.text.muted }} />}
         />
         <Button
           type="text"
@@ -868,17 +1059,17 @@ export const LogsRoute = () => {
         <div style={{ marginLeft: isNarrow ? 0 : 'auto', display: 'flex', alignItems: 'center', gap: spacing[2] }}>
           {refreshInterval && (
             <Typography.Text type="secondary" style={{ fontSize: 11, whiteSpace: 'nowrap' }}>
-              Auto-refreshing every {refreshSeconds}s
+              Auto-refresh in {refreshCountdown ?? refreshSeconds}s
             </Typography.Text>
           )}
           <Button
             type="default"
-            icon={<ReloadOutlined spin={logsFetching} />}
+            icon={<ReloadOutlined spin={manualRefreshPending} />}
             loading={false}
-            onClick={() => { refetchLogs(); refetchStats(); }}
+            onClick={handleManualRefresh}
             size="small"
           >
-            {logsFetching ? 'Refreshing…' : 'Refresh'}
+            {manualRefreshPending ? 'Refreshing…' : 'Refresh'}
           </Button>
         </div>
       </div>
@@ -906,6 +1097,35 @@ export const LogsRoute = () => {
             value={eventTypeFilter}
             onChange={(value) => setEventTypeFilter(value)}
             options={eventTypes.map((type) => ({ value: type, label: type }))}
+          />
+          <Input
+            placeholder="Error category"
+            style={{ minWidth: 200, flex: '1 1 220px' }}
+            allowClear
+            size="small"
+            value={errorCategoryFilter}
+            onChange={(event) => setErrorCategoryFilter(event.target.value || undefined)}
+          />
+          <Select
+            placeholder="Day of week"
+            style={{ minWidth: 160, flex: '1 1 170px' }}
+            allowClear
+            size="small"
+            value={dayOfWeekFilter}
+            onChange={(value) => setDayOfWeekFilter(value)}
+            options={DAY_OF_WEEK_OPTIONS.map((day) => ({ value: day, label: day }))}
+          />
+          <Select
+            placeholder="Hour"
+            style={{ minWidth: 140, flex: '1 1 150px' }}
+            allowClear
+            size="small"
+            value={hourFilter}
+            onChange={(value) => setHourFilter(value)}
+            options={Array.from({ length: 24 }, (_, hour) => ({
+              value: String(hour),
+              label: `${String(hour).padStart(2, '0')}:00`
+            }))}
           />
         </div>
       )}
@@ -962,6 +1182,9 @@ export const LogsRoute = () => {
                   clearExportFilter('flow');
                   clearExportFilter('integration');
                   clearExportFilter('eventType');
+                  clearExportFilter('errorCategory');
+                  clearExportFilter('hour');
+                  clearExportFilter('dayOfWeek');
                   clearExportFilter('date');
                   clearExportFilter('search');
                 }}
@@ -974,6 +1197,9 @@ export const LogsRoute = () => {
                     clearExportFilter('flow');
                     clearExportFilter('integration');
                     clearExportFilter('eventType');
+                    clearExportFilter('errorCategory');
+                    clearExportFilter('hour');
+                    clearExportFilter('dayOfWeek');
                     clearExportFilter('date');
                     clearExportFilter('search');
                   }
@@ -1046,7 +1272,7 @@ export const LogsRoute = () => {
           size="small"
           enableResize={true}
           stickyHeader={true}
-          loading={logsFetching}
+          loading={isInitialLogsLoading}
           pagination={{
             ...getPaginationConfig(pagination?.total || 0),
             showTotal: (total, range) => `${range[0]}-${range[1]} of ${total.toLocaleString()} delivery logs`,
@@ -1104,9 +1330,9 @@ export const LogsRoute = () => {
                     </div>
                   ) : (
                     <Card
-                      bordered
+                      variant="outlined"
                       style={{ ...panelStyle, boxShadow: 'none', margin: 0 }}
-                      bodyStyle={{ padding: spacing[2], display: 'flex', flexDirection: 'column', gap: spacing[2] }}
+                      styles={{ body: { padding: spacing[2], display: 'flex', flexDirection: 'column', gap: spacing[2] } }}
                     >
                       {(curlCommand || isCommunicationLog) && (
                         <Tabs

@@ -145,7 +145,7 @@ export default function FeaturesSection() {
           start: 'top top',
           end: '+=260%',
           pin: true,
-          scrub: 1.0,
+          scrub: 1.5,
           anticipatePin: 1,
           invalidateOnRefresh: true,
         },
@@ -154,25 +154,25 @@ export default function FeaturesSection() {
       // ENTRANCE
       scrollTl.fromTo(
         headlineRef.current,
-        { y: '-5vh', opacity: 0 },
-        { y: 0, opacity: 1, ease: 'power4.out' },
+        { y: '-3vh', opacity: 0 },
+        { y: 0, opacity: 1, ease: 'power3.out' },
         0
       );
 
       scrollTl.fromTo(
         subheadRef.current,
-        { y: '-4vh', opacity: 0 },
-        { y: 0, opacity: 1, ease: 'power4.out' },
-        0.04
+        { y: '-2vh', opacity: 0 },
+        { y: 0, opacity: 1, ease: 'power3.out' },
+        0.05
       );
 
       cardsRef.current.forEach((card, i) => {
         if (card) {
           scrollTl.fromTo(
             card,
-            { y: '20vh', opacity: 0 },
-            { y: 0, opacity: 1, ease: 'power4.out' },
-            0.06 + i * 0.025
+            { y: '10vh', opacity: 0 },
+            { y: 0, opacity: 1, ease: 'power3.out' },
+            0.1 + i * 0.03
           );
         }
       });
@@ -183,8 +183,8 @@ export default function FeaturesSection() {
           scrollTl.fromTo(
             card,
             { y: 0, opacity: 1 },
-            { y: '-6vh', opacity: 0, ease: 'power3.in' },
-            0.68 + i * 0.015
+            { y: '-4vh', opacity: 0, ease: 'power2.inOut' },
+            0.7 + i * 0.015
           );
         }
       });
@@ -192,15 +192,15 @@ export default function FeaturesSection() {
       scrollTl.fromTo(
         headlineRef.current,
         { opacity: 1, y: 0 },
-        { opacity: 0, y: '-3vh', ease: 'power3.in' },
-        0.72
+        { opacity: 0, y: '-2vh', ease: 'power2.inOut' },
+        0.75
       );
 
       scrollTl.fromTo(
         subheadRef.current,
         { opacity: 1, y: 0 },
-        { opacity: 0, y: '-3vh', ease: 'power3.in' },
-        0.74
+        { opacity: 0, y: '-2vh', ease: 'power2.inOut' },
+        0.78
       );
     }, section);
 

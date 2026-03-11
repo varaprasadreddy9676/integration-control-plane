@@ -1,0 +1,52 @@
+[
+  {
+    "_id": { "$oid": "6a4b2c3d4e5f607182930b91" },
+    "orgId": 145,
+    "orgUnitRid": null,
+    "type": "PATHKIND_TEST_TO_GRID_TEST",
+    "source": {
+      "id": "PATHKIND|HB",
+      "key": "PATHKIND|HB",
+      "rawId": "HB",
+      "name": "Haemoglobin"
+    },
+    "target": {
+      "id": "LAB001",
+      "code": "LAB001",
+      "name": "HAEMOGLOBIN",
+      "serviceName": "HAEMOGLOBIN"
+    },
+    "description": "Composite lookup example for Pathkind test HB",
+    "category": "lab-test-map",
+    "isActive": true,
+    "usageCount": 0,
+    "lastUsedAt": null,
+    "createdAt": { "$date": "2026-03-10T00:00:00.000Z" },
+    "updatedAt": { "$date": "2026-03-10T00:00:00.000Z" }
+  },
+  {
+    "_id": { "$oid": "6a4b2c3d4e5f607182930b92" },
+    "orgId": 145,
+    "orgUnitRid": null,
+    "type": "PATHKIND_TEST_TO_GRID_TEST",
+    "source": {
+      "id": "PATHKIND|CREAT",
+      "key": "PATHKIND|CREAT",
+      "rawId": "CREAT",
+      "name": "Serum Creatinine"
+    },
+    "target": {
+      "id": "LAB115",
+      "code": "LAB115",
+      "name": "SERUM CREATININE",
+      "serviceName": "SERUM CREATININE"
+    },
+    "description": "Composite lookup example for Pathkind test CREAT",
+    "category": "lab-test-map",
+    "isActive": true,
+    "usageCount": 0,
+    "lastUsedAt": null,
+    "createdAt": { "$date": "2026-03-10T00:00:00.000Z" },
+    "updatedAt": { "$date": "2026-03-10T00:00:00.000Z" }
+  }
+]

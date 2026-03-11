@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Github, Sun, Moon } from 'lucide-react';
 import { useTheme } from '../../../hooks/useTheme';
@@ -9,9 +10,21 @@ interface NavigationProps {
 
 export default function Navigation({ onLoginClick }: NavigationProps) {
   const { theme, toggleTheme } = useTheme();
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 50);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-[100] bg-[var(--bg-primary)]/80 backdrop-blur-xl border-b border-[var(--card-border)] transition-colors duration-300">
+    <nav className={`fixed top-0 left-0 right-0 z-[100] transition-all duration-300 ${scrolled
+        ? 'bg-[var(--bg-primary)]/80 backdrop-blur-xl border-b border-[var(--card-border)] shadow-sm'
+        : 'bg-transparent border-b border-transparent'
+      }`}>
       <div className="flex items-center justify-between px-[4vw] py-4">
         {/* Logo */}
         <div className="flex items-center gap-2">

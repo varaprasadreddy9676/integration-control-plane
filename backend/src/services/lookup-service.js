@@ -1,4 +1,4 @@
-const { resolveLookup } = require('../data');
+const { resolveLookup, resolveLookupObject } = require('../data');
 const { log } = require('../logger');
 
 /**
@@ -35,6 +35,35 @@ function setNestedValue(obj, path, value) {
   current[keys[keys.length - 1]] = value;
 }
 
+function renderLookupTemplate(template, scope = {}) {
+  if (!template || typeof template !== 'string') return '';
+  return template.replace(/\{\{\s*([^}]+)\s*\}\}/g, (_match, expr) => {
+    const path = String(expr || '').trim();
+    if (!path) return '';
+    const direct = getNestedValue(scope, path);
+    if (direct !== undefined && direct !== null) return String(direct);
+    const itemScoped = getNestedValue(scope.item, path);
+    if (itemScoped !== undefined && itemScoped !== null) return String(itemScoped);
+    const payloadScoped = getNestedValue(scope.payload, path);
+    if (payloadScoped !== undefined && payloadScoped !== null) return String(payloadScoped);
+    return '';
+  });
+}
+
+async function resolveConfiguredLookupValue(sourceValue, config, orgId, orgUnitRid) {
+  const returnMode = String(config.returnMode || 'SCALAR').toUpperCase();
+  if (returnMode === 'OBJECT') {
+    return resolveLookupObject(sourceValue, config.type, orgId, orgUnitRid);
+  }
+
+  const targetValueField = config.targetValueField || 'id';
+  if (targetValueField !== 'id') {
+    return resolveLookup(sourceValue, config.type, orgId, orgUnitRid, targetValueField);
+  }
+
+  return resolveLookup(sourceValue, config.type, orgId, orgUnitRid);
+}
+
 /**
  * Get unmapped value based on behavior
  */
@@ -55,7 +84,7 @@ function getUnmappedValue(sourceCode, unmappedBehavior, defaultValue) {
  */
 async function applyMappingToArray(
   payload,
-  type,
+  config,
   sourceField,
   targetField,
   orgId,
@@ -71,11 +100,13 @@ async function applyMappingToArray(
 
   if (Array.isArray(array)) {
     for (const item of array) {
-      const sourceValue = item[sourceFieldName];
+      const sourceValue = config.sourceTemplate
+        ? renderLookupTemplate(config.sourceTemplate, { item, payload })
+        : item[sourceFieldName];
 
       // Only process non-empty, non-null, non-undefined values
       if (sourceValue !== null && sourceValue !== undefined && sourceValue !== '') {
-        const mappedValue = await resolveLookup(sourceValue, type, orgId, orgUnitRid);
+        const mappedValue = await resolveConfiguredLookupValue(sourceValue, config, orgId, orgUnitRid);
 
         if (mappedValue !== null) {
           // Mapping found - set to target field
@@ -96,13 +127,13 @@ async function applyMappingToArray(
  * Apply single lookup configuration to payload
  */
 async function applyLookupConfig(payload, config, orgId, orgUnitRid) {
-  const { type, sourceField, targetField, unmappedBehavior, defaultValue } = config;
+  const { sourceField, targetField, unmappedBehavior, defaultValue } = config;
 
   // Handle array notation: items[].serviceCode
-  if (sourceField.includes('[]')) {
+  if (sourceField && sourceField.includes('[]')) {
     payload = await applyMappingToArray(
       payload,
-      type,
+      config,
       sourceField,
       targetField,
       orgId,
@@ -112,11 +143,13 @@ async function applyLookupConfig(payload, config, orgId, orgUnitRid) {
     );
   } else {
     // Handle simple field: serviceCode
-    const sourceValue = getNestedValue(payload, sourceField);
+    const sourceValue = config.sourceTemplate
+      ? renderLookupTemplate(config.sourceTemplate, payload)
+      : getNestedValue(payload, sourceField);
 
     // Only process non-empty, non-null, non-undefined values
     if (sourceValue !== null && sourceValue !== undefined && sourceValue !== '') {
-      const mappedValue = await resolveLookup(sourceValue, type, orgId, orgUnitRid);
+      const mappedValue = await resolveConfiguredLookupValue(sourceValue, config, orgId, orgUnitRid);
 
       if (mappedValue !== null) {
         // Mapping found - use it
@@ -214,4 +247,6 @@ module.exports = {
   getNestedValue,
   setNestedValue,
   resolveLookup,
+  resolveLookupObject,
+  renderLookupTemplate,
 };

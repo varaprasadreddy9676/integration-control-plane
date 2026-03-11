@@ -1091,15 +1091,15 @@ async function deliverToIntegration(
 
   // Start execution logging (non-blocking - failures won't stop delivery)
   // Skip creating parent log for multi-action integrations - each action will create its own log
-  const executionLogId = !isMultiAction
-    ? await executionLogger.start().catch((err) => {
+  await (!isMultiAction
+    ? executionLogger.start().catch((err) => {
         log('warn', 'Failed to start execution logger', { error: err.message, traceId });
         return null;
       })
-    : null;
+    : Promise.resolve(null));
 
   // Use execution log ID for updates instead of creating new logs
-  const logIdForUpdates = executionLogId || existingLogId;
+  const logIdForUpdates = executionLogger.executionLogId || existingLogId;
 
   // CIRCUIT BREAKER: Check if circuit is open before attempting delivery
   const circuitStatus = await data.checkCircuitState(integration.id);
@@ -1364,7 +1364,7 @@ async function deliverToIntegration(
         const errorMessage = `${prefix}Rate limit exceeded${retryAfter}`;
 
         const logId = await data.recordLog(orgId, {
-          id: existingLogId,
+          id: logIdForUpdates,
           __KEEP___KEEP_integrationConfig__Id__: integration.id,
           __KEEP_integrationName__: integration.name,
           eventId: evt.id || null,

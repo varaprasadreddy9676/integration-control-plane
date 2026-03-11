@@ -12,6 +12,7 @@ const { log } = require('../logger');
 class ExecutionLogger {
   constructor(options) {
     this.traceId = options.traceId || null;
+    this.executionLogId = options.executionLogId || null;
     this.direction = options.direction; // 'OUTBOUND' | 'INBOUND' | 'SCHEDULED'
     this.triggerType = options.triggerType || 'EVENT'; // 'EVENT' | 'SCHEDULE' | 'MANUAL' | 'REPLAY'
     this.integrationConfigId = options.integrationConfigId;
@@ -24,12 +25,24 @@ class ExecutionLogger {
     this.startTime = Date.now();
   }
 
+  getLogReference() {
+    return {
+      executionLogId: this.executionLogId,
+      traceId: this.traceId,
+      orgId: this.orgId,
+    };
+  }
+
   /**
    * Initialize execution log (call at start of execution)
    */
   async start() {
+    if (this.executionLogId) {
+      return this.traceId;
+    }
+
     try {
-      this.traceId = await executionLogsData.createExecutionLog({
+      const createdLog = await executionLogsData.createExecutionLog({
         traceId: this.traceId,
         direction: this.direction,
         triggerType: this.triggerType,
@@ -44,9 +57,12 @@ class ExecutionLogger {
         status: 'pending',
         startedAt: new Date(this.startTime),
       });
+      this.traceId = createdLog?.traceId || this.traceId;
+      this.executionLogId = createdLog?.executionLogId || this.executionLogId;
 
       log('debug', 'Execution log started', {
         traceId: this.traceId,
+        executionLogId: this.executionLogId,
         direction: this.direction,
         integrationName: this.integrationName,
         orgId: this.orgId,
@@ -71,7 +87,7 @@ class ExecutionLogger {
     if (!this.traceId) return;
 
     try {
-      await executionLogsData.addExecutionStep(this.traceId, {
+      await executionLogsData.addExecutionStep(this.getLogReference(), {
         name,
         timestamp: options.timestamp || new Date(),
         durationMs: options.durationMs || null,
@@ -98,7 +114,7 @@ class ExecutionLogger {
       const finishedAt = new Date();
       const durationMs = finishedAt - this.startTime;
 
-      await executionLogsData.updateExecutionLog(this.traceId, {
+      await executionLogsData.updateExecutionLog(this.getLogReference(), {
         status: 'success',
         finishedAt,
         durationMs,
@@ -129,7 +145,7 @@ class ExecutionLogger {
       const durationMs = finishedAt - this.startTime;
 
       // Update execution log
-      await executionLogsData.updateExecutionLog(this.traceId, {
+      await executionLogsData.updateExecutionLog(this.getLogReference(), {
         status: 'failed',
         finishedAt,
         durationMs,
@@ -145,6 +161,7 @@ class ExecutionLogger {
       if (options.createDLQ !== false) {
         await dlqData.createDLQEntry({
           traceId: this.traceId,
+          executionLogId: this.executionLogId,
           messageId: this.messageId,
           integrationConfigId: this.integrationConfigId,
           orgId: this.orgId,
@@ -181,7 +198,7 @@ class ExecutionLogger {
     if (!this.traceId) return;
 
     try {
-      await executionLogsData.updateExecutionLog(this.traceId, {
+      await executionLogsData.updateExecutionLog(this.getLogReference(), {
         status,
         updatedAt: new Date(),
       });

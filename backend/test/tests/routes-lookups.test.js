@@ -15,8 +15,8 @@ const mockLookupDoc = {
   orgId: 1,
   orgUnitRid: 1,
   type: 'PATIENT_STATUS',
-  sourceCode: 'ACTIVE',
-  targetCode: '1',
+  source: { id: 'ACTIVE', key: 'ACTIVE', name: 'Active' },
+  target: { id: '1', code: '1', name: 'Active patient' },
   description: 'Active patient',
   isActive: true,
   category: 'status',
@@ -248,13 +248,34 @@ describe('Lookups Routes', () => {
 
       const res = await request(app)
         .post('/api/v1/lookups/resolve')
+        .query({ orgId: '1' })
         .send({
-          orgId: 1,
           type: 'PATIENT_STATUS',
-          sourceCode: 'ACTIVE'
+          sourceId: 'ACTIVE'
         });
 
-      expect([200, 400]).toContain(res.status);
+      expect(res.status).toBe(200);
+      expect(res.body.data.targetId).toBe('1');
+    });
+
+    it('returns full target object when returnMode=OBJECT', async () => {
+      mockCollection.findOne.mockResolvedValue(mockLookupDoc);
+
+      const res = await request(app)
+        .post('/api/v1/lookups/resolve')
+        .query({ orgId: '1' })
+        .send({
+          type: 'PATIENT_STATUS',
+          sourceId: 'ACTIVE',
+          returnMode: 'OBJECT',
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.target).toEqual({
+        id: '1',
+        code: '1',
+        name: 'Active patient',
+      });
     });
   });
 });

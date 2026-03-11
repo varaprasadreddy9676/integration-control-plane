@@ -6,11 +6,11 @@ const { log } = require('../logger');
  * All errors are caught early to prevent runtime issues
  */
 function validateLookupConfig(lookupConfig) {
-  const { type, sourceField, targetField, unmappedBehavior, defaultValue } = lookupConfig;
+  const { type, sourceField, sourceTemplate, targetField, unmappedBehavior, defaultValue, returnMode } = lookupConfig;
 
   // Validation 1: Required fields
-  if (!type || !sourceField || !targetField) {
-    throw new Error('Lookup config requires type, sourceField, and targetField');
+  if (!type || !targetField || (!sourceField && !sourceTemplate)) {
+    throw new Error('Lookup config requires type, targetField, and either sourceField or sourceTemplate');
   }
 
   // Validation 2: Valid unmappedBehavior
@@ -26,11 +26,19 @@ function validateLookupConfig(lookupConfig) {
     throw new Error('unmappedBehavior=DEFAULT requires defaultValue to be set');
   }
 
+  if (returnMode && !['SCALAR', 'OBJECT'].includes(returnMode)) {
+    throw new Error('returnMode must be SCALAR or OBJECT');
+  }
+
   // Validation 4: Array notation consistency
-  const sourceIsArray = sourceField.includes('[]');
+  const sourceIsArray = sourceField ? sourceField.includes('[]') : false;
   const targetIsArray = targetField.includes('[]');
 
-  if (sourceIsArray !== targetIsArray) {
+  if (!sourceField && targetIsArray) {
+    throw new Error('sourceField is required when targetField uses [] notation');
+  }
+
+  if (sourceField && sourceIsArray !== targetIsArray) {
     throw new Error(
       `Invalid lookup config: sourceField="${sourceField}" and targetField="${targetField}" ` +
         `must both use [] notation or both omit it. Cannot map array to scalar or vice versa.`
@@ -114,11 +122,11 @@ function validateLookupEntry(lookup) {
   if (!lookup.type) {
     errors.push('type is required');
   }
-  if (!lookup.source || !lookup.source.id) {
-    errors.push('source.id is required');
+  if (!lookup.source || (!lookup.source.id && !lookup.source.key)) {
+    errors.push('source.id or source.key is required');
   }
-  if (!lookup.target || !lookup.target.id) {
-    errors.push('target.id is required');
+  if (!lookup.target || typeof lookup.target !== 'object' || Array.isArray(lookup.target)) {
+    errors.push('target object is required');
   }
 
   const orgUnitRid = lookup.orgUnitRid !== undefined ? lookup.orgUnitRid : lookup.entityRid;
@@ -162,11 +170,12 @@ function validateBulkImport(lookups) {
 
     // Check for duplicates
     const orgUnitRid = lookup.orgUnitRid !== undefined ? lookup.orgUnitRid : lookup.entityRid;
-    const key = `${lookup.type}:${orgUnitRid || 'null'}:${lookup.source.id}`;
+    const sourceMatchKey = lookup.source.key || lookup.source.id;
+    const key = `${lookup.type}:${orgUnitRid || 'null'}:${sourceMatchKey}`;
     if (sourceIds.has(key)) {
       duplicates.push({
         row: i + 1,
-        sourceId: lookup.source.id,
+        sourceId: sourceMatchKey,
         type: lookup.type,
       });
     }

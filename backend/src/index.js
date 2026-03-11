@@ -1,5 +1,10 @@
 if (!Object.hasOwn) {
-  Object.hasOwn = (obj, prop) => Object.hasOwn(obj, prop);
+  Object.hasOwn = (obj, prop) => {
+    if (obj === null || obj === undefined) {
+      throw new TypeError('Cannot convert undefined or null to object');
+    }
+    return Object.prototype.hasOwnProperty.call(obj, prop);
+  };
 }
 
 const express = require('express');

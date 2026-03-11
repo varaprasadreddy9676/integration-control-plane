@@ -33,7 +33,7 @@ async function getDashboardSummary(orgId) {
                 $sum: { $cond: [{ $eq: ['$status', 'SUCCESS'] }, 1, 0] },
               },
               failed: {
-                $sum: { $cond: [{ $in: ['$status', ['FAILED', 'ABANDONED', 'SKIPPED']] }, 1, 0] },
+                $sum: { $cond: [{ $in: ['$status', ['FAILED', 'ABANDONED']] }, 1, 0] },
               },
               avgResponseTime: { $avg: '$responseTimeMs' },
             },
@@ -62,7 +62,7 @@ async function getDashboardSummary(orgId) {
         .collection('execution_logs')
         .find({
           orgId,
-          status: { $nin: ['SUCCESS', 'PENDING'] },
+          status: { $in: ['FAILED', 'ABANDONED'] },
         })
         .sort({ createdAt: -1 })
         .limit(5)

@@ -1,9 +1,9 @@
 const express = require('express');
-const fs = require('node:fs');
-const fsp = require('node:fs/promises');
-const os = require('node:os');
-const path = require('node:path');
-const { randomUUID } = require('node:crypto');
+const fs = require('fs');
+const fsp = require('fs/promises');
+const os = require('os');
+const path = require('path');
+const { randomUUID } = require('crypto');
 const data = require('../data');
 const { log } = require('../logger');
 const mongodb = require('../mongodb');
@@ -77,6 +77,10 @@ const buildExportFiltersFromReq = (req) => ({
   eventType: req.query.eventType,
   direction: req.query.direction,
   triggerType: req.query.triggerType,
+  errorCategory: req.query.errorCategory,
+  hour: req.query.hour,
+  dayOfWeek: req.query.dayOfWeek,
+  timezoneOffset: req.query.timezoneOffset,
   search: req.query.search,
   startDate: req.query.startDate,
   endDate: req.query.endDate,
@@ -535,10 +539,15 @@ router.get(
     // Use dedicated aggregation function for unbounded stats calculation
     // This does NOT use listLogs() to avoid the 500-row cap
     const baseFilters = {
+      status: req.query.status,
       __KEEP___KEEP_integrationConfig__Id__: req.query.integrationId || req.query.integrationId,
       eventType: req.query.eventType,
       direction: req.query.direction,
       triggerType: req.query.triggerType,
+      errorCategory: req.query.errorCategory,
+      hour: req.query.hour,
+      dayOfWeek: req.query.dayOfWeek,
+      timezoneOffset: req.query.timezoneOffset,
       startDate: req.query.startDate,
       endDate: req.query.endDate,
     };
@@ -623,6 +632,10 @@ router.get(
       eventType: req.query.eventType,
       direction: req.query.direction,
       triggerType: req.query.triggerType,
+      errorCategory: req.query.errorCategory,
+      hour: req.query.hour,
+      dayOfWeek: req.query.dayOfWeek,
+      timezoneOffset: req.query.timezoneOffset,
       search: req.query.search,
       startDate: req.query.startDate,
       endDate: req.query.endDate,

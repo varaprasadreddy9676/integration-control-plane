@@ -400,7 +400,7 @@ export const App = () => {
   // Poll failed delivery count for the header badge — refreshes every 60s
   const { data: failedStats } = useQuery({
     queryKey: ['headerFailedStats', orgId],
-    queryFn: getLogStatsSummary,
+    queryFn: () => getLogStatsSummary(),
     enabled: !!orgId && orgId > 0,
     staleTime: 60_000,
     refetchInterval: 60_000

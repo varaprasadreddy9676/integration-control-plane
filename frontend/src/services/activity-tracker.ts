@@ -9,6 +9,17 @@ import { getAuthToken } from '../utils/auth-storage';
 // API base URL configuration
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api/v1';
 
+const canUseBackgroundTransport = (): boolean => {
+  if (typeof window === 'undefined') return true;
+  if (!import.meta.env.DEV) return true;
+
+  try {
+    return new URL(API_BASE_URL).origin === window.location.origin;
+  } catch {
+    return true;
+  }
+};
+
 // Activity event types (matches backend)
 export const ACTIVITY_EVENTS = {
   // Authentication & Session
@@ -107,7 +118,7 @@ class ActivityTrackerService {
   private flushInterval: NodeJS.Timeout | null = null;
   private pageLoadTime: number = Date.now();
   private currentPage: string = '';
-  private isEnabled: boolean = true;
+  private isEnabled: boolean = canUseBackgroundTransport();
   private readonly BATCH_SIZE = 10;
   private readonly FLUSH_INTERVAL_MS = 5000; // Send batch every 5 seconds
   private readonly MAX_QUEUE_SIZE = 100;
@@ -121,6 +132,8 @@ class ActivityTrackerService {
    * Initialize the tracker
    */
   private init() {
+    if (!this.isEnabled) return;
+
     // Start auto-flush interval
     this.startAutoFlush();
 
@@ -354,6 +367,10 @@ class ActivityTrackerService {
    */
   async flush(synchronous: boolean = false) {
     if (this.queue.length === 0) return;
+    if (!canUseBackgroundTransport()) {
+      this.queue = [];
+      return;
+    }
 
     const batch = [...this.queue];
     this.queue = [];

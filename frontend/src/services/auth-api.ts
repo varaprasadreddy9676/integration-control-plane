@@ -14,6 +14,31 @@ export interface LoginResponse {
   impersonatedBy?: string | null;
 }
 
+async function handleResponse(response: Response, defaultErrorMessage: string) {
+  let data;
+  const contentType = response.headers.get('content-type');
+  const text = await response.text();
+
+  if (text && contentType?.includes('application/json')) {
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      data = text;
+    }
+  } else {
+    data = text;
+  }
+
+  if (!response.ok) {
+    if (typeof data === 'string') {
+      throw new Error(`Server is unavailable. Please try again later. (${response.status})`);
+    }
+    throw new Error(data?.error || data?.message || defaultErrorMessage);
+  }
+
+  return data;
+}
+
 export async function login(email: string, password: string): Promise<LoginResponse> {
   const response = await fetch(`${API_BASE_URL}/auth/login`, {
     method: 'POST',
@@ -23,11 +48,7 @@ export async function login(email: string, password: string): Promise<LoginRespo
     body: JSON.stringify({ email, password })
   });
 
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data?.error || data?.message || 'Login failed');
-  }
-  return data;
+  return handleResponse(response, 'Login failed');
 }
 
 export async function getMe(): Promise<LoginResponse> {
@@ -41,11 +62,8 @@ export async function getMe(): Promise<LoginResponse> {
       Authorization: `Bearer ${token}`
     }
   });
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data?.error || data?.message || 'Failed to fetch profile');
-  }
-  return data;
+  
+  return handleResponse(response, 'Failed to fetch profile');
 }
 
 export async function impersonate(orgId: number, role: 'ORG_ADMIN' | 'ORG_USER' = 'ORG_ADMIN') {
@@ -61,9 +79,6 @@ export async function impersonate(orgId: number, role: 'ORG_ADMIN' | 'ORG_USER' 
     },
     body: JSON.stringify({ orgId, role })
   });
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data?.error || data?.message || 'Impersonation failed');
-  }
-  return data as LoginResponse;
+  
+  return handleResponse(response, 'Impersonation failed') as Promise<LoginResponse>;
 }

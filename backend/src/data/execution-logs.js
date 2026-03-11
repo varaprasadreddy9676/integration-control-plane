@@ -143,10 +143,45 @@ const parseJsonSafely = (value) => {
   }
 };
 
+const toExecutionLogIdString = (value) => {
+  if (!value) return null;
+  if (typeof value === 'string') return value;
+  if (typeof value.toString === 'function') return value.toString();
+  return String(value);
+};
+
+const buildExecutionLogSelector = (reference) => {
+  if (!reference) {
+    throw new Error('execution log reference is required');
+  }
+
+  if (typeof reference === 'object' && !Array.isArray(reference) && !(reference instanceof Date)) {
+    const executionLogId = reference.executionLogId || reference.logId || reference.id || reference._id || null;
+    if (executionLogId) {
+      return { _id: toObjectId(executionLogId) || executionLogId };
+    }
+
+    if (reference.traceId) {
+      const selector = { traceId: reference.traceId };
+      if (reference.orgId) {
+        selector.orgId = reference.orgId;
+      }
+      return selector;
+    }
+  }
+
+  const objectId = toObjectId(reference);
+  if (objectId) {
+    return { _id: objectId };
+  }
+
+  return { traceId: reference };
+};
+
 /**
  * Create a new execution log entry
  * @param {Object} logData - The log data
- * @returns {Promise<string>} The traceId of the created log
+ * @returns {Promise<{traceId: string, executionLogId: string}>} Created log identifiers
  */
 async function createExecutionLog(logData) {
   const db = await getDbSafe();
@@ -244,18 +279,22 @@ async function createExecutionLog(logData) {
     updatedAt: now,
   };
 
-  await db.collection('execution_logs').insertOne(executionLog);
+  const result = await db.collection('execution_logs').insertOne(executionLog);
 
-  return traceId;
+  return {
+    traceId,
+    executionLogId: toExecutionLogIdString(result.insertedId),
+  };
 }
 
 /**
  * Update an existing execution log
- * @param {string} traceId - The trace ID
+ * @param {string|Object} logRef - Execution log reference
  * @param {Object} updates - Fields to update
  */
-async function updateExecutionLog(traceId, updates) {
+async function updateExecutionLog(logRef, updates) {
   const db = await getDbSafe();
+  const selector = buildExecutionLogSelector(logRef);
 
   const updateDoc = {
     ...updates,
@@ -268,22 +307,23 @@ async function updateExecutionLog(traceId, updates) {
 
   // Calculate duration if finishedAt is being set
   if (updates.finishedAt) {
-    const existingLog = await db.collection('execution_logs').findOne({ traceId });
+    const existingLog = await db.collection('execution_logs').findOne(selector);
     if (existingLog?.startedAt) {
       updateDoc.durationMs = updates.finishedAt - existingLog.startedAt;
     }
   }
 
-  await db.collection('execution_logs').updateOne({ traceId }, { $set: updateDoc });
+  await db.collection('execution_logs').updateOne(selector, { $set: updateDoc });
 }
 
 /**
  * Add a step to an execution log
- * @param {string} traceId - The trace ID
+ * @param {string|Object} logRef - Execution log reference
  * @param {Object} step - The step to add
  */
-async function addExecutionStep(traceId, step) {
+async function addExecutionStep(logRef, step) {
   const db = await getDbSafe();
+  const selector = buildExecutionLogSelector(logRef);
 
   const stepWithTimestamp = {
     name: step.name,
@@ -295,7 +335,7 @@ async function addExecutionStep(traceId, step) {
   };
 
   await db.collection('execution_logs').updateOne(
-    { traceId },
+    selector,
     {
       $push: { steps: stepWithTimestamp },
       $set: { updatedAt: new Date() },

@@ -9,6 +9,17 @@ import { getAuthToken } from '../utils/auth-storage';
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 const API_KEY = import.meta.env.VITE_API_KEY;
 
+const canProbeAIStatus = (): boolean => {
+  if (typeof window === 'undefined') return true;
+  if (!import.meta.env.DEV) return true;
+
+  try {
+    return new URL(API_BASE).origin === window.location.origin;
+  } catch {
+    return true;
+  }
+};
+
 const sharedHeaders = {
   'Content-Type': 'application/json',
   'X-API-Key': API_KEY
@@ -132,6 +143,14 @@ export interface AIUsageResponse {
  * Check if AI service is available
  */
 export async function checkAIStatus(orgId: number): Promise<AIStatusResponse> {
+  if (!canProbeAIStatus()) {
+    return {
+      available: false,
+      provider: '',
+      enabled: false,
+    };
+  }
+
   const response = await aiClient.get('/status', {
     params: { orgId }
   });

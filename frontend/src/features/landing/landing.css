@@ -56,16 +56,48 @@
 }
 
 @keyframes accordion-down {
-  from { height: 0; }
-  to { height: var(--radix-accordion-content-height); }
+  from {
+    height: 0;
+  }
+
+  to {
+    height: var(--radix-accordion-content-height);
+  }
 }
+
 @keyframes accordion-up {
-  from { height: var(--radix-accordion-content-height); }
-  to { height: 0; }
+  from {
+    height: var(--radix-accordion-content-height);
+  }
+
+  to {
+    height: 0;
+  }
 }
+
 @keyframes caret-blink {
-  0%, 70%, 100% { opacity: 1; }
-  20%, 50% { opacity: 0; }
+
+  0%,
+  70%,
+  100% {
+    opacity: 1;
+  }
+
+  20%,
+  50% {
+    opacity: 0;
+  }
+}
+
+@keyframes shine {
+  0% {
+    transform: translateX(-100%) skewX(-15deg);
+  }
+
+  50%,
+  100% {
+    transform: translateX(200%) skewX(-15deg);
+  }
 }
 
 /* ─── CSS variables at :root (light theme) ────────────────────────────────
@@ -162,6 +194,8 @@ html.lenis body {
 /* ─── Typography helpers ──────────────────────────────────────────────────── */
 .font-heading {
   font-family: 'Space Grotesk', system-ui, sans-serif;
+  letter-spacing: -0.025em;
+  /* Tighter tracking for an engineered look */
 }
 
 .font-mono {
@@ -175,11 +209,12 @@ html.lenis body {
 .micro-label {
   font-family: 'JetBrains Mono', monospace;
   font-size: 11px;
-  font-weight: 500;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.14em;
-  opacity: 0.75;
-  color: var(--text-secondary);
+  letter-spacing: 0.16em;
+  opacity: 0.85;
+  color: var(--accent-color);
+  /* Switch to accent color for premium technical feel */
 }
 
 /* ─── Grid background ─────────────────────────────────────────────────────── */
@@ -208,6 +243,22 @@ html.lenis body {
   opacity: 0.06;
 }
 
+/* ─── Interactive Mouse Glow ──────────────────────────────────────────────── */
+.mouse-glow {
+  /* Using radial-gradient with the --mouse-x/y coordinates tracked in JS */
+  background: radial-gradient(600px circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
+      rgba(79, 110, 247, 0.05),
+      transparent 40%);
+  mix-blend-mode: screen;
+}
+
+.dark .mouse-glow {
+  background: radial-gradient(600px circle at var(--mouse-x, 50%) var(--mouse-y, 50%),
+      rgba(79, 110, 247, 0.12),
+      transparent 40%);
+  mix-blend-mode: screen;
+}
+
 /* ─── Section base ────────────────────────────────────────────────────────── */
 .section-pinned {
   height: 100vh;
@@ -225,10 +276,14 @@ html.lenis body {
 }
 
 .landing-page .glass-card:hover {
-  background: rgba(0, 0, 0, 0.07);
-  border-color: rgba(0, 0, 0, 0.14);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+  background: rgba(0, 0, 0, 0.05);
+  border-color: rgba(79, 110, 247, 0.3);
+  transform: translateY(-3px);
+  box-shadow:
+    0 12px 40px rgba(79, 110, 247, 0.08),
+    0 4px 12px rgba(0, 0, 0, 0.05),
+    inset 0 0 20px rgba(255, 255, 255, 0.4);
+  /* Internal light glow */
 }
 
 .dark .landing-page .glass-card {
@@ -238,9 +293,13 @@ html.lenis body {
 
 .dark .landing-page .glass-card:hover {
   background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.14);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+  border-color: rgba(79, 110, 247, 0.4);
+  transform: translateY(-3px);
+  box-shadow:
+    0 12px 40px rgba(79, 110, 247, 0.12),
+    0 4px 12px rgba(0, 0, 0, 0.3),
+    inset 0 0 20px rgba(79, 110, 247, 0.15);
+  /* Internal neon glow */
 }
 
 /* ─── Dashboard shadow ────────────────────────────────────────────────────── */
@@ -260,12 +319,31 @@ html.lenis body {
   border-radius: 10px;
   font-weight: 600;
   font-size: 14px;
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 14px 0 rgba(79, 110, 247, 0.39);
+}
+
+.btn-primary::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 150%;
+  height: 100%;
+  background: linear-gradient(90deg,
+      transparent,
+      rgba(255, 255, 255, 0.25),
+      transparent);
+  transform: translateX(-100%) skewX(-15deg);
+  animation: shine 4s ease-in-out infinite;
 }
 
 .btn-primary:hover {
   background-color: #3D5CE5;
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(79, 110, 247, 0.45);
 }
 
 .btn-secondary {

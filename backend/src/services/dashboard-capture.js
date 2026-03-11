@@ -3,9 +3,29 @@
  * Captures dashboard as PDF using Puppeteer for daily email reports
  */
 
-const puppeteer = require('puppeteer');
 const config = require('../config');
 const { log, logError } = require('../logger');
+
+let puppeteer = null;
+let puppeteerLoadFailed = false;
+
+function getPuppeteer() {
+  if (puppeteer) return puppeteer;
+  if (puppeteerLoadFailed) return null;
+
+  try {
+    // Load lazily so the app can still boot when Puppeteer is absent.
+    puppeteer = require('puppeteer');
+    return puppeteer;
+  } catch (error) {
+    if (error?.code === 'MODULE_NOT_FOUND' && String(error.message || '').includes("'puppeteer'")) {
+      puppeteerLoadFailed = true;
+      log('warn', '[DashboardCapture] Puppeteer not installed; PDF/PNG capture disabled');
+      return null;
+    }
+    throw error;
+  }
+}
 
 class DashboardCaptureService {
   constructor() {
@@ -20,8 +40,15 @@ class DashboardCaptureService {
       return this.browser;
     }
 
+    const puppeteerLib = getPuppeteer();
+    if (!puppeteerLib) {
+      const error = new Error('Puppeteer is not installed. Dashboard PDF/PNG capture is disabled.');
+      error.code = 'PUPPETEER_NOT_INSTALLED';
+      throw error;
+    }
+
     try {
-      this.browser = await puppeteer.launch({
+      this.browser = await puppeteerLib.launch({
         headless: 'new',
         args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
       });

@@ -26,12 +26,14 @@ function parseImportFile(buffer, type, orgId, orgUnitRid = null, importedFrom = 
       try {
         // Required fields
         const sourceId = row.source_id || row.sourceId || row['Source ID'];
+        const sourceKey = row.source_key || row.sourceKey || row['Source Key'];
         const targetId = row.target_id || row.targetId || row['Target ID'];
+        const targetJsonRaw = row.target_json || row.targetJson || row['Target JSON'];
 
-        if (!sourceId || !targetId) {
+        if ((!sourceId && !sourceKey) || (!targetId && !targetJsonRaw)) {
           errors.push({
             row: rowNum,
-            error: 'Missing required fields: source_id and target_id',
+            error: 'Missing required fields: source_id/source_key and target_id/target_json',
           });
           continue;
         }
@@ -53,18 +55,33 @@ function parseImportFile(buffer, type, orgId, orgUnitRid = null, importedFrom = 
             row.source_supplier_name || row.sourceSupplierName || row['Source Supplier Name'];
         }
 
+        let parsedTarget = {};
+        if (targetJsonRaw) {
+          try {
+            parsedTarget = JSON.parse(String(targetJsonRaw));
+          } catch (err) {
+            errors.push({
+              row: rowNum,
+              error: `Invalid target_json: ${err.message}`,
+            });
+            continue;
+          }
+        }
+
         const lookup = {
           orgId,
           orgUnitRid,
           type,
           source: {
-            id: String(sourceId).trim(),
+            id: String(sourceId || sourceKey).trim(),
+            key: sourceKey ? String(sourceKey).trim() : undefined,
             name: sourceName ? String(sourceName).trim() : null,
             ...sourceMetadata,
           },
           target: {
-            id: String(targetId).trim(),
-            name: targetName ? String(targetName).trim() : null,
+            ...parsedTarget,
+            id: targetId ? String(targetId).trim() : parsedTarget.id,
+            name: targetName ? String(targetName).trim() : parsedTarget.name || null,
           },
           description,
           category,
@@ -105,11 +122,13 @@ function generateExportFile(lookups, format = 'xlsx') {
     // Transform lookups to flat structure for Excel
     const rows = lookups.map((lookup) => ({
       'Source ID': lookup.source.id,
+      'Source Key': lookup.source.key || '',
       'Source Name': lookup.source.name || '',
       'Source Supplier Code': lookup.source.supplierCode || '',
       'Source Supplier Name': lookup.source.supplierName || '',
       'Target ID': lookup.target.id,
       'Target Name': lookup.target.name || '',
+      'Target JSON': JSON.stringify(lookup.target || {}),
       Type: lookup.type,
       Category: lookup.category || '',
       Description: lookup.description || '',
@@ -127,11 +146,13 @@ function generateExportFile(lookups, format = 'xlsx') {
     // Set column widths
     const colWidths = [
       { wch: 15 }, // Source ID
+      { wch: 25 }, // Source Key
       { wch: 25 }, // Source Name
       { wch: 20 }, // Source Supplier Code
       { wch: 25 }, // Source Supplier Name
       { wch: 15 }, // Target ID
       { wch: 25 }, // Target Name
+      { wch: 40 }, // Target JSON
       { wch: 12 }, // Type
       { wch: 15 }, // Category
       { wch: 30 }, // Description
@@ -168,7 +189,9 @@ function generateSimpleCSV(lookups) {
   try {
     const rows = lookups.map((lookup) => ({
       source_id: lookup.source.id,
+      source_key: lookup.source.key || '',
       target_id: lookup.target.id,
+      target_json: JSON.stringify(lookup.target || {}),
     }));
 
     const worksheet = XLSX.utils.json_to_sheet(rows);
@@ -189,7 +212,16 @@ function generateSimpleCSV(lookups) {
  */
 function generateImportTemplate() {
   const headers = [
-    { 'Source ID': '', 'Target ID': '', 'Source Name': '', 'Target Name': '', Description: '', Category: '' },
+    {
+      'Source ID': '',
+      'Source Key': '',
+      'Target ID': '',
+      'Target JSON': '',
+      'Source Name': '',
+      'Target Name': '',
+      Description: '',
+      Category: '',
+    },
   ];
 
   const worksheet = XLSX.utils.json_to_sheet(headers);
@@ -197,7 +229,9 @@ function generateImportTemplate() {
   // Set column widths
   worksheet['!cols'] = [
     { wch: 15 }, // Source ID
+    { wch: 25 }, // Source Key
     { wch: 15 }, // Target ID
+    { wch: 40 }, // Target JSON
     { wch: 25 }, // Source Name
     { wch: 25 }, // Target Name
     { wch: 30 }, // Description

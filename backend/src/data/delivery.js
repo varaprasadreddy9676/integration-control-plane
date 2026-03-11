@@ -15,7 +15,7 @@ async function getFailedLogsForRetry(batchSize = 3) {
         .collection('execution_logs')
         .find({
           status: 'RETRYING', // Only retry logs explicitly marked as RETRYING
-          triggerType: { $ne: 'SCHEDULED' },
+          triggerType: { $nin: ['SCHEDULE', 'SCHEDULED'] },
           $or: [
             { lastAttemptAt: { $gt: fourHoursAgo } }, // New logs with lastAttemptAt
             { lastAttemptAt: { $exists: false }, updatedAt: { $gt: fourHoursAgo } }, // Backward compat: old logs without lastAttemptAt

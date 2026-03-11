@@ -18,6 +18,75 @@ const {
 function buildLogsQuery(orgId, filters = {}) {
   const query = addOrgScope({}, orgId);
   const andConditions = [];
+  const normalizeScheduledTriggerValues = (triggerType) => {
+    if (!triggerType) return [];
+    const normalized = String(triggerType).toUpperCase();
+    return normalized === 'SCHEDULED' || normalized === 'SCHEDULE'
+      ? ['SCHEDULE', 'SCHEDULED']
+      : [normalized];
+  };
+  const parseTimezoneOffset = (value) => {
+    const minutes = Number.parseInt(String(value), 10);
+    if (!Number.isFinite(minutes)) return null;
+    const sign = minutes <= 0 ? '+' : '-';
+    const absoluteMinutes = Math.abs(minutes);
+    const hours = String(Math.floor(absoluteMinutes / 60)).padStart(2, '0');
+    const remainder = String(absoluteMinutes % 60).padStart(2, '0');
+    return `${sign}${hours}:${remainder}`;
+  };
+  const parseDayOfWeek = (value) => {
+    if (value == null) return null;
+    const raw = String(value).trim();
+    if (!raw) return null;
+    if (/^\d+$/.test(raw)) {
+      const numeric = Number.parseInt(raw, 10);
+      if (numeric >= 0 && numeric <= 6) return numeric + 1;
+      if (numeric >= 1 && numeric <= 7) return numeric;
+      return null;
+    }
+    const dayMap = {
+      SUN: 1,
+      SUNDAY: 1,
+      MON: 2,
+      MONDAY: 2,
+      TUE: 3,
+      TUESDAY: 3,
+      WED: 4,
+      WEDNESDAY: 4,
+      THU: 5,
+      THURSDAY: 5,
+      FRI: 6,
+      FRIDAY: 6,
+      SAT: 7,
+      SATURDAY: 7,
+    };
+    return dayMap[raw.toUpperCase()] || null;
+  };
+  const addTimePartFilters = () => {
+    const hour =
+      filters.hour == null || filters.hour === '' ? null : Number.parseInt(String(filters.hour), 10);
+    const dayOfWeek = parseDayOfWeek(filters.dayOfWeek);
+    const timezone = parseTimezoneOffset(filters.timezoneOffset) || '+00:00';
+
+    if (!Number.isFinite(hour) && dayOfWeek == null) return;
+
+    const timestampExpression = { $ifNull: ['$startedAt', '$createdAt'] };
+    const exprConditions = [];
+
+    if (Number.isFinite(hour) && hour >= 0 && hour <= 23) {
+      exprConditions.push({ $eq: [{ $hour: { date: timestampExpression, timezone } }, hour] });
+    }
+
+    if (dayOfWeek != null) {
+      exprConditions.push({ $eq: [{ $dayOfWeek: { date: timestampExpression, timezone } }, dayOfWeek] });
+    }
+
+    if (exprConditions.length === 1) {
+      andConditions.push({ $expr: exprConditions[0] });
+    } else if (exprConditions.length > 1) {
+      andConditions.push({ $expr: { $and: exprConditions } });
+    }
+  };
 
   if (filters.status) {
     const statusValue = String(filters.status).toUpperCase();
@@ -32,7 +101,12 @@ function buildLogsQuery(orgId, filters = {}) {
     query.direction = filters.direction;
   }
   if (filters.triggerType) {
-    query.triggerType = filters.triggerType;
+    const triggerTypes = normalizeScheduledTriggerValues(filters.triggerType);
+    if (triggerTypes.length === 1) {
+      query.triggerType = triggerTypes[0];
+    } else if (triggerTypes.length > 1) {
+      query.triggerType = { $in: triggerTypes };
+    }
   }
   const integrationFilterId =
     filters.__KEEP___KEEP_integrationConfig__Id__ || filters.integrationConfigId || filters.webhookId;
@@ -61,6 +135,11 @@ function buildLogsQuery(orgId, filters = {}) {
   }
   if (filters.eventType) {
     query.eventType = filters.eventType;
+  }
+  if (filters.errorCategory) {
+    andConditions.push({
+      $or: [{ errorCategory: filters.errorCategory }, { 'error.category': filters.errorCategory }],
+    });
   }
 
   // Portal scope: restrict to allowed integration IDs (injected by applyPortalLogFilters)
@@ -98,6 +177,8 @@ function buildLogsQuery(orgId, filters = {}) {
     // Note: For better search performance on large datasets,
     // consider creating a text index and using $text search
   }
+
+  addTimePartFilters();
 
   // Combine $and conditions if any exist
   if (andConditions.length > 0) {
@@ -190,50 +271,7 @@ async function getLogStatsSummary(orgId, filters = {}) {
   if (useMongo()) {
     try {
       const db = await mongodb.getDbSafe();
-
-      // Build match stage for aggregation (similar to buildLogsQuery but for aggregation pipeline)
-      const matchStage = addOrgScope({}, orgId);
-
-      if (filters.__KEEP___KEEP_integrationConfig__Id__) {
-        const integrationIdObj = mongodb.toObjectId(filters.__KEEP___KEEP_integrationConfig__Id__);
-        if (integrationIdObj) {
-          matchStage.$and = matchStage.$and || [];
-          matchStage.$and.push({
-            $or: [
-              { __KEEP___KEEP_integrationConfig__Id__: integrationIdObj },
-              { __KEEP___KEEP_integrationConfig__Id__: filters.__KEEP___KEEP_integrationConfig__Id__ },
-              { integrationConfigId: integrationIdObj },
-              { integrationConfigId: filters.__KEEP___KEEP_integrationConfig__Id__ },
-            ],
-          });
-        } else {
-          matchStage.$and = matchStage.$and || [];
-          matchStage.$and.push({
-            $or: [
-              { __KEEP___KEEP_integrationConfig__Id__: filters.__KEEP___KEEP_integrationConfig__Id__ },
-              { integrationConfigId: filters.__KEEP___KEEP_integrationConfig__Id__ },
-            ],
-          });
-        }
-      }
-      if (filters.eventType) {
-        matchStage.eventType = filters.eventType;
-      }
-      if (filters.direction) {
-        matchStage.direction = filters.direction;
-      }
-      if (filters.triggerType) {
-        matchStage.triggerType = filters.triggerType;
-      }
-      if (filters.startDate || filters.endDate) {
-        matchStage.createdAt = {};
-        if (filters.startDate) {
-          matchStage.createdAt.$gte = new Date(filters.startDate);
-        }
-        if (filters.endDate) {
-          matchStage.createdAt.$lte = new Date(filters.endDate);
-        }
-      }
+      const matchStage = buildLogsQuery(orgId, filters);
 
       const stats = await db
         .collection('execution_logs')
@@ -585,7 +623,7 @@ async function recordLog(orgId, logPayload) {
           actionScopedQuery.actionName = logPayload.actionName.trim();
         }
 
-        const updateQuery =
+        const existingLogLookupQuery =
           queryField === 'traceId'
             ? { traceId: existingLogId, orgId: normalizedOrgId, ...actionScopedQuery }
             : queryField === 'correlationOrTraceId'
@@ -596,7 +634,22 @@ async function recordLog(orgId, logPayload) {
               }
             : { _id: existingLogId, orgId: normalizedOrgId };
 
-        const updateResult = await db.collection('execution_logs').updateOne(updateQuery, { $set: updateDoc });
+        let resolvedExistingLogId = existingLogId;
+        if (queryField !== '_id') {
+          const existingLogDoc = await db
+            .collection('execution_logs')
+            .find(existingLogLookupQuery)
+            .sort({ createdAt: -1, _id: -1 })
+            .limit(1)
+            .toArray()
+            .then((docs) => docs[0] || null);
+
+          resolvedExistingLogId = existingLogDoc?._id || null;
+        }
+
+        const updateResult = resolvedExistingLogId
+          ? await db.collection('execution_logs').updateOne({ _id: resolvedExistingLogId, orgId: normalizedOrgId }, { $set: updateDoc })
+          : { matchedCount: 0 };
 
         // If the document was not found (edge case), fall back to insert
         if (updateResult.matchedCount === 0) {
@@ -608,7 +661,7 @@ async function recordLog(orgId, logPayload) {
           // Record attempt details for retries
           if (logPayload.attemptDetails) {
             const attemptDoc = {
-              deliveryLogId: existingLogId.toString(),
+              deliveryLogId: resolvedExistingLogId.toString(),
               orgId: normalizedOrgId,
               __KEEP___KEEP_integrationConfig__Id__: logPayload.__KEEP___KEEP_integrationConfig__Id__,
               attemptNumber: logPayload.attemptDetails.attemptNumber || attemptCount,

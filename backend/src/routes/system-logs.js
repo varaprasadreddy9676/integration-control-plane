@@ -1,10 +1,10 @@
 const express = require('express');
 const fs = require('fs');
-const fsp = require('node:fs/promises');
-const os = require('node:os');
+const fsp = require('fs/promises');
+const os = require('os');
 const path = require('path');
 const readline = require('readline');
-const { randomUUID } = require('node:crypto');
+const { randomUUID } = require('crypto');
 const { log } = require('../logger');
 const mongodb = require('../mongodb');
 

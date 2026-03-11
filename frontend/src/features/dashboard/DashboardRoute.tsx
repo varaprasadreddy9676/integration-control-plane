@@ -36,6 +36,7 @@ export const DashboardRoute = () => {
   const [includePdf, setIncludePdf] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [refreshCountdown, setRefreshCountdown] = useState<number | null>(null);
   const [performanceChartMetric, setPerformanceChartMetric] = useState<'percent' | 'count'>('percent');
   const [performanceChartLayout, setPerformanceChartLayout] = useState<'horizontal' | 'vertical'>('horizontal');
   const [hiddenLegends, setHiddenLegends] = useState<Set<string>>(new Set());
@@ -232,7 +233,14 @@ export const DashboardRoute = () => {
     return [startDate.toISOString(), now.toISOString()] as [string, string];
   }, [days]);
 
-  const { data: scheduledLogsResponse } = useQuery({
+  const logsDateRange = useMemo(() => {
+    const end = new Date();
+    const start = new Date();
+    start.setDate(end.getDate() - days);
+    return [start.toISOString(), end.toISOString()] as [string, string];
+  }, [days]);
+
+  const { data: scheduledLogsResponse, dataUpdatedAt: scheduledLogsUpdatedAt, refetch: refetchScheduledLogs } = useQuery({
     queryKey: ['dashboard-scheduled-logs', days, integrationId],
     queryFn: () => getLogs({
       triggerType: 'SCHEDULED',
@@ -246,6 +254,19 @@ export const DashboardRoute = () => {
 
   const scheduledJobLogs = useMemo(() => scheduledLogsResponse?.data || [], [scheduledLogsResponse]);
 
+  const { data: recentLogsResponse, isLoading: recentLogsLoading, dataUpdatedAt: recentLogsUpdatedAt, refetch: refetchRecentLogs } = useQuery({
+    queryKey: ['dashboard-recent-logs', days, analyticsDirection, analyticsTriggerType, integrationId],
+    queryFn: () => getLogs({
+      status: 'FAILED',
+      integrationId,
+      direction: analyticsDirection,
+      triggerType: analyticsTriggerType,
+      dateRange: logsDateRange,
+      limit: 50
+    }),
+    refetchInterval: refreshInterval
+  });
+
   const lastRefreshedAt = useMemo(() => {
     const timestamps = [
       summaryUpdatedAt,
@@ -254,11 +275,30 @@ export const DashboardRoute = () => {
       timeseriesHourlyUpdatedAt,
       errorUpdatedAt,
       performanceUpdatedAt,
-      eventAuditUpdatedAt
+      eventAuditUpdatedAt,
+      scheduledLogsUpdatedAt,
+      recentLogsUpdatedAt
     ].filter(Boolean) as number[];
     if (timestamps.length === 0) return null;
     return Math.max(...timestamps);
-  }, [summaryUpdatedAt, analyticsUpdatedAt, timeseriesDailyUpdatedAt, timeseriesHourlyUpdatedAt, errorUpdatedAt, performanceUpdatedAt, eventAuditUpdatedAt]);
+  }, [summaryUpdatedAt, analyticsUpdatedAt, timeseriesDailyUpdatedAt, timeseriesHourlyUpdatedAt, errorUpdatedAt, performanceUpdatedAt, eventAuditUpdatedAt, scheduledLogsUpdatedAt, recentLogsUpdatedAt]);
+
+  useEffect(() => {
+    if (!refreshInterval || refreshSeconds <= 0 || !lastRefreshedAt) {
+      setRefreshCountdown(refreshSeconds > 0 ? refreshSeconds : null);
+      return;
+    }
+
+    const updateCountdown = () => {
+      const elapsedMs = Date.now() - lastRefreshedAt;
+      const remainingSeconds = Math.max(0, Math.ceil((refreshInterval - elapsedMs) / 1000));
+      setRefreshCountdown(remainingSeconds > 0 ? remainingSeconds : 0);
+    };
+
+    updateCountdown();
+    const timer = window.setInterval(updateCountdown, 1000);
+    return () => window.clearInterval(timer);
+  }, [lastRefreshedAt, refreshInterval, refreshSeconds]);
 
   const handleManualRefresh = async () => {
     setRefreshing(true);
@@ -270,7 +310,9 @@ export const DashboardRoute = () => {
         refetchTimeseriesHourly(),
         refetchErrors(),
         refetchPerformance(),
-        refetchEventAuditStats()
+        refetchEventAuditStats(),
+        refetchRecentLogs(),
+        ...(detailsTab === 'scheduled' ? [refetchScheduledLogs()] : [])
       ]);
       message.success('Dashboard refreshed');
     } catch (err) {
@@ -281,7 +323,6 @@ export const DashboardRoute = () => {
   };
 
   
-
   useEffect(() => {
     refetchSummary();
     refetchAnalytics();
@@ -290,7 +331,11 @@ export const DashboardRoute = () => {
     refetchErrors();
     refetchPerformance();
     refetchEventAuditStats();
-  }, [location.key]);
+    refetchRecentLogs();
+    if (detailsTab === 'scheduled') {
+      refetchScheduledLogs();
+    }
+  }, [location.key, detailsTab, refetchEventAuditStats, refetchErrors, refetchPerformance, refetchRecentLogs, refetchScheduledLogs, refetchSummary, refetchTimeseriesDaily, refetchTimeseriesHourly, refetchAnalytics]);
 
   const timeLabel = days === 1 ? 'Today' : `${days}d`;
   const hasSummaryData = (analytics?.summary?.total ?? 0) > 0;
@@ -346,7 +391,7 @@ export const DashboardRoute = () => {
         const params = new URLSearchParams({ days: days.toString() });
         if (integrationId) params.set('integrationId', integrationId);
         if (direction !== 'ALL') params.set('direction', direction);
-        navigate(`/delivery-logs?${params.toString()}`);
+        navigate(`/logs?${params.toString()}`);
       }
     },
     {
@@ -361,7 +406,7 @@ export const DashboardRoute = () => {
         const params = new URLSearchParams({ status: 'SUCCESS', days: days.toString() });
         if (integrationId) params.set('integrationId', integrationId);
         if (direction !== 'ALL') params.set('direction', direction);
-        navigate(`/delivery-logs?${params.toString()}`);
+        navigate(`/logs?${params.toString()}`);
       }
     },
     {
@@ -385,10 +430,10 @@ export const DashboardRoute = () => {
       trend: trends?.failedChange,
       trendLabel: trends ? `${trends.failedChange > 0 ? '+' : ''}${trends.failedChange.toFixed(1)}% vs previous period` : undefined,
       onClick: () => {
-        const params = new URLSearchParams({ status: 'FAILED,SKIPPED,ABANDONED', days: days.toString() });
+        const params = new URLSearchParams({ status: 'FAILED', days: days.toString() });
         if (integrationId) params.set('integrationId', integrationId);
         if (direction !== 'ALL') params.set('direction', direction);
-        navigate(`/delivery-logs?${params.toString()}`);
+        navigate(`/logs?${params.toString()}`);
       }
     }
   ];
@@ -654,26 +699,6 @@ export const DashboardRoute = () => {
       .filter((entry) => entry.value > 0);
   }, [errorAnalytics]);
 
-  const logsDateRange = useMemo(() => {
-    const end = new Date();
-    const start = new Date();
-    start.setDate(end.getDate() - days);
-    return [start.toISOString(), end.toISOString()] as [string, string];
-  }, [days]);
-
-  const { data: recentLogsResponse, isLoading: recentLogsLoading } = useQuery({
-    queryKey: ['dashboard-recent-logs', days, analyticsDirection, analyticsTriggerType, integrationId],
-    queryFn: () => getLogs({
-      status: 'FAILED',
-      integrationId,
-      direction: analyticsDirection,
-      triggerType: analyticsTriggerType,
-      dateRange: logsDateRange,
-      limit: 50
-    }),
-    refetchInterval: refreshInterval
-  });
-
   const recentLogs = recentLogsResponse?.data || [];
 
   const getIntegrationPath = (record: any) => {
@@ -752,6 +777,7 @@ export const DashboardRoute = () => {
         onRefresh={handleManualRefresh}
         refreshing={refreshing}
         refreshSeconds={refreshSeconds}
+        refreshCountdown={refreshCountdown}
         exportMenuItems={exportMenuItems}
         isExporting={isExporting}
       />
@@ -800,19 +826,19 @@ export const DashboardRoute = () => {
           hiddenLegends={hiddenLegends}
           onLegendClick={handleLegendClick}
           onViewAllFailures={() => {
-            const params = new URLSearchParams({ status: 'FAILED,SKIPPED,ABANDONED', days: days.toString() });
+            const params = new URLSearchParams({ status: 'FAILED', days: days.toString() });
             if (integrationId) params.set('integrationId', integrationId);
             if (analyticsDirection) params.set('direction', analyticsDirection);
             if (analyticsTriggerType) params.set('triggerType', analyticsTriggerType);
-            navigate(`/delivery-logs?${params.toString()}`);
+            navigate(`/logs?${params.toString()}`);
           }}
           onErrorCategoryClick={(data) => {
-            const params = new URLSearchParams({ status: 'FAILED,SKIPPED,ABANDONED', days: days.toString() });
+            const params = new URLSearchParams({ status: 'FAILED', days: days.toString() });
             if (integrationId) params.set('integrationId', integrationId);
             if (analyticsDirection) params.set('direction', analyticsDirection);
             if (analyticsTriggerType) params.set('triggerType', analyticsTriggerType);
             if (data?.name) params.set('errorCategory', data.name);
-            navigate(`/delivery-logs?${params.toString()}`);
+            navigate(`/logs?${params.toString()}`);
           }}
         />
       )}
@@ -867,7 +893,7 @@ export const DashboardRoute = () => {
             if (analyticsDirection) params.set('direction', analyticsDirection);
             if (analyticsTriggerType) params.set('triggerType', analyticsTriggerType);
             if (data?.name) params.set('eventType', data.name);
-            navigate(`/delivery-logs?${params.toString()}`);
+            navigate(`/logs?${params.toString()}`);
           }}
           onEventAuditClick={(data) => {
             const params = new URLSearchParams();
@@ -885,8 +911,8 @@ export const DashboardRoute = () => {
             if (integration?.__KEEP___KEEP_integrationConfig__Id__) {
               params.set('integrationId', integration.__KEEP___KEEP_integrationConfig__Id__);
             }
-            if (data?.failedCount > 0) params.set('status', 'FAILED,SKIPPED,ABANDONED');
-            navigate(`/delivery-logs?${params.toString()}`);
+            if (data?.failedCount > 0) params.set('status', 'FAILED');
+            navigate(`/logs?${params.toString()}`);
           }}
         />
       )}
@@ -897,8 +923,8 @@ export const DashboardRoute = () => {
           logs={recentLogs}
           noDataHint={noDataHint}
           onViewAll={() => {
-            const params = new URLSearchParams({ status: 'FAILED,SKIPPED,ABANDONED', days: days.toString() });
-            navigate(`/delivery-logs?${params.toString()}`);
+            const params = new URLSearchParams({ status: 'FAILED', days: days.toString() });
+            navigate(`/logs?${params.toString()}`);
           }}
         />
       )}

@@ -20,6 +20,7 @@ const { ObjectId } = require('mongodb');
 const { createExecutionLogger } = require('../utils/execution-logger');
 const { checkRateLimit } = require('../middleware/rate-limiter');
 const adapterRegistry = require('../services/communication/adapter-registry');
+const { validateLookupConfigs } = require('../services/lookup-validator');
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -107,6 +108,34 @@ const createNoopExecutionLogger = () => ({
   updateStatus: async () => {},
   fail: async () => {},
   success: async () => {},
+});
+
+const buildInboundRuntimeReplayPayload = ({ requestBody, queryParams, requestHeaders, inboundFile }) => ({
+  body: requestBody || {},
+  query: queryParams || {},
+  headers: requestHeaders || {},
+  file: inboundFile
+    ? {
+        fieldName: inboundFile.fieldName,
+        originalName: inboundFile.originalName,
+        mimeType: inboundFile.mimeType,
+        sizeBytes: inboundFile.sizeBytes,
+        base64: inboundFile.base64 || '',
+      }
+    : null,
+});
+
+const buildInboundRuntimeReplayMetadata = ({
+  type,
+  requestUrl,
+  requestMethod,
+  streamResponse,
+}) => ({
+  replayMode: 'INBOUND_RUNTIME',
+  eventType: type,
+  requestUrl,
+  requestMethod,
+  streamResponse: streamResponse === true,
 });
 
 const isInboundMinimalLoggingEnabled = () => runtimeConfig.logging?.inboundMinimalMode === true;
@@ -200,6 +229,17 @@ function validateInboundPayload(payload) {
   if (payload.rateLimits !== undefined && payload.rateLimits !== null) {
     if (typeof payload.rateLimits !== 'object' || Array.isArray(payload.rateLimits)) {
       return 'rateLimits must be an object when provided';
+    }
+  }
+
+  if (payload.lookups !== undefined && payload.lookups !== null) {
+    if (!Array.isArray(payload.lookups)) {
+      return 'lookups must be an array when provided';
+    }
+    try {
+      validateLookupConfigs(payload.lookups);
+    } catch (error) {
+      return error.message;
     }
   }
 
@@ -407,6 +447,7 @@ router.post('/', async (req, res) => {
       contentType = 'application/json',
       maxInboundFileSizeMb = DEFAULT_INBOUND_FILE_SIZE_MB,
       isActive = true,
+      lookups = null,
       actions = null, // NEW: Support actions array for COMMUNICATION integrations
     } = req.body;
 
@@ -454,6 +495,7 @@ router.post('/', async (req, res) => {
       contentType,
       maxInboundFileSizeMb: normalizeInboundFileSizeMb(maxInboundFileSizeMb),
       isActive,
+      lookups: Array.isArray(lookups) ? lookups : null,
       actions: actions || null, // NEW: Support actions array
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -509,6 +551,9 @@ router.put('/:id([0-9a-fA-F]{24})', async (req, res) => {
     }
     if (Object.prototype.hasOwnProperty.call(updateData, 'maxInboundFileSizeMb')) {
       updateData.maxInboundFileSizeMb = normalizeInboundFileSizeMb(updateData.maxInboundFileSizeMb);
+    }
+    if (Object.prototype.hasOwnProperty.call(updateData, 'lookups')) {
+      updateData.lookups = Array.isArray(updateData.lookups) ? updateData.lookups : null;
     }
     updateData.updatedAt = new Date();
 
@@ -629,7 +674,11 @@ router.post('/:id([0-9a-fA-F]{24})/test', async (req, res) => {
     if (hasTransformScript) {
       try {
         const result = await applyTransform(
-          { transformation: integration.requestTransformation, transformationMode: 'SCRIPT' },
+          {
+            transformation: integration.requestTransformation,
+            transformationMode: 'SCRIPT',
+            lookups: integration.lookups || null,
+          },
           testPayload,
           {
             eventType: integration.type,
@@ -836,6 +885,8 @@ const handleInboundRuntime = async (req, res) => {
   const minimalLoggingEnabled = isInboundMinimalLoggingEnabled();
   let executionLogger = createNoopExecutionLogger();
   let persistIntegrationLogFn = async () => {};
+  let inboundRuntimeReplayPayload = null;
+  let inboundRuntimeReplayMetadata = null;
 
   log('info', 'Inbound integration request received', {
     type,
@@ -1146,11 +1197,15 @@ const handleInboundRuntime = async (req, res) => {
               : null,
           };
 
-          transformedRequest = await applyTransform(
-            { transformation: config.requestTransformation, transformationMode: 'SCRIPT' },
-            basePayload,
-            {
-              eventType: type,
+        transformedRequest = await applyTransform(
+          {
+            transformation: config.requestTransformation,
+            transformationMode: 'SCRIPT',
+            lookups: config.lookups || null,
+          },
+          basePayload,
+          {
+            eventType: type,
               orgId: resolvedOrgId,
               ...requestContext,
             }
@@ -1282,6 +1337,18 @@ const handleInboundRuntime = async (req, res) => {
       orgId: resolvedOrgId,
       type,
     });
+    inboundRuntimeReplayPayload = buildInboundRuntimeReplayPayload({
+      requestBody,
+      queryParams,
+      requestHeaders: req.headers,
+      inboundFile: req.inboundFile,
+    });
+    inboundRuntimeReplayMetadata = buildInboundRuntimeReplayMetadata({
+      type,
+      requestUrl: req.originalUrl,
+      requestMethod: req.method,
+      streamResponse: config.streamResponse,
+    });
 
     if (!resolvedTargetUrl || typeof resolvedTargetUrl !== 'string') {
       return res.status(500).json({
@@ -1304,7 +1371,11 @@ const handleInboundRuntime = async (req, res) => {
     try {
       if (config.requestTransformation?.script) {
         transformedRequest = await applyTransform(
-          { transformation: config.requestTransformation, transformationMode: 'SCRIPT' },
+          {
+            transformation: config.requestTransformation,
+            transformationMode: 'SCRIPT',
+            lookups: config.lookups || null,
+          },
           basePayload, // Transform body for non-GET, query for GET
           {
             eventType: type,
@@ -1359,7 +1430,9 @@ const handleInboundRuntime = async (req, res) => {
       transformError.code = 'TRANSFORMATION_ERROR';
       await executionLogger
         .fail(transformError, {
-          createDLQ: false,
+          createDLQ: true,
+          payload: inboundRuntimeReplayPayload,
+          metadata: inboundRuntimeReplayMetadata,
           statusCode: 500,
         })
         .catch(() => {});
@@ -1428,7 +1501,9 @@ const handleInboundRuntime = async (req, res) => {
       authError.code = 'AUTHENTICATION_ERROR';
       await executionLogger
         .fail(authError, {
-          createDLQ: false,
+          createDLQ: true,
+          payload: inboundRuntimeReplayPayload,
+          metadata: inboundRuntimeReplayMetadata,
           statusCode: 500,
         })
         .catch(() => {});
@@ -1526,7 +1601,9 @@ const handleInboundRuntime = async (req, res) => {
           upstreamError.statusCode = streamResponse.status;
           await executionLogger
             .fail(upstreamError, {
-              createDLQ: false,
+              createDLQ: true,
+              payload: inboundRuntimeReplayPayload,
+              metadata: inboundRuntimeReplayMetadata,
               statusCode: streamResponse.status,
             })
             .catch(() => {});
@@ -1639,7 +1716,9 @@ const handleInboundRuntime = async (req, res) => {
           streamError.code = 'STREAMING_ERROR';
           await executionLogger
             .fail(streamError, {
-              createDLQ: false,
+              createDLQ: true,
+              payload: inboundRuntimeReplayPayload,
+              metadata: inboundRuntimeReplayMetadata,
               statusCode: 500,
             })
             .catch(() => {});
@@ -1686,7 +1765,9 @@ const handleInboundRuntime = async (req, res) => {
         setupError.code = 'STREAMING_SETUP_ERROR';
         await executionLogger
           .fail(setupError, {
-            createDLQ: false,
+            createDLQ: true,
+            payload: inboundRuntimeReplayPayload,
+            metadata: inboundRuntimeReplayMetadata,
             statusCode: 500,
           })
           .catch(() => {});
@@ -1891,7 +1972,9 @@ const handleInboundRuntime = async (req, res) => {
         upstreamError.statusCode = upstreamResponse.status;
         await executionLogger
           .fail(upstreamError, {
-            createDLQ: false,
+            createDLQ: true,
+            payload: inboundRuntimeReplayPayload,
+            metadata: inboundRuntimeReplayMetadata,
             statusCode: upstreamResponse.status,
             response: {
               statusCode: upstreamResponse.status,
@@ -1971,7 +2054,9 @@ const handleInboundRuntime = async (req, res) => {
         transformError.code = 'TRANSFORMATION_ERROR';
         await executionLogger
           .fail(transformError, {
-            createDLQ: false,
+            createDLQ: true,
+            payload: inboundRuntimeReplayPayload,
+            metadata: inboundRuntimeReplayMetadata,
             statusCode: 500,
             response: {
               statusCode: upstreamResponse.status,
@@ -2067,7 +2152,9 @@ const handleInboundRuntime = async (req, res) => {
         timeoutError.code = 'UPSTREAM_TIMEOUT';
         await executionLogger
           .fail(timeoutError, {
-            createDLQ: false,
+            createDLQ: true,
+            payload: inboundRuntimeReplayPayload,
+            metadata: inboundRuntimeReplayMetadata,
             statusCode: 504,
           })
           .catch(() => {});
@@ -2113,7 +2200,9 @@ const handleInboundRuntime = async (req, res) => {
         upstreamError.code = 'UPSTREAM_ERROR';
         await executionLogger
           .fail(upstreamError, {
-            createDLQ: false,
+            createDLQ: true,
+            payload: inboundRuntimeReplayPayload,
+            metadata: inboundRuntimeReplayMetadata,
             statusCode: 502,
           })
           .catch(() => {});
@@ -2141,7 +2230,9 @@ const handleInboundRuntime = async (req, res) => {
       internalError.code = 'INTERNAL_ERROR';
       await executionLogger
         .fail(internalError, {
-          createDLQ: false,
+          createDLQ: true,
+          payload: inboundRuntimeReplayPayload,
+          metadata: inboundRuntimeReplayMetadata,
           statusCode: 500,
         })
         .catch(() => {});

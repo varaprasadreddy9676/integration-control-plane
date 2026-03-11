@@ -116,6 +116,15 @@ async function listOrgUnits(orgId) {
   return dbClient.collection('org_units').find({ orgId }).sort({ rid: 1 }).toArray();
 }
 
+async function getOrgUnit(orgId, rid) {
+  if (!useMongo()) {
+    return fallbackDisabledError('getOrgUnit:mongo');
+  }
+
+  const dbClient = await mongodb.getDbSafe();
+  return dbClient.collection('org_units').findOne({ orgId, rid });
+}
+
 async function createOrgUnit(orgId, payload) {
   if (!useMongo()) {
     return fallbackDisabledError('createOrgUnit:mongo');
@@ -241,6 +250,7 @@ module.exports = {
   updateOrganization,
   deleteOrganization,
   listOrgUnits,
+  getOrgUnit,
   createOrgUnit,
   updateOrgUnit,
   deleteOrgUnit,

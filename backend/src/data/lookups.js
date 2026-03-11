@@ -28,6 +28,68 @@ function mapLookupFromMongo(doc) {
   };
 }
 
+function normalizeLookupSource(source = {}) {
+  const rawId = source.id !== undefined && source.id !== null ? String(source.id).trim() : null;
+  const rawKey = source.key !== undefined && source.key !== null ? String(source.key).trim() : null;
+  const canonicalKey = rawKey || rawId;
+
+  return {
+    ...source,
+    id: canonicalKey,
+    key: canonicalKey,
+    rawId: rawKey && rawId && rawId !== rawKey ? rawId : source.rawId || null,
+  };
+}
+
+function normalizeLookupTarget(target = {}) {
+  if (!target || typeof target !== 'object' || Array.isArray(target)) {
+    return { id: target };
+  }
+  return { ...target };
+}
+
+function buildScopedLookupMatch(type, matchValue, normalizedOrgId, normalizedOrgUnitRid, fieldPath) {
+  const scopedFieldMatchers = [{ [fieldPath]: matchValue }];
+  if (fieldPath === 'source.id') {
+    scopedFieldMatchers.push({ 'source.key': matchValue });
+  }
+
+  const scopeQuery = normalizedOrgUnitRid
+    ? { $or: [{ orgUnitRid: normalizedOrgUnitRid }, { entityRid: normalizedOrgUnitRid }] }
+    : {
+        $or: [
+          { orgUnitRid: null },
+          { orgUnitRid: { $exists: false }, entityRid: null },
+          { orgUnitRid: { $exists: false }, entityRid: { $exists: false } },
+          { entityRid: null },
+          { entityRid: { $exists: false } },
+        ],
+      };
+
+  return addOrgScope(
+    {
+      ...scopeQuery,
+      type,
+      isActive: true,
+      $and: [{ $or: scopedFieldMatchers }],
+    },
+    normalizedOrgId
+  );
+}
+
+function extractTargetValue(target = {}, targetField = 'id') {
+  if (!targetField) return target;
+  const parts = String(targetField).split('.');
+  let current = target;
+  for (const part of parts) {
+    if (current === null || current === undefined || typeof current !== 'object') {
+      return null;
+    }
+    current = current[part];
+  }
+  return current ?? null;
+}
+
 /**
  * List lookups with filters
  */
@@ -130,8 +192,8 @@ async function addLookup(orgId, payload) {
       orgId: normalizeOrgId(payload.orgId || normalizedOrgId),
       orgUnitRid: normalizedOrgUnitRid,
       type: payload.type,
-      source: payload.source,
-      target: payload.target,
+      source: normalizeLookupSource(payload.source),
+      target: normalizeLookupTarget(payload.target),
       description: payload.description || null,
       category: payload.category || null,
       usageCount: 0,
@@ -149,7 +211,7 @@ async function addLookup(orgId, payload) {
     log('info', 'Lookup created', {
       id: result.insertedId.toString(),
       type: payload.type,
-      sourceId: payload.source.id,
+      sourceId: payload.source.key || payload.source.id,
     });
 
     return mapLookupFromMongo(lookup);
@@ -182,6 +244,12 @@ async function updateLookup(orgId, id, patch) {
       ...patch,
       updatedAt: now,
     };
+    if (Object.prototype.hasOwnProperty.call(updateDoc, 'source')) {
+      updateDoc.source = normalizeLookupSource(updateDoc.source);
+    }
+    if (Object.prototype.hasOwnProperty.call(updateDoc, 'target')) {
+      updateDoc.target = normalizeLookupTarget(updateDoc.target);
+    }
     if (
       Object.prototype.hasOwnProperty.call(updateDoc, 'orgUnitRid') ||
       Object.prototype.hasOwnProperty.call(updateDoc, 'entityRid')
@@ -287,7 +355,7 @@ async function bulkCreateLookups(orgId, lookups, options = {}) {
         const existingQuery = {
           $or: [{ orgUnitRid: normalizedOrgUnitRid }, { entityRid: normalizedOrgUnitRid }],
           type: lookupData.type,
-          'source.id': lookupData.source.id,
+          $and: [{ $or: [{ 'source.id': normalizeLookupSource(lookupData.source).id }, { 'source.key': normalizeLookupSource(lookupData.source).key }] }],
           isActive: true,
         };
         addOrgScope(existingQuery, normalizeOrgId(lookupData.orgId || normalizedOrgId));
@@ -307,8 +375,8 @@ async function bulkCreateLookups(orgId, lookups, options = {}) {
           orgId: normalizeOrgId(lookupData.orgId || normalizedOrgId),
           orgUnitRid: normalizedOrgUnitRid,
           type: lookupData.type,
-          source: lookupData.source,
-          target: lookupData.target,
+          source: normalizeLookupSource(lookupData.source),
+          target: normalizeLookupTarget(lookupData.target),
           description: lookupData.description || null,
           category: lookupData.category || null,
           usageCount: 0,
@@ -324,11 +392,11 @@ async function bulkCreateLookups(orgId, lookups, options = {}) {
         insertedCount++;
       } catch (err) {
         errors.push({
-          sourceId: lookupData.source?.id,
+          sourceId: lookupData.source?.key || lookupData.source?.id,
           error: err.message,
         });
         log('warn', 'Failed to insert lookup', {
-          sourceId: lookupData.source?.id,
+          sourceId: lookupData.source?.key || lookupData.source?.id,
           error: err.message,
         });
       }
@@ -410,10 +478,12 @@ async function bulkDeleteLookups(orgId, ids) {
  * Step 1: Try entity-specific mapping
  * Step 2: Fallback to parent-level mapping
  */
-async function resolveLookup(sourceId, type, orgId, orgUnitRid) {
+async function resolveLookup(sourceId, type, orgId, orgUnitRid, targetField = 'id') {
   const normalizedOrgId = normalizeOrgId(orgId);
   if (!normalizedOrgId) return null;
   const normalizedOrgUnitRid = orgUnitRid !== undefined ? parsePositiveInt(orgUnitRid) : null;
+  const matchValue = sourceId !== undefined && sourceId !== null ? String(sourceId).trim() : '';
+  if (!matchValue) return null;
 
   if (!useMongo()) {
     return null;
@@ -424,17 +494,9 @@ async function resolveLookup(sourceId, type, orgId, orgUnitRid) {
 
     // Step 1: Try entity-specific mapping (highest priority)
     if (normalizedOrgUnitRid) {
-      const entitySpecific = await db.collection('lookups').findOne(
-        addOrgScope(
-          {
-            $or: [{ orgUnitRid: normalizedOrgUnitRid }, { entityRid: normalizedOrgUnitRid }],
-            type,
-            'source.id': sourceId,
-            isActive: true,
-          },
-          normalizedOrgId
-        )
-      );
+      const entitySpecific = await db
+        .collection('lookups')
+        .findOne(buildScopedLookupMatch(type, matchValue, normalizedOrgId, normalizedOrgUnitRid, 'source.id'));
 
       if (entitySpecific) {
         // Update usage tracking (non-blocking)
@@ -448,28 +510,14 @@ async function resolveLookup(sourceId, type, orgId, orgUnitRid) {
           )
           .catch((err) => log('warn', 'Failed to update lookup usage', { error: err.message }));
 
-        return entitySpecific.target.id;
+        return extractTargetValue(entitySpecific.target, targetField);
       }
     }
 
     // Step 2: Fallback to parent-level mapping
-    const parentLevel = await db.collection('lookups').findOne(
-      addOrgScope(
-        {
-          $or: [
-            { orgUnitRid: null },
-            { orgUnitRid: { $exists: false }, entityRid: null },
-            { orgUnitRid: { $exists: false }, entityRid: { $exists: false } },
-            { entityRid: null },
-            { entityRid: { $exists: false } },
-          ],
-          type,
-          'source.id': sourceId,
-          isActive: true,
-        },
-        normalizedOrgId
-      )
-    );
+    const parentLevel = await db
+      .collection('lookups')
+      .findOne(buildScopedLookupMatch(type, matchValue, normalizedOrgId, null, 'source.id'));
 
     if (parentLevel) {
       // Update usage tracking (non-blocking)
@@ -483,13 +531,72 @@ async function resolveLookup(sourceId, type, orgId, orgUnitRid) {
         )
         .catch((err) => log('warn', 'Failed to update lookup usage', { error: err.message }));
 
-      return parentLevel.target.id;
+      return extractTargetValue(parentLevel.target, targetField);
     }
 
     // Step 3: No mapping found
     return null;
   } catch (err) {
     logError(err, { scope: 'resolveLookup', sourceId, type });
+    return null;
+  }
+}
+
+async function resolveLookupObject(sourceId, type, orgId, orgUnitRid) {
+  const normalizedOrgId = normalizeOrgId(orgId);
+  if (!normalizedOrgId) return null;
+  const normalizedOrgUnitRid = orgUnitRid !== undefined ? parsePositiveInt(orgUnitRid) : null;
+  const matchValue = sourceId !== undefined && sourceId !== null ? String(sourceId).trim() : '';
+  if (!matchValue) return null;
+
+  if (!useMongo()) {
+    return null;
+  }
+
+  try {
+    const db = await mongodb.getDbSafe();
+
+    if (normalizedOrgUnitRid) {
+      const entitySpecific = await db
+        .collection('lookups')
+        .findOne(buildScopedLookupMatch(type, matchValue, normalizedOrgId, normalizedOrgUnitRid, 'source.id'));
+
+      if (entitySpecific) {
+        db.collection('lookups')
+          .updateOne(
+            { _id: entitySpecific._id },
+            {
+              $inc: { usageCount: 1 },
+              $set: { lastUsedAt: new Date() },
+            }
+          )
+          .catch((err) => log('warn', 'Failed to update lookup usage', { error: err.message }));
+
+        return entitySpecific.target || null;
+      }
+    }
+
+    const parentLevel = await db
+      .collection('lookups')
+      .findOne(buildScopedLookupMatch(type, matchValue, normalizedOrgId, null, 'source.id'));
+
+    if (parentLevel) {
+      db.collection('lookups')
+        .updateOne(
+          { _id: parentLevel._id },
+          {
+            $inc: { usageCount: 1 },
+            $set: { lastUsedAt: new Date() },
+          }
+        )
+        .catch((err) => log('warn', 'Failed to update lookup usage', { error: err.message }));
+
+      return parentLevel.target || null;
+    }
+
+    return null;
+  } catch (err) {
+    logError(err, { scope: 'resolveLookupObject', sourceId, type });
     return null;
   }
 }
@@ -644,6 +751,7 @@ module.exports = {
   bulkCreateLookups,
   bulkDeleteLookups,
   resolveLookup,
+  resolveLookupObject,
   reverseLookup,
   getLookupStats,
   getLookupTypes,

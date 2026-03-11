@@ -11,6 +11,7 @@ interface DashboardHeaderProps {
   onRefresh: () => void;
   refreshing: boolean;
   refreshSeconds: number;
+  refreshCountdown: number | null;
   exportMenuItems: MenuProps['items'];
   isExporting: boolean;
 }
@@ -24,6 +25,7 @@ export const DashboardHeader = ({
   onRefresh,
   refreshing,
   refreshSeconds,
+  refreshCountdown,
   exportMenuItems,
   isExporting
 }: DashboardHeaderProps) => {
@@ -43,10 +45,15 @@ export const DashboardHeader = ({
         </Typography.Text>
       </div>
       <div className="dashboard-actions">
+        <Typography.Text type="secondary">
+          {refreshSeconds > 0
+            ? `Auto-refresh in ${refreshCountdown ?? refreshSeconds}s`
+            : 'Auto-refresh off'}
+        </Typography.Text>
         <Button type="primary" icon={<ArrowRightOutlined />} onClick={onViewLogs}>
           View Logs
         </Button>
-        <Tooltip title={`Refresh now${refreshSeconds > 0 ? ` (auto every ${refreshSeconds}s)` : ''}`}>
+        <Tooltip title={`Refresh now${refreshSeconds > 0 ? ` (next auto refresh in ${refreshCountdown ?? refreshSeconds}s)` : ''}`}>
           <Button icon={<ReloadOutlined />} onClick={onRefresh} loading={refreshing} aria-label="Refresh dashboard" />
         </Tooltip>
         <Dropdown menu={{ items: exportMenuItems }} trigger={['click']} placement="bottomRight">

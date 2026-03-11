@@ -40,6 +40,8 @@ export const StorageStatsRoute = () => {
   const { spacing, token } = useDesignTokens();
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [secondsAgo, setSecondsAgo] = useState(0);
+  const [refreshCountdown, setRefreshCountdown] = useState(30);
+  const [manualRefreshPending, setManualRefreshPending] = useState(false);
 
   const { data, isLoading, error, dataUpdatedAt, refetch } = useQuery({
     queryKey: ['adminStorageStats'],
@@ -57,6 +59,34 @@ export const StorageStatsRoute = () => {
     }, 1000);
     return () => clearInterval(id);
   }, [dataUpdatedAt]);
+
+  useEffect(() => {
+    if (!autoRefresh) {
+      setRefreshCountdown(30);
+      return;
+    }
+    if (!dataUpdatedAt) return;
+
+    const refreshSeconds = 30;
+    const updateCountdown = () => {
+      const elapsedMs = Date.now() - dataUpdatedAt;
+      const remainingSeconds = Math.max(0, Math.ceil((refreshSeconds * 1000 - elapsedMs) / 1000));
+      setRefreshCountdown(remainingSeconds > 0 ? remainingSeconds : 0);
+    };
+
+    updateCountdown();
+    const id = setInterval(updateCountdown, 1000);
+    return () => clearInterval(id);
+  }, [autoRefresh, dataUpdatedAt]);
+
+  const handleManualRefresh = async () => {
+    setManualRefreshPending(true);
+    try {
+      await refetch();
+    } finally {
+      setManualRefreshPending(false);
+    }
+  };
 
   if (!isAdmin) {
     return (
@@ -184,15 +214,17 @@ export const StorageStatsRoute = () => {
         actions={
           <Space>
             <Space size={8}>
-              <Text type="secondary" style={{ fontSize: 13 }}>Auto-refresh</Text>
+              <Text type="secondary" style={{ fontSize: 13 }}>
+                {autoRefresh ? `Auto-refresh in ${refreshCountdown}s` : 'Auto-refresh off'}
+              </Text>
               <Switch size="small" checked={autoRefresh} onChange={setAutoRefresh} />
             </Space>
             <Button
               icon={<ReloadOutlined />}
-              onClick={() => refetch()}
-              loading={isLoading}
+              onClick={handleManualRefresh}
+              loading={manualRefreshPending}
             >
-              Refresh
+              {manualRefreshPending ? 'Refreshing…' : 'Refresh'}
             </Button>
           </Space>
         }

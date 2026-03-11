@@ -141,6 +141,31 @@ const fetchWithTimeout = async (
 };
 
 /**
+ * Safely parse a fetch response, handling non-JSON responses gracefully
+ */
+async function safeParseResponse(response: Response): Promise<any> {
+  const contentType = response.headers.get('content-type');
+  const text = await response.text();
+  let data;
+
+  if (text && contentType?.includes('application/json')) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = text;
+    }
+  } else {
+    data = text;
+  }
+
+  if (typeof data === 'string' && text.trim().startsWith('<')) {
+    throw new Error(`Server returned an invalid response (${response.status}). The service might be unavailable.`);
+  }
+
+  return data;
+}
+
+/**
  * Attempt to refresh a portal access token using the stored refresh token.
  * Returns true if refresh succeeded and new tokens have been stored.
  * Deduplicates concurrent refresh attempts.
@@ -156,7 +181,7 @@ async function attemptPortalRefresh(refreshToken: string): Promise<boolean> {
         body: JSON.stringify({ refreshToken }),
       });
       if (!res.ok) return false;
-      const data = await res.json();
+      const data = await safeParseResponse(res);
       localStorage.setItem('integration_gateway_token', data.accessToken);
       localStorage.setItem('portal_refresh_token', data.refreshToken);
       window.dispatchEvent(new Event('auth-storage'));
@@ -637,6 +662,10 @@ export const getLogs = async (filters?: {
   eventType?: string;
   direction?: string;
   triggerType?: string;
+  errorCategory?: string;
+  hour?: string;
+  dayOfWeek?: string;
+  timezoneOffset?: string;
   dateRange?: [string, string] | null;
   page?: number;
   limit?: number;
@@ -648,6 +677,10 @@ export const getLogs = async (filters?: {
   if (filters?.eventType) params.set('eventType', filters.eventType);
   if (filters?.direction) params.set('direction', filters.direction);
   if (filters?.triggerType) params.set('triggerType', filters.triggerType);
+  if (filters?.errorCategory) params.set('errorCategory', filters.errorCategory);
+  if (filters?.hour) params.set('hour', filters.hour);
+  if (filters?.dayOfWeek) params.set('dayOfWeek', filters.dayOfWeek);
+  if (filters?.timezoneOffset) params.set('timezoneOffset', filters.timezoneOffset);
   if (filters?.dateRange && filters.dateRange[0] && filters.dateRange[1]) {
     params.set('startDate', filters.dateRange[0]);
     params.set('endDate', filters.dateRange[1]);
@@ -682,14 +715,14 @@ export const getAlertCenterLogs = async (filters?: {
 
 export const exportAlertCenterLogsToJson = async (
   filters?: {
-  status?: string;
-  channel?: string;
-  type?: string;
-  search?: string;
-  startDate?: string;
-  endDate?: string;
-  limit?: number;
-},
+    status?: string;
+    channel?: string;
+    type?: string;
+    search?: string;
+    startDate?: string;
+    endDate?: string;
+    limit?: number;
+  },
   options?: LogExportOptions
 ): Promise<void> => {
   const params = new URLSearchParams();
@@ -717,14 +750,14 @@ export const exportAlertCenterLogsToJson = async (
 
 export const exportAlertCenterLogsToCsv = async (
   filters?: {
-  status?: string;
-  channel?: string;
-  type?: string;
-  search?: string;
-  startDate?: string;
-  endDate?: string;
-  limit?: number;
-},
+    status?: string;
+    channel?: string;
+    type?: string;
+    search?: string;
+    startDate?: string;
+    endDate?: string;
+    limit?: number;
+  },
   options?: LogExportOptions
 ): Promise<void> => {
   const params = new URLSearchParams();
@@ -769,8 +802,35 @@ export const getAlertCenterStatus = async (): Promise<{
 
 export const getLogById = async (id: string): Promise<DeliveryLog | undefined> => request(`/logs/${id}`);
 
-export const getLogStatsSummary = async (): Promise<{ total: number; failed: number; pending: number; success: number; refreshedAt?: string }> =>
-  request('/logs/stats/summary');
+export const getLogStatsSummary = async (filters?: {
+  integrationId?: string;
+  search?: string;
+  eventType?: string;
+  direction?: string;
+  triggerType?: string;
+  errorCategory?: string;
+  hour?: string;
+  dayOfWeek?: string;
+  timezoneOffset?: string;
+  dateRange?: [string, string] | null;
+}): Promise<{ total: number; failed: number; pending: number; success: number; refreshedAt?: string }> => {
+  const params = new URLSearchParams();
+  if (filters?.integrationId) params.set('integrationId', filters.integrationId);
+  if (filters?.search) params.set('search', filters.search);
+  if (filters?.eventType) params.set('eventType', filters.eventType);
+  if (filters?.direction) params.set('direction', filters.direction);
+  if (filters?.triggerType) params.set('triggerType', filters.triggerType);
+  if (filters?.errorCategory) params.set('errorCategory', filters.errorCategory);
+  if (filters?.hour) params.set('hour', filters.hour);
+  if (filters?.dayOfWeek) params.set('dayOfWeek', filters.dayOfWeek);
+  if (filters?.timezoneOffset) params.set('timezoneOffset', filters.timezoneOffset);
+  if (filters?.dateRange && filters.dateRange[0] && filters.dateRange[1]) {
+    params.set('startDate', filters.dateRange[0]);
+    params.set('endDate', filters.dateRange[1]);
+  }
+  const query = params.toString();
+  return request(`/logs/stats/summary${query ? `?${query}` : ''}`);
+};
 
 export const retryLog = async (
   logId: string,
@@ -1078,15 +1138,15 @@ export const getEventAuditGaps = async (source: string, hoursBack: number = 24):
 
 export const exportEventAuditToCsv = async (
   filters?: {
-  status?: string;
-  eventType?: string;
-  source?: string;
-  skipCategory?: string;
-  startDate?: string;
-  endDate?: string;
-  limit?: number;
-  timeoutMs?: number;
-},
+    status?: string;
+    eventType?: string;
+    source?: string;
+    skipCategory?: string;
+    startDate?: string;
+    endDate?: string;
+    limit?: number;
+    timeoutMs?: number;
+  },
   options?: LogExportOptions
 ): Promise<void> => {
   const params = new URLSearchParams();
@@ -1128,9 +1188,14 @@ type LogExportFilters = {
   status?: string;
   integrationId?: string;
   search?: string;
+  eventType?: string;
   dateRange?: [string, string];
   direction?: string;
   triggerType?: string;
+  errorCategory?: string;
+  hour?: string;
+  dayOfWeek?: string;
+  timezoneOffset?: string;
 };
 
 type LogExportJobStatus = 'QUEUED' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
@@ -1232,8 +1297,13 @@ const buildLogExportParams = (filters?: LogExportFilters): URLSearchParams => {
   if (filters?.status) params.set('status', filters.status);
   if (filters?.integrationId) params.set('integrationId', filters.integrationId);
   if (filters?.search) params.set('search', filters.search);
+  if (filters?.eventType) params.set('eventType', filters.eventType);
   if (filters?.direction) params.set('direction', filters.direction);
   if (filters?.triggerType) params.set('triggerType', filters.triggerType);
+  if (filters?.errorCategory) params.set('errorCategory', filters.errorCategory);
+  if (filters?.hour) params.set('hour', filters.hour);
+  if (filters?.dayOfWeek) params.set('dayOfWeek', filters.dayOfWeek);
+  if (filters?.timezoneOffset) params.set('timezoneOffset', filters.timezoneOffset);
   if (filters?.dateRange) {
     params.set('startDate', filters.dateRange[0]);
     params.set('endDate', filters.dateRange[1]);
@@ -1266,7 +1336,7 @@ const waitForExportJobCompletion = async (
     if (!response.ok) {
       throw new Error(`Export job status check failed: ${response.statusText}`);
     }
-    const job = await response.json() as LogExportJobResponse;
+    const job = await safeParseResponse(response) as LogExportJobResponse;
     options?.onProgress?.({
       status: job.status,
       processedRecords: job.processedRecords,
@@ -1292,7 +1362,7 @@ const handleLogExportResponse = async (
   options?: LogExportOptions
 ): Promise<void> => {
   if (response.status === 202) {
-    const queuedJob = await response.json() as LogExportJobResponse;
+    const queuedJob = await safeParseResponse(response) as LogExportJobResponse;
     options?.onProgress?.({
       status: queuedJob.status,
       processedRecords: queuedJob.processedRecords,
@@ -1471,12 +1541,12 @@ export const getSystemLogs = async (params?: {
 // Export system logs as JSON
 export const exportSystemLogsToJson = async (
   filters?: {
-  level?: string;
-  search?: string;
-  errorCategory?: string;
-  pollId?: string;
-  limit?: number;
-},
+    level?: string;
+    search?: string;
+    errorCategory?: string;
+    pollId?: string;
+    limit?: number;
+  },
   options?: LogExportOptions
 ): Promise<void> => {
   const params = new URLSearchParams();
@@ -1504,12 +1574,12 @@ export const exportSystemLogsToJson = async (
 // Export system logs as CSV
 export const exportSystemLogsToCsv = async (
   filters?: {
-  level?: string;
-  search?: string;
-  errorCategory?: string;
-  pollId?: string;
-  limit?: number;
-},
+    level?: string;
+    search?: string;
+    errorCategory?: string;
+    pollId?: string;
+    limit?: number;
+  },
   options?: LogExportOptions
 ): Promise<void> => {
   const params = new URLSearchParams();
@@ -2016,11 +2086,11 @@ export const importLookups = async (file: File, options: {
   });
 
   if (!response.ok) {
-    const error = await response.json();
+    const error = await safeParseResponse(response);
     throw new APIError(error.error || 'Import failed', response.status, error.code);
   }
 
-  return response.json();
+  return safeParseResponse(response);
 };
 
 /**
@@ -3016,7 +3086,7 @@ export const bulkImportEvents = async (
   );
 
   if (!response.ok) {
-    const error = await response.json();
+    const error = await safeParseResponse(response);
     throw new APIError(
       error.error || 'Import failed',
       response.status,
@@ -3025,7 +3095,7 @@ export const bulkImportEvents = async (
     );
   }
 
-  return response.json();
+  return safeParseResponse(response);
 };
 
 /**

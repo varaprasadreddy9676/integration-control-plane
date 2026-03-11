@@ -11,6 +11,11 @@ Fires on every `LAB_ORDER_SENT_TO_EXTERNAL` event and pushes the order to **Path
 |---|---|
 | `integration_config.json` | MongoDB document — import into `integration_configs` collection |
 | `lookup_data.json` | MongoDB documents — import into `lookups` collection (entity → Pathkind lab code) |
+| `inbound_lab_results_example.integration_config.json` | Example INBOUND config showing composite lookup usage for vendor test-code → Grid test mapping |
+| `inbound_lab_results_example.lookup_data.json` | Example lookup rows for the inbound composite-key mapping |
+| `INBOUND_COMPOSITE_LOOKUP_EXAMPLE.md` | Walkthrough for the inbound composite lookup authoring pattern |
+| `inbound_lab_reports_example.integration_config.json` | Example INBOUND multipart PDF config for `accept-lab-reports` style attachments |
+| `INBOUND_MULTIPART_PDF_EXAMPLE.md` | Walkthrough for the inbound multipart PDF attachment pattern |
 | `README.md` | This file |
 
 ---

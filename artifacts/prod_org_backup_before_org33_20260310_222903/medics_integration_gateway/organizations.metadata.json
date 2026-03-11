@@ -1,0 +1,1 @@
+{"indexes":[{"v":{"$numberInt":"2"},"key":{"_id":{"$numberInt":"1"}},"name":"_id_"},{"v":{"$numberInt":"2"},"unique":true,"key":{"orgId":{"$numberInt":"1"}},"name":"org_id_unique_idx"},{"v":{"$numberInt":"2"},"key":{"name":{"$numberInt":"1"}},"name":"org_name_idx"}],"uuid":"d8b5b94b93a04be7ab51bdc83c1bbedb","collectionName":"organizations","type":"collection"}

@@ -243,9 +243,10 @@ function getPendingEvents(limit = 5) {
 
 function getDashboardSummary(orgId) {
   const logs = listLogs(orgId);
+  const failedStatuses = ['FAILED', 'ABANDONED'];
   const total = logs.length;
   const successCount = logs.filter((log) => log.status === 'SUCCESS').length;
-  const failedCount = logs.filter((log) => ['FAILED', 'ABANDONED', 'SKIPPED'].includes(log.status)).length;
+  const failedCount = logs.filter((log) => failedStatuses.includes(log.status)).length;
   const avgResponseTime = logs.length
     ? Math.round(logs.reduce((sum, log) => sum + (log.responseTimeMs || 0), 0) / logs.length)
     : 0;
@@ -257,7 +258,7 @@ function getDashboardSummary(orgId) {
       name: wh.name,
       status: ['GREEN', 'YELLOW', 'RED'][idx % 3],
       failureCount24h: logs.filter(
-        (log) => log.__KEEP___KEEP_integrationConfig__Id__ === wh.id && log.status !== 'SUCCESS'
+        (log) => log.__KEEP___KEEP_integrationConfig__Id__ === wh.id && failedStatuses.includes(log.status)
       ).length,
     }));
 
@@ -267,7 +268,7 @@ function getDashboardSummary(orgId) {
     failedCount24h: failedCount,
     avgResponseTimeMs24h: avgResponseTime,
     integrationHealth,
-    recentFailures: logs.filter((log) => log.status !== 'SUCCESS').slice(0, 5),
+    recentFailures: logs.filter((log) => failedStatuses.includes(log.status)).slice(0, 5),
   };
 }
 

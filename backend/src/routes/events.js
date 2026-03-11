@@ -4,10 +4,10 @@ const { log } = require('../logger');
 const asyncHandler = require('../utils/async-handler');
 const db = require('../db');
 const fs = require('fs');
-const fsp = require('node:fs/promises');
-const os = require('node:os');
+const fsp = require('fs/promises');
+const os = require('os');
 const path = require('path');
-const { randomUUID } = require('node:crypto');
+const { randomUUID } = require('crypto');
 const mongodb = require('../mongodb');
 const eventSourceData = require('../data/event-sources');
 

@@ -1,0 +1,56 @@
+{
+  "_id": { "$oid": "6a4b2c3d4e5f607182930b93" },
+  "name": "Pathkind LIS - Accept Lab Reports PDF (Multipart Example)",
+  "type": "PATHKIND_ACCEPT_LAB_REPORTS_EXAMPLE",
+  "direction": "INBOUND",
+  "orgId": 145,
+  "targetUrl": "https://medicsprime.in/api/orderAttachment",
+  "httpMethod": "POST",
+  "timeout": 30000,
+  "timeoutMs": 30000,
+  "retryCount": 1,
+  "contentType": "multipart/form-data",
+  "streamResponse": false,
+  "maxInboundFileSizeMb": 50,
+  "inboundAuthType": "API_KEY",
+  "inboundAuthConfig": {
+    "headerName": "x-api-key",
+    "value": "REPLACE_WITH_PATHKIND_VENDOR_API_KEY"
+  },
+  "outgoingAuthType": "CUSTOM",
+  "outgoingAuthConfig": {
+    "tokenEndpoint": "https://medicsprime.in/api/token",
+    "tokenRequestMethod": "POST",
+    "tokenRequestBody": {
+      "entitycode": "REPLACE_WITH_MEDICS_ENTITY_CODE",
+      "userId": "REPLACE_WITH_MEDICS_USER_ID",
+      "password": "REPLACE_WITH_MEDICS_PASSWORD"
+    },
+    "tokenResponsePath": "token",
+    "tokenHeaderName": "Authorization",
+    "tokenHeaderPrefix": "Bearer"
+  },
+  "requestTransformation": {
+    "mode": "SCRIPT",
+    "script": "const file = context.file;\nif (!file || !file.base64) {\n  throw new Error('PDF file field is required.');\n}\n\nconst orderNumber = String(context.body?.orderId || payload?.orderId || '').trim();\nconst labId = String(context.body?.LabID || payload?.LabID || '').trim();\nconst reportStatus = String(context.body?.reportStatus || payload?.reportStatus || '').trim();\n\nif (!orderNumber || !labId) {\n  throw new Error('orderId and LabID are required.');\n}\n\nconst serviceCodesRaw = context.body?.serviceCodesJson || payload?.serviceCodesJson || '';\nif (!serviceCodesRaw) {\n  throw new Error('serviceCodesJson is required in this generic example until DB resolvers are available.');\n}\n\nlet parsedServiceCodes;\ntry {\n  parsedServiceCodes = JSON.parse(serviceCodesRaw);\n} catch (error) {\n  throw new Error('serviceCodesJson must be valid JSON.');\n}\n\nif (!Array.isArray(parsedServiceCodes) || parsedServiceCodes.length === 0) {\n  throw new Error('serviceCodesJson must be a non-empty JSON array.');\n}\n\nconst serviceCodes = parsedServiceCodes.map(function (value) {\n  if (typeof value === 'string') {\n    return { serviceCode: value.trim() };\n  }\n  if (value && typeof value === 'object' && value.serviceCode) {\n    return { serviceCode: String(value.serviceCode).trim() };\n  }\n  throw new Error('Each serviceCodesJson entry must be a string or { serviceCode }.');\n});\n\nreturn {\n  orderNumber,\n  labId,\n  serviceCodes,\n  reportData: file.base64,\n  metadata: {\n    reportStatus,\n    originalFileName: file.originalName,\n    mimeType: file.mimeType,\n    sizeBytes: file.sizeBytes\n  }\n};"
+  },
+  "responseTransformation": {
+    "mode": "SCRIPT",
+    "script": "return payload?.data || payload;"
+  },
+  "lookups": null,
+  "rateLimits": {
+    "enabled": true,
+    "maxRequests": 30,
+    "windowSeconds": 60
+  },
+  "isActive": false,
+  "actions": null,
+  "createdAt": { "$date": "2026-03-10T00:00:00.000Z" },
+  "updatedAt": { "$date": "2026-03-10T00:00:00.000Z" },
+  "metadata": {
+    "vendor": "Pathkind Labs",
+    "exampleOnly": true,
+    "description": "Illustrative multipart inbound PDF report config. Mirrors the legacy accept-lab-reports field contract but requires serviceCodesJson until resolver support exists."
+  }
+}

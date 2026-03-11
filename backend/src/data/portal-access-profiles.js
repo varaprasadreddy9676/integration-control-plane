@@ -14,7 +14,7 @@
  * any outstanding refresh tokens for that profile.
  */
 
-const { randomBytes } = require('node:crypto');
+const { randomBytes } = require('crypto');
 const bcrypt = require('bcryptjs');
 const mongodb = require('../mongodb');
 const { ObjectId } = require('mongodb');

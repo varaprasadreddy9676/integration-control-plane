@@ -10,6 +10,7 @@ const {
   bulkCreateLookups,
   bulkDeleteLookups,
   resolveLookup,
+  resolveLookupObject,
   reverseLookup,
   getLookupStats,
   getLookupTypes,
@@ -480,14 +481,14 @@ router.delete(
  * @route POST /api/v1/lookups/resolve
  * @desc Resolve single code (forward lookup)
  * @query orgId (required), orgUnitRid (optional)
- * @body { type, sourceId }
+ * @body { type, sourceId, targetField?, returnMode? }
  */
 router.post(
   '/resolve',
   asyncHandler(async (req, res) => {
     const { orgId } = req.query;
     const orgUnitRid = req.query.orgUnitRid;
-    const { type, sourceId } = req.body;
+    const { type, sourceId, targetField, returnMode } = req.body;
 
     if (!orgId) {
       return res.status(400).json({
@@ -503,14 +504,21 @@ router.post(
       });
     }
 
-    const targetId = await resolveLookup(
-      sourceId,
-      type,
-      parseInt(orgId, 10),
-      orgUnitRid ? parseInt(orgUnitRid, 10) : null
-    );
+    const normalizedOrgId = parseInt(orgId, 10);
+    const normalizedOrgUnitRid = orgUnitRid ? parseInt(orgUnitRid, 10) : null;
+    const resolvedReturnMode = String(returnMode || 'SCALAR').toUpperCase();
+    const targetObject =
+      resolvedReturnMode === 'OBJECT'
+        ? await resolveLookupObject(sourceId, type, normalizedOrgId, normalizedOrgUnitRid)
+        : null;
+    const targetId =
+      resolvedReturnMode === 'OBJECT'
+        ? targetObject?.id ?? null
+        : await resolveLookup(sourceId, type, normalizedOrgId, normalizedOrgUnitRid, targetField || 'id');
 
-    if (targetId === null) {
+    const found = resolvedReturnMode === 'OBJECT' ? targetObject !== null : targetId !== null;
+
+    if (!found) {
       return res.status(404).json({
         success: false,
         error: 'No mapping found',
@@ -522,6 +530,8 @@ router.post(
       data: {
         sourceId,
         targetId,
+        target: targetObject,
+        found,
         type,
       },
     });
@@ -532,14 +542,14 @@ router.post(
  * @route POST /api/v1/lookups/resolve-bulk
  * @desc Resolve multiple codes
  * @query orgId (required), orgUnitRid (optional)
- * @body { type, sourceIds: ["id1", "id2", ...] }
+ * @body { type, sourceIds: ["id1", "id2", ...], targetField?, returnMode? }
  */
 router.post(
   '/resolve-bulk',
   asyncHandler(async (req, res) => {
     const { orgId } = req.query;
     const orgUnitRid = req.query.orgUnitRid;
-    const { type, sourceIds } = req.body;
+    const { type, sourceIds, targetField, returnMode } = req.body;
 
     if (!orgId) {
       return res.status(400).json({
@@ -559,12 +569,21 @@ router.post(
     const parentRid = parseInt(orgId, 10);
     const scopedOrgUnitRid = orgUnitRid ? parseInt(orgUnitRid, 10) : null;
 
+    const resolvedReturnMode = String(returnMode || 'SCALAR').toUpperCase();
     for (const sourceId of sourceIds) {
-      const targetId = await resolveLookup(sourceId, type, parentRid, scopedOrgUnitRid);
+      const targetObject =
+        resolvedReturnMode === 'OBJECT'
+          ? await resolveLookupObject(sourceId, type, parentRid, scopedOrgUnitRid)
+          : null;
+      const targetId =
+        resolvedReturnMode === 'OBJECT'
+          ? targetObject?.id ?? null
+          : await resolveLookup(sourceId, type, parentRid, scopedOrgUnitRid, targetField || 'id');
       results.push({
         sourceId,
         targetId,
-        found: targetId !== null,
+        target: targetObject,
+        found: resolvedReturnMode === 'OBJECT' ? targetObject !== null : targetId !== null,
       });
     }
 

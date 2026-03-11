@@ -7,19 +7,32 @@ const {
   applyLookups,
   testLookups,
   getNestedValue,
-  setNestedValue
+  setNestedValue,
+  renderLookupTemplate,
 } = require('../../src/services/lookup-service');
 
 // Mock data.resolveLookup
 jest.mock('../../src/data', () => ({
-  resolveLookup: jest.fn()
+  resolveLookup: jest.fn(),
+  resolveLookupObject: jest.fn(),
 }));
 
-const { resolveLookup } = require('../../src/data');
+const { resolveLookup, resolveLookupObject } = require('../../src/data');
 
 describe('Lookup Service Tests', () => {
   afterEach(() => {
     jest.clearAllMocks();
+  });
+
+  describe('Lookup Templates', () => {
+    it('should render lookup templates from payload context', () => {
+      const rendered = renderLookupTemplate('{{supplier.code}}|{{test.code}}', {
+        supplier: { code: 'NOVA' },
+        test: { code: 'LAB027' },
+      });
+
+      expect(rendered).toBe('NOVA|LAB027');
+    });
   });
 
   describe('Nested Value Access Helpers', () => {
@@ -246,6 +259,89 @@ describe('Lookup Service Tests', () => {
 
       expect(resolveLookup).not.toHaveBeenCalled();
       expect(result.lisCode).toBeUndefined();
+    });
+
+    it('should resolve a specific field from a target object', async () => {
+      resolveLookup.mockResolvedValue('EXT123');
+
+      const payload = {
+        compositeKey: 'NOVA|LAB027'
+      };
+
+      const lookupConfigs = [
+        {
+          type: 'LAB_TEST_MAP',
+          sourceField: 'compositeKey',
+          targetField: 'supplierTestCode',
+          targetValueField: 'code',
+          unmappedBehavior: 'FAIL'
+        }
+      ];
+
+      const event = { entityParentRid: 1, entityRid: 100 };
+
+      const result = await applyLookups(payload, lookupConfigs, event);
+
+      expect(result.supplierTestCode).toBe('EXT123');
+      expect(resolveLookup).toHaveBeenCalledWith('NOVA|LAB027', 'LAB_TEST_MAP', 1, 100, 'code');
+    });
+
+    it('should resolve full target objects when returnMode=OBJECT', async () => {
+      resolveLookupObject.mockResolvedValue({
+        id: 'EXT123',
+        code: 'EXT123',
+        name: 'Blood Urea'
+      });
+
+      const payload = {
+        compositeKey: 'NOVA|LAB027'
+      };
+
+      const lookupConfigs = [
+        {
+          type: 'LAB_TEST_MAP',
+          sourceField: 'compositeKey',
+          targetField: 'supplierTest',
+          returnMode: 'OBJECT',
+          unmappedBehavior: 'FAIL'
+        }
+      ];
+
+      const event = { entityParentRid: 1, entityRid: 100 };
+
+      const result = await applyLookups(payload, lookupConfigs, event);
+
+      expect(result.supplierTest).toEqual({
+        id: 'EXT123',
+        code: 'EXT123',
+        name: 'Blood Urea'
+      });
+      expect(resolveLookupObject).toHaveBeenCalledWith('NOVA|LAB027', 'LAB_TEST_MAP', 1, 100);
+    });
+
+    it('should build composite keys from sourceTemplate', async () => {
+      resolveLookup.mockResolvedValue('EXT123');
+
+      const payload = {
+        supplier: { code: 'NOVA' },
+        orderedTest: { code: 'LAB027' }
+      };
+
+      const lookupConfigs = [
+        {
+          type: 'LAB_TEST_MAP',
+          sourceTemplate: '{{supplier.code}}|{{orderedTest.code}}',
+          targetField: 'supplierTestCode',
+          unmappedBehavior: 'FAIL'
+        }
+      ];
+
+      const event = { entityParentRid: 1, entityRid: 100 };
+
+      const result = await applyLookups(payload, lookupConfigs, event);
+
+      expect(result.supplierTestCode).toBe('EXT123');
+      expect(resolveLookup).toHaveBeenCalledWith('NOVA|LAB027', 'LAB_TEST_MAP', 1, 100);
     });
   });
 

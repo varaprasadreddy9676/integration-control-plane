@@ -148,7 +148,8 @@ function mapLogFromMongo(doc) {
   const targetUrl = doc.targetUrl ?? doc.request?.url;
   const httpMethod = doc.httpMethod ?? doc.request?.method;
   const createdAt = doc.createdAt || doc.startedAt;
-  const deliveredAt = doc.deliveredAt || doc.finishedAt;
+  const deliveredAt = doc.deliveredAt || null;
+  const finishedAt = doc.finishedAt || null;
 
   return {
     id: doc._id.toString(),
@@ -168,6 +169,7 @@ function mapLogFromMongo(doc) {
     attemptCount: doc.attemptCount,
     createdAt: createdAt?.toISOString?.(),
     deliveredAt: deliveredAt?.toISOString?.(),
+    finishedAt: finishedAt?.toISOString?.(),
     errorMessage: doc.errorMessage,
     originalPayload: doc.originalPayload, // Original payload from notification_queue
     requestPayload, // Already an object in MongoDB

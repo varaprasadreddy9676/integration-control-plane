@@ -1,0 +1,71 @@
+{
+  "_id": { "$oid": "6a4b2c3d4e5f607182930b90" },
+  "name": "Pathkind LIS - Accept Lab Results (Composite Lookup Example)",
+  "type": "PATHKIND_ACCEPT_LAB_RESULTS_EXAMPLE",
+  "direction": "INBOUND",
+  "orgId": 145,
+  "targetUrl": "https://medicsprime.in/api/lab",
+  "httpMethod": "POST",
+  "timeout": 30000,
+  "timeoutMs": 30000,
+  "retryCount": 1,
+  "contentType": "application/json",
+  "streamResponse": false,
+  "maxInboundFileSizeMb": 50,
+  "inboundAuthType": "API_KEY",
+  "inboundAuthConfig": {
+    "headerName": "x-api-key",
+    "value": "REPLACE_WITH_PATHKIND_VENDOR_API_KEY"
+  },
+  "outgoingAuthType": "CUSTOM",
+  "outgoingAuthConfig": {
+    "tokenEndpoint": "https://medicsprime.in/api/token",
+    "tokenRequestMethod": "POST",
+    "tokenRequestBody": {
+      "entitycode": "REPLACE_WITH_MEDICS_ENTITY_CODE",
+      "userId": "REPLACE_WITH_MEDICS_USER_ID",
+      "password": "REPLACE_WITH_MEDICS_PASSWORD"
+    },
+    "tokenResponsePath": "token",
+    "tokenHeaderName": "Authorization",
+    "tokenHeaderPrefix": "Bearer"
+  },
+  "requestTransformation": {
+    "mode": "SCRIPT",
+    "script": "const rows = Array.isArray(payload.ResultData)\n  ? payload.ResultData\n  : Array.isArray(payload.ThirdPartyResultDataList)\n    ? payload.ThirdPartyResultDataList\n    : [];\n\nif (rows.length !== 1) {\n  throw new Error('This example expects exactly one result row per request.');\n}\n\nconst row = rows[0];\nconst externalTestCode = String(row.TestCode || row.TestId || row.ServiceId || '').trim();\nif (!externalTestCode) {\n  throw new Error('Missing external test code in inbound payload.');\n}\n\nconst orderNumber = String(row.OrderNo || row.IntegrationOrderId || '').trim();\nif (!orderNumber) {\n  throw new Error('Missing order number in inbound payload.');\n}\n\nconst paramName = String(row.TestName || row.NameToBePrinted || '').trim();\nconst paramValue = String(row.TestResult || row.ResultValue || '').trim();\n\nreturn {\n  sourceContext: {\n    vendorCode: 'PATHKIND',\n    externalTestCode,\n  },\n  orderNo: orderNumber,\n  gridTestCode: null,\n  gridTestName: null,\n  sampleID: '',\n  testId: '',\n  observations: [\n    {\n      gridParamCode: externalTestCode,\n      paramCode: '',\n      paramName,\n      paramValue,\n    }\n  ]\n};"
+  },
+  "responseTransformation": {
+    "mode": "SCRIPT",
+    "script": "return payload?.data || payload;"
+  },
+  "lookups": [
+    {
+      "type": "PATHKIND_TEST_TO_GRID_TEST",
+      "sourceTemplate": "{{sourceContext.vendorCode}}|{{sourceContext.externalTestCode}}",
+      "targetField": "gridTestCode",
+      "targetValueField": "code",
+      "unmappedBehavior": "FAIL"
+    },
+    {
+      "type": "PATHKIND_TEST_TO_GRID_TEST",
+      "sourceTemplate": "{{sourceContext.vendorCode}}|{{sourceContext.externalTestCode}}",
+      "targetField": "gridTestName",
+      "targetValueField": "name",
+      "unmappedBehavior": "FAIL"
+    }
+  ],
+  "rateLimits": {
+    "enabled": true,
+    "maxRequests": 60,
+    "windowSeconds": 60
+  },
+  "isActive": false,
+  "actions": null,
+  "createdAt": { "$date": "2026-03-10T00:00:00.000Z" },
+  "updatedAt": { "$date": "2026-03-10T00:00:00.000Z" },
+  "metadata": {
+    "vendor": "Pathkind Labs",
+    "exampleOnly": true,
+    "description": "Illustrative inbound lab-result config showing composite lookup keys and object-backed targets. Not intended for direct production import without replacing placeholders and reviewing payload shape."
+  }
+}

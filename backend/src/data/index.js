@@ -207,6 +207,11 @@ async function deleteWebhook(orgId, id) {
   return integrations.deleteIntegration(orgId, id);
 }
 
+// Backward-compatible alias used by older route modules
+async function createIntegration(orgId, payload) {
+  return integrations.addIntegration(orgId, payload);
+}
+
 async function createScheduledWebhook(data) {
   const scheduled = await scheduledIntegrations.createScheduledIntegration({
     ...data,
@@ -253,6 +258,7 @@ module.exports = {
   getWebhook,
   updateWebhook,
   deleteWebhook,
+  createIntegration,
   createScheduledWebhook,
   listScheduledWebhooks,
   getPendingScheduledWebhooks,
