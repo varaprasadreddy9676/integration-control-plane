@@ -1,6 +1,6 @@
 RewriteEngine On
-RewriteBase /event-gateway/
+RewriteBase /integration-gateway/
 RewriteRule ^index\.html$ - [L]
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule . /event-gateway/index.html [L]
+RewriteRule . /integration-gateway/index.html [L]
