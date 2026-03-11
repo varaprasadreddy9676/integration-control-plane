@@ -41,17 +41,17 @@ function extractByBracket(text, arrayExpected) {
 
   let depth = 0;
   let inString = false;
-  let escape = false;
+  let isEscaped = false;
 
   for (let i = startIdx; i < text.length; i++) {
     const ch = text[i];
 
-    if (escape) {
-      escape = false;
+    if (isEscaped) {
+      isEscaped = false;
       continue;
     }
     if (ch === '\\' && inString) {
-      escape = true;
+      isEscaped = true;
       continue;
     }
     if (ch === '"') {
@@ -112,8 +112,8 @@ function extractJson(text, arrayExpected = false) {
   // ── 2. Try every markdown code block ─────────────────────────────────────────
   // Matches ```json, ```javascript, ```, etc.
   const codeBlockRe = /```(?:[a-z]*)\s*\n?([\s\S]*?)\s*```/g;
-  let match;
-  while ((match = codeBlockRe.exec(trimmed)) !== null) {
+  let match = codeBlockRe.exec(trimmed);
+  while (match !== null) {
     const candidate = match[1].trim();
     try {
       const parsed = JSON.parse(candidate);
@@ -129,6 +129,7 @@ function extractJson(text, arrayExpected = false) {
         /* try next code block */
       }
     }
+    match = codeBlockRe.exec(trimmed);
   }
 
   // ── 3. Character-level bracket extraction ────────────────────────────────────

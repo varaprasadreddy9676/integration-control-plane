@@ -374,7 +374,7 @@ async function updateIntegration(orgId, id, patch) {
 
       // Debug: Log what we're saving
       log('debug', 'Updating integration', {
-        scope: 'updateIntegration',
+        operation: 'updateIntegration',
         id,
         excludedEntityRids: updateDoc.excludedEntityRids,
         scope: updateDoc.scope,

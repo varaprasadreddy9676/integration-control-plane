@@ -77,31 +77,30 @@ export const TransformationPanelContent = ({
   }
 
   return (
-    <>
-      <SectionCard
-        title="Payload Transformation"
-        description="Transform event payloads before delivery"
-        spacing={spacing}
-        token={token}
-        headerExtras={
-          (isCreate || isEditMode) ? (
-            <Space>
-              <Button
-                icon={<ThunderboltOutlined />}
-                onClick={onPreview}
-              >
-                Preview
-              </Button>
-              <Button
-                onClick={onOpenDesigner}
-                type="primary"
-              >
-                Configure Transformation
-              </Button>
-            </Space>
-          ) : undefined
-        }
-      >
+    <SectionCard
+      title="Payload Transformation"
+      description="Transform event payloads before delivery"
+      spacing={spacing}
+      token={token}
+      headerExtras={
+        (isCreate || isEditMode) ? (
+          <Space>
+            <Button
+              icon={<ThunderboltOutlined />}
+              onClick={onPreview}
+            >
+              Preview
+            </Button>
+            <Button
+              onClick={onOpenDesigner}
+              type="primary"
+            >
+              Configure Transformation
+            </Button>
+          </Space>
+        ) : undefined
+      }
+    >
           <div
             style={{
               display: 'flex',
@@ -224,7 +223,6 @@ export const TransformationPanelContent = ({
               </div>
             )}
           </div>
-        </SectionCard>
-    </>
+    </SectionCard>
   );
 };

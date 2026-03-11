@@ -264,71 +264,66 @@ export const ScheduledJobDetailRoute = () => {
       // Build data source config based on type
       let dataSourceConfig: any = { type: dataSourceType };
 
-      try {
-        if (dataSourceType === 'SQL') {
-          dataSourceConfig.query = values.sqlQuery;
-          if (sqlConnectionMode === 'STRING' && values.sqlConnectionString && values.sqlConnectionString.trim()) {
-            dataSourceConfig.connectionString = values.sqlConnectionString.trim();
-          }
-          if (sqlConnectionMode === 'FIELDS' && values.sqlHost && values.sqlHost.trim()) {
-            dataSourceConfig.host = values.sqlHost.trim();
-          }
-          if (sqlConnectionMode === 'FIELDS' && values.sqlPort) {
-            dataSourceConfig.port = Number(values.sqlPort);
-          }
-          if (sqlConnectionMode === 'FIELDS' && values.sqlUsername && values.sqlUsername.trim()) {
-            dataSourceConfig.username = values.sqlUsername.trim();
-          }
-          if (sqlConnectionMode === 'FIELDS' && values.sqlPassword) {
-            dataSourceConfig.password = values.sqlPassword;
-          }
-          if (sqlConnectionMode === 'FIELDS' && values.sqlDatabase && values.sqlDatabase.trim()) {
-            dataSourceConfig.database = values.sqlDatabase.trim();
-          }
-        } else if (dataSourceType === 'MONGODB') {
-          dataSourceConfig.connectionString = values.mongoConnectionString;
-          dataSourceConfig.database = values.mongoDatabase;
-          dataSourceConfig.collection = values.mongoCollection;
+      if (dataSourceType === 'SQL') {
+        dataSourceConfig.query = values.sqlQuery;
+        if (sqlConnectionMode === 'STRING' && values.sqlConnectionString && values.sqlConnectionString.trim()) {
+          dataSourceConfig.connectionString = values.sqlConnectionString.trim();
+        }
+        if (sqlConnectionMode === 'FIELDS' && values.sqlHost && values.sqlHost.trim()) {
+          dataSourceConfig.host = values.sqlHost.trim();
+        }
+        if (sqlConnectionMode === 'FIELDS' && values.sqlPort) {
+          dataSourceConfig.port = Number(values.sqlPort);
+        }
+        if (sqlConnectionMode === 'FIELDS' && values.sqlUsername && values.sqlUsername.trim()) {
+          dataSourceConfig.username = values.sqlUsername.trim();
+        }
+        if (sqlConnectionMode === 'FIELDS' && values.sqlPassword) {
+          dataSourceConfig.password = values.sqlPassword;
+        }
+        if (sqlConnectionMode === 'FIELDS' && values.sqlDatabase && values.sqlDatabase.trim()) {
+          dataSourceConfig.database = values.sqlDatabase.trim();
+        }
+      } else if (dataSourceType === 'MONGODB') {
+        dataSourceConfig.connectionString = values.mongoConnectionString;
+        dataSourceConfig.database = values.mongoDatabase;
+        dataSourceConfig.collection = values.mongoCollection;
 
-          // Validate and parse MongoDB pipeline
+        // Validate and parse MongoDB pipeline
+        try {
+          dataSourceConfig.pipeline = JSON.parse(values.mongoPipeline || '[]');
+          if (!Array.isArray(dataSourceConfig.pipeline)) {
+            throw new Error('MongoDB pipeline must be an array');
+          }
+        } catch (e) {
+          throw new Error(`Invalid MongoDB Pipeline JSON: ${e instanceof Error ? e.message : 'Invalid format'}`);
+        }
+      } else if (dataSourceType === 'API') {
+        dataSourceConfig.url = values.apiUrl;
+        dataSourceConfig.method = values.apiMethod || 'GET';
+
+        // Validate and parse API headers
+        if (values.apiHeaders && values.apiHeaders.trim()) {
           try {
-            dataSourceConfig.pipeline = JSON.parse(values.mongoPipeline || '[]');
-            if (!Array.isArray(dataSourceConfig.pipeline)) {
-              throw new Error('MongoDB pipeline must be an array');
-            }
+            dataSourceConfig.headers = JSON.parse(values.apiHeaders);
           } catch (e) {
-            throw new Error(`Invalid MongoDB Pipeline JSON: ${e instanceof Error ? e.message : 'Invalid format'}`);
+            throw new Error(`Invalid API Headers JSON: ${e instanceof Error ? e.message : 'Invalid format'}`);
           }
-        } else if (dataSourceType === 'API') {
-          dataSourceConfig.url = values.apiUrl;
-          dataSourceConfig.method = values.apiMethod || 'GET';
-
-          // Validate and parse API headers
-          if (values.apiHeaders && values.apiHeaders.trim()) {
-            try {
-              dataSourceConfig.headers = JSON.parse(values.apiHeaders);
-            } catch (e) {
-              throw new Error(`Invalid API Headers JSON: ${e instanceof Error ? e.message : 'Invalid format'}`);
-            }
-          } else {
-            dataSourceConfig.headers = {};
-          }
-
-          // Validate and parse API body
-          if (values.apiBody && values.apiBody.trim()) {
-            try {
-              dataSourceConfig.body = JSON.parse(values.apiBody);
-            } catch (e) {
-              throw new Error(`Invalid API Body JSON: ${e instanceof Error ? e.message : 'Invalid format'}`);
-            }
-          }
+        } else {
+          dataSourceConfig.headers = {};
         }
 
-        return await testDataSource(dataSourceConfig, orgId);
-      } catch (error) {
-        // Re-throw validation errors to be caught by onError
-        throw error;
+        // Validate and parse API body
+        if (values.apiBody && values.apiBody.trim()) {
+          try {
+            dataSourceConfig.body = JSON.parse(values.apiBody);
+          } catch (e) {
+            throw new Error(`Invalid API Body JSON: ${e instanceof Error ? e.message : 'Invalid format'}`);
+          }
+        }
       }
+
+      return await testDataSource(dataSourceConfig, orgId);
     },
     onSuccess: (result) => {
       setTestResult(result);

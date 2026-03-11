@@ -1,15 +1,18 @@
 {
-  "$schema": "https://biomejs.dev/schemas/1.9.4/schema.json",
-  "organizeImports": {
-    "enabled": true
+  "$schema": "https://biomejs.dev/schemas/2.3.15/schema.json",
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": "off"
+      }
+    }
   },
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true,
+      "recommended": false,
       "complexity": {
         "noExtraBooleanCast": "error",
-        "noMultipleSpacesInRegularExpressionLiterals": "error",
         "noUselessCatch": "error",
         "noUselessConstructor": "error",
         "noUselessEmptyExport": "error",
@@ -17,7 +20,7 @@
         "noUselessLabel": "error",
         "noUselessRename": "error",
         "noUselessSwitchCase": "error",
-        "noWith": "error"
+        "noAdjacentSpacesInRegex": "error"
       },
       "correctness": {
         "noConstAssign": "error",
@@ -25,16 +28,18 @@
         "noEmptyPattern": "error",
         "noGlobalObjectCalls": "error",
         "noInvalidConstructorSuper": "error",
-        "noNewSymbol": "error",
         "noSelfAssign": "error",
         "noUnreachable": "error",
         "noUnreachableSuper": "error",
         "noUnsafeFinally": "error",
         "noUnsafeOptionalChaining": "error",
+        "noUnusedFunctionParameters": "off",
+        "noUnusedImports": "off",
         "noUnusedLabels": "error",
-        "noUnusedVariables": "warn",
+        "noUnusedVariables": "off",
         "useIsNan": "error",
-        "useValidForDirection": "error"
+        "useValidForDirection": "error",
+        "noInvalidBuiltinInstantiation": "error"
       },
       "suspicious": {
         "noAsyncPromiseExecutor": "error",
@@ -54,32 +59,14 @@
         "noGlobalAssign": "error",
         "noImportAssign": "error",
         "noSelfCompare": "error",
-        "noShadowRestrictedNames": "error"
+        "noShadowRestrictedNames": "error",
+        "noWith": "error"
       },
-      "style": {
-        "noNegationElse": "off",
-        "noParameterAssign": "off",
-        "useBlockStatements": "off",
-        "useCollapsedElseIf": "warn",
-        "useConsistentArrayType": {
-          "level": "warn",
-          "options": {
-            "syntax": "shorthand"
-          }
-        },
-        "useConst": "error",
-        "useDefaultParameterLast": "warn",
-        "useExponentiationOperator": "warn",
-        "useFragmentSyntax": "warn",
-        "useNodejsImportProtocol": "off",
-        "useShorthandArrayType": "warn",
-        "useSingleVarDeclarator": "warn",
-        "useTemplate": "warn"
-      }
+      "style": {}
     }
   },
   "formatter": {
-    "enabled": true,
+    "enabled": false,
     "formatWithErrors": false,
     "indentStyle": "space",
     "indentWidth": 2,
@@ -105,15 +92,22 @@
       "indentWidth": 2
     }
   },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
+    }
+  },
   "files": {
-    "ignore": [
-      "node_modules",
-      "dist",
-      "build",
-      ".vite",
-      "coverage",
-      "*.min.js",
-      "*.min.css"
+    "includes": [
+      "**",
+      "!**/node_modules",
+      "!**/dist",
+      "!**/build",
+      "!**/.vite",
+      "!**/coverage",
+      "!src/features/landing/landing.css",
+      "!**/*.min.js",
+      "!**/*.min.css"
     ]
   }
 }

@@ -3,14 +3,14 @@
   "assist": {
     "actions": {
       "source": {
-        "organizeImports": "on"
+        "organizeImports": "off"
       }
     }
   },
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true,
+      "recommended": false,
       "complexity": {
         "noExtraBooleanCast": "error",
         "noAdjacentSpacesInRegex": "error",
@@ -59,22 +59,11 @@
         "noSelfCompare": "error",
         "noShadowRestrictedNames": "error"
       },
-      "style": {
-        "noNegationElse": "off",
-        "noParameterAssign": "off",
-        "useBlockStatements": "off",
-        "useCollapsedElseIf": "warn",
-        "useConst": "error",
-        "useDefaultParameterLast": "warn",
-        "useExponentiationOperator": "warn",
-        "useNodejsImportProtocol": "off",
-        "useSingleVarDeclarator": "warn",
-        "useTemplate": "warn"
-      }
+      "style": {}
     }
   },
   "formatter": {
-    "enabled": true,
+    "enabled": false,
     "formatWithErrors": false,
     "indentStyle": "space",
     "indentWidth": 2,

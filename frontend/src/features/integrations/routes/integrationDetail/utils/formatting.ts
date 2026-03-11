@@ -5,7 +5,7 @@ export const formatSingleLineScript = (code: string) => {
   let inTemplate = false;
   let inLineComment = false;
   let inBlockComment = false;
-  let escape = false;
+  let isEscaped = false;
   let result = '';
   let line = '';
 
@@ -42,12 +42,12 @@ export const formatSingleLineScript = (code: string) => {
 
     if (inSingle || inDouble || inTemplate) {
       line += ch;
-      if (escape) {
-        escape = false;
+      if (isEscaped) {
+        isEscaped = false;
         continue;
       }
       if (ch === '\\') {
-        escape = true;
+        isEscaped = true;
         continue;
       }
       if (inSingle && ch === '\'') inSingle = false;

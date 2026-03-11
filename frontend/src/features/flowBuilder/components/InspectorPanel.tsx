@@ -233,14 +233,13 @@ function renderNodeSpecificFields(node: FlowNode, form: any): React.ReactNode {
 
 function renderTriggerFields(data: TriggerNodeData, form: any): React.ReactNode {
   return (
-    <>
-      <Form.Item noStyle shouldUpdate>
-        {() => {
-          const triggerType = form.getFieldValue('triggerType');
-          const scheduleType = form.getFieldValue('scheduleType');
+    <Form.Item noStyle shouldUpdate>
+      {() => {
+        const triggerType = form.getFieldValue('triggerType');
+        const scheduleType = form.getFieldValue('scheduleType');
 
-          return (
-            <>
+        return (
+          <>
               {triggerType === 'INBOUND' && (
                 <>
                   <Alert
@@ -319,11 +318,10 @@ function renderTriggerFields(data: TriggerNodeData, form: any): React.ReactNode 
                   )}
                 </>
               )}
-            </>
-          );
-        }}
-      </Form.Item>
-    </>
+          </>
+        );
+      }}
+    </Form.Item>
   );
 }
 

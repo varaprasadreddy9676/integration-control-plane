@@ -424,14 +424,12 @@ function HttpPushFields() {
         showIcon
         icon={<ApiOutlined />}
         message="HTTP Push — events are sent to this gateway"
-        description={
-          <>
-            <Text>
-              External systems send events via <Text code>POST /api/v1/events/push</Text> with your org's
-              API key. No outbound connection is needed.
-            </Text>
-          </>
-        }
+        description={(
+          <Text>
+            External systems send events via <Text code>POST /api/v1/events/push</Text> with your org's
+            API key. No outbound connection is needed.
+          </Text>
+        )}
         style={{ marginBottom: spacing[3] }}
       />
       <Form.Item

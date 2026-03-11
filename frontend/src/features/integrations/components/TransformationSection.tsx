@@ -184,7 +184,6 @@ const generateScriptFromMappings = (
           valueExpression = `${sourceAccess} || ${JSON.stringify(mapping.defaultValue)}`;
         }
         break;
-      case 'none':
       default:
         valueExpression = sourceAccess;
     }

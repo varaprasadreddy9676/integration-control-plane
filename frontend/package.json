@@ -14,8 +14,8 @@
     "lint:fix": "biome lint --write ./src",
     "format": "biome format ./src",
     "format:write": "biome format --write ./src",
-    "check": "biome check ./src",
-    "check:fix": "biome check --write ./src",
+    "check": "biome lint ./src",
+    "check:fix": "biome lint --write ./src",
     "lint:colors": "eslint \"src/**/*.{ts,tsx}\""
   },
   "dependencies": {

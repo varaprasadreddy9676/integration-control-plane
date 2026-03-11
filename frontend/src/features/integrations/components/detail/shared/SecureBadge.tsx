@@ -31,7 +31,6 @@ export const SecureBadge = ({
           tooltip: tooltip || 'Only the last 4 characters are shown for security',
           color: cssVar.text.secondary
         };
-      case 'secure':
       default:
         return {
           icon: <SafetyOutlined />,
