@@ -88,6 +88,50 @@ function normalizeTriggerTypeFilter(triggerType) {
   return triggerType;
 }
 
+async function enrichIntegrationNames(db, orgId, integrations) {
+  if (!Array.isArray(integrations) || integrations.length === 0) {
+    return integrations;
+  }
+
+  const unresolvedIds = Array.from(
+    new Set(
+      integrations
+        .filter((item) => !item.__KEEP_integrationName__ && item.__KEEP___KEEP_integrationConfig__Id__)
+        .map((item) => String(item.__KEEP___KEEP_integrationConfig__Id__))
+    )
+  );
+
+  if (unresolvedIds.length === 0) {
+    return integrations;
+  }
+
+  const objectIds = unresolvedIds.map((id) => mongodb.toObjectId(id)).filter(Boolean);
+  if (objectIds.length === 0) {
+    return integrations;
+  }
+
+  const configDocs = await db
+    .collection('integration_configs')
+    .find(
+      {
+        orgId,
+        _id: { $in: objectIds },
+      },
+      { projection: { _id: 1, name: 1 } }
+    )
+    .toArray();
+
+  const nameById = new Map(configDocs.map((doc) => [String(doc._id), doc.name || null]));
+
+  return integrations.map((item) => ({
+    ...item,
+    __KEEP_integrationName__:
+      item.__KEEP_integrationName__ ||
+      nameById.get(String(item.__KEEP___KEEP_integrationConfig__Id__)) ||
+      null,
+  }));
+}
+
 // buildDeliveryMatchStage removed - now using unified buildExecutionMatchStage only
 
 function buildExecutionMatchStage(req, { start, end }) {
@@ -163,8 +207,39 @@ async function aggregateOverviewCollection(db, collection, match, fields) {
     .collection(collection)
     .aggregate([
       { $match: match },
-      { $group: { _id: `$${fields.eventTypeField}`, count: { $sum: 1 } } },
-      { $sort: { count: -1 } },
+      {
+        $group: {
+          _id: `$${fields.eventTypeField}`,
+          total: { $sum: 1 },
+          successful: {
+            $sum: {
+              $cond: [{ $in: [`$${fields.statusField}`, ['SUCCESS', 'success']] }, 1, 0],
+            },
+          },
+          failed: {
+            $sum: {
+              $cond: [
+                {
+                  $in: [`$${fields.statusField}`, ['FAILED', 'failed', 'ABANDONED', 'abandoned']],
+                },
+                1,
+                0,
+              ],
+            },
+          },
+          responseTimeSum: {
+            $sum: {
+              $cond: [{ $gt: [`$${fields.responseTimeField}`, 0] }, `$${fields.responseTimeField}`, 0],
+            },
+          },
+          responseTimeCount: {
+            $sum: {
+              $cond: [{ $gt: [`$${fields.responseTimeField}`, 0] }, 1, 0],
+            },
+          },
+        },
+      },
+      { $sort: { total: -1 } },
     ])
     .toArray();
 
@@ -203,6 +278,7 @@ async function aggregateOverviewCollection(db, collection, match, fields) {
               $cond: [{ $gt: [`$${fields.responseTimeField}`, 0] }, 1, 0],
             },
           },
+          lastSeen: { $max: `$${fields.timeField}` },
         },
       },
     ])
@@ -310,6 +386,8 @@ async function aggregateErrorCollection(db, collection, match, fields) {
           _id: {
             message: { $ifNull: [`$${fields.errorMessageField}`, 'Unknown error'] },
             status: `$${fields.responseStatusField}`,
+            integrationId: `$${fields.integrationIdField}`,
+            integrationName: `$${fields.integrationNameField}`,
           },
           count: { $sum: 1 },
           lastSeen: { $max: `$${fields.timeField}` },
@@ -392,10 +470,10 @@ function bucketAggToIndexCounts(bucketAgg) {
 const executionFields = {
   statusField: 'status',
   responseTimeField: 'durationMs',
-  eventTypeField: 'metadata.eventType',
+  eventTypeField: 'eventType',
   integrationIdField: 'integrationConfigId',
-  integrationNameField: 'metadata.integrationName',
-  errorMessageField: 'error.message',
+  integrationNameField: '__KEEP_integrationName__',
+  errorMessageField: 'errorMessage',
   responseStatusField: 'response.statusCode',
   timeField: 'startedAt',
 };
@@ -427,7 +505,14 @@ router.get(
       const total = execution.total;
 
       for (const item of execution.eventTypeAgg) {
-        addCount(eventTypeCounts, item._id, item.count);
+        if (!item._id) continue;
+        eventTypeCounts[item._id] = {
+          total: item.total || 0,
+          successful: item.successful || 0,
+          failed: item.failed || 0,
+          avgResponseTime:
+            item.responseTimeCount > 0 ? Math.round((item.responseTimeSum || 0) / item.responseTimeCount) : 0,
+        };
       }
 
       for (const item of execution.integrationAgg) {
@@ -442,6 +527,7 @@ router.get(
             failed: 0,
             responseTimeSum: 0,
             responseTimeCount: 0,
+            lastSeen: null,
           };
         }
         integrationMap[id].__KEEP_integrationName__ =
@@ -451,9 +537,12 @@ router.get(
         integrationMap[id].failed += item.failed || 0;
         integrationMap[id].responseTimeSum += item.responseTimeSum || 0;
         integrationMap[id].responseTimeCount += item.responseTimeCount || 0;
+        if (!integrationMap[id].lastSeen || new Date(item.lastSeen) > new Date(integrationMap[id].lastSeen)) {
+          integrationMap[id].lastSeen = item.lastSeen || integrationMap[id].lastSeen;
+        }
       }
 
-      const integrationPerformance = Object.values(integrationMap)
+      const rawIntegrationPerformance = Object.values(integrationMap)
         .map((perf) => ({
           __KEEP___KEEP_integrationConfig__Id__: perf.__KEEP___KEEP_integrationConfig__Id__,
           __KEEP_integrationName__: perf.__KEEP_integrationName__,
@@ -462,8 +551,10 @@ router.get(
           failed: perf.failed,
           avgResponseTime: perf.responseTimeCount > 0 ? Math.round(perf.responseTimeSum / perf.responseTimeCount) : 0,
           successRate: perf.total > 0 ? Math.round((perf.successful / perf.total) * 10000) / 100 : 0,
+          lastSeen: perf.lastSeen || null,
         }))
         .sort((a, b) => b.total - a.total);
+      const integrationPerformance = await enrichIntegrationNames(db, req.orgId, rawIntegrationPerformance);
 
       const mergedBuckets = new Array(RESPONSE_BUCKETS.length - 1).fill(0);
       mergeBuckets(mergedBuckets, bucketAggToIndexCounts(execution.bucketAgg));
@@ -610,20 +701,51 @@ router.get(
 
       const errorCategories = {};
       const errorMap = new Map();
+      const integrationBreakdownMap = new Map();
 
       for (const item of executionErrors) {
         const message = item._id.message || 'Unknown error';
         const statusCode = item._id.status;
         const category = buildErrorCategories(message, statusCode);
+        const integrationId = item._id.integrationId ? String(item._id.integrationId) : null;
+        const integrationName = item._id.integrationName || null;
         addCount(errorCategories, category, item.count || 0);
 
         if (!errorMap.has(message)) {
-          errorMap.set(message, { message, count: 0, lastSeen: null });
+          errorMap.set(message, { message, count: 0, lastSeen: null, category, statusCode });
         }
         const entry = errorMap.get(message);
         entry.count += item.count || 0;
         if (!entry.lastSeen || new Date(item.lastSeen) > new Date(entry.lastSeen)) {
           entry.lastSeen = item.lastSeen;
+        }
+
+        if (integrationId) {
+          if (!integrationBreakdownMap.has(integrationId)) {
+            integrationBreakdownMap.set(integrationId, {
+              __KEEP___KEEP_integrationConfig__Id__: integrationId,
+              __KEEP_integrationName__: integrationName,
+              count: 0,
+              lastSeen: null,
+              categoryCounts: new Map(),
+              messageCounts: new Map(),
+            });
+          }
+
+          const integrationEntry = integrationBreakdownMap.get(integrationId);
+          integrationEntry.__KEEP_integrationName__ = integrationEntry.__KEEP_integrationName__ || integrationName || null;
+          integrationEntry.count += item.count || 0;
+          if (!integrationEntry.lastSeen || new Date(item.lastSeen) > new Date(integrationEntry.lastSeen)) {
+            integrationEntry.lastSeen = item.lastSeen;
+          }
+          integrationEntry.categoryCounts.set(
+            category,
+            (integrationEntry.categoryCounts.get(category) || 0) + (item.count || 0)
+          );
+          integrationEntry.messageCounts.set(
+            message,
+            (integrationEntry.messageCounts.get(message) || 0) + (item.count || 0)
+          );
         }
       }
 
@@ -632,6 +754,21 @@ router.get(
         .slice(0, 10);
 
       const totalErrors = Array.from(errorMap.values()).reduce((sum, entry) => sum + entry.count, 0);
+      const rawIntegrationBreakdown = Array.from(integrationBreakdownMap.values())
+        .map((entry) => {
+          const topCategoryEntry = Array.from(entry.categoryCounts.entries()).sort((a, b) => b[1] - a[1])[0];
+          const topMessageEntry = Array.from(entry.messageCounts.entries()).sort((a, b) => b[1] - a[1])[0];
+          return {
+            __KEEP___KEEP_integrationConfig__Id__: entry.__KEEP___KEEP_integrationConfig__Id__,
+            __KEEP_integrationName__: entry.__KEEP_integrationName__,
+            count: entry.count,
+            lastSeen: entry.lastSeen,
+            category: topCategoryEntry?.[0] || null,
+            topErrorMessage: topMessageEntry?.[0] || null,
+          };
+        })
+        .sort((a, b) => b.count - a.count);
+      const integrationBreakdown = await enrichIntegrationNames(db, req.orgId, rawIntegrationBreakdown);
 
       res.json({
         period: {
@@ -643,7 +780,8 @@ router.get(
           errorCategories,
           topErrors,
         },
-        integrationBreakdown: [],
+        topErrors,
+        integrationBreakdown,
       });
     } catch (error) {
       log('error', 'Error analytics failed', {

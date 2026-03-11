@@ -45,7 +45,10 @@ export const DashboardLogsTab = ({ logsLoading, logs, noDataHint, onViewAll }: D
                   <Space style={{ width: '100%', justifyContent: 'space-between', alignItems: 'flex-start', gap: spacing[2] }}>
                     <div style={{ minWidth: 0 }}>
                       <Typography.Text strong style={{ fontSize: 13 }}>
-                        {log.__KEEP_integrationName__ || log.integrationName || 'Unknown integration'}
+                        {log.__KEEP_integrationName__ ||
+                          log.integrationName ||
+                          log.__KEEP___KEEP_integrationConfig__Id__ ||
+                          'Unknown integration'}
                       </Typography.Text>
                       <Typography.Text type="secondary" style={{ display: 'block', fontSize: 12 }}>
                         {log.errorMessage || 'Failed delivery'}

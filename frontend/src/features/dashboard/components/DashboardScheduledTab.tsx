@@ -81,11 +81,13 @@ export const DashboardScheduledTab = ({
   // KPI Metrics
   const kpiMetrics = useMemo(() => {
     const summary = analytics?.summary || {};
+    const performance = analytics?.performance || {};
+    const performanceMetrics = performanceAnalytics?.metrics || {};
     const total = summary.total || 0;
     const successful = summary.successful || 0;
     const successRate = total > 0 ? ((successful / total) * 100).toFixed(1) : '0.0';
-    const avgDuration = summary.avgResponseTime || 0;
-    const p95Duration = performanceAnalytics?.percentiles?.p95 || 0;
+    const avgDuration = performance.avgResponseTime || 0;
+    const p95Duration = performanceMetrics.p95ResponseTime || 0;
 
     return [
       {
@@ -148,13 +150,25 @@ export const DashboardScheduledTab = ({
         ...job,
         schedule: jobDetails?.schedule?.expression || jobDetails?.schedule?.intervalMs ?
           (jobDetails.schedule.expression || `Every ${formatDuration(jobDetails.schedule.intervalMs)}`) : '—',
-        lastRun: job.lastSuccessful || job.lastFailed || null,
+        lastRun: jobDetails?.lastExecution?.startedAt || job.lastSuccessful || job.lastFailed || null,
         nextRun: jobDetails?.nextRunTime || null,
         health,
-        recordsProcessed: job.recordsProcessed || 0
+        recordsProcessed: jobDetails?.lastExecution?.recordsFetched || 0
       };
     }).sort((a, b) => a.health.status.localeCompare(b.health.status) || b.total - a.total);
   }, [integrationPerformance, scheduledJobs, themeColors]);
+
+  const durationTrendData = useMemo(() => {
+    const dailyData = timeseriesDaily?.data || [];
+    return dailyData.map((point: any) => {
+      return {
+        date: point.timestamp
+          ? new Date(point.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+          : 'Unknown',
+        avgResponseTime: point.avgResponseTime || 0
+      };
+    });
+  }, [timeseriesDaily]);
 
   // Execution Reliability Chart Data
   const reliabilityChartData = useMemo(() => {
@@ -166,7 +180,9 @@ export const DashboardScheduledTab = ({
       const successRate = total > 0 ? (successful / total) * 100 : 0;
 
       return {
-        date: point.date || point.label,
+        date: point.timestamp
+          ? new Date(point.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+          : 'Unknown',
         successful,
         failed,
         successRate
@@ -178,20 +194,14 @@ export const DashboardScheduledTab = ({
   const failureAnalysis = useMemo(() => {
     const topErrors = errorAnalytics?.topErrors || [];
     const failedJobs = integrationPerformance.filter((job: any) => job.failed > 0);
-
-    // Missed schedules (executions that should have happened but didn't)
-    const missedSchedules = 0; // Would need actual data from backend
-
-    // Retry patterns
-    const retriedErrors = topErrors.filter((err: any) => err.retryCount && err.retryCount > 0);
+    const retriedExecutions = scheduledJobLogs.filter((log: any) => Number(log.attemptCount || 0) > 1).length;
 
     return {
       topFailureReasons: topErrors.slice(0, 5),
-      missedSchedules,
-      retriedErrors: retriedErrors.length,
+      retriedErrors: retriedExecutions,
       failedJobsCount: failedJobs.length
     };
-  }, [errorAnalytics, integrationPerformance]);
+  }, [errorAnalytics, integrationPerformance, scheduledJobLogs]);
 
   // Records Processed Trend
   const recordsProcessedTrend = useMemo(() => {
@@ -200,7 +210,11 @@ export const DashboardScheduledTab = ({
 
     scheduledJobLogs.forEach((log: any) => {
       const date = new Date(log.startedAt || log.createdAt).toISOString().split('T')[0];
-      const jobName = log.integrationName || 'Unknown';
+      const jobName =
+        log.__KEEP_integrationName__ ||
+        log.integrationName ||
+        log.__KEEP___KEEP_integrationConfig__Id__ ||
+        'Unknown';
       const records = log.recordsFetched || 0;
 
       if (!groupedByDate[date]) groupedByDate[date] = {};
@@ -228,12 +242,12 @@ export const DashboardScheduledTab = ({
     const grouped: Record<string, { queryTimes: number[]; timeouts: number; totalRecords: number; count: number }> = {};
 
     scheduledJobLogs.forEach((log: any) => {
-      const integrationId = log.integrationConfigId || 'unknown';
+      const integrationId = log.__KEEP___KEEP_integrationConfig__Id__ || log.integrationConfigId || 'unknown';
       if (!grouped[integrationId]) {
         grouped[integrationId] = { queryTimes: [], timeouts: 0, totalRecords: 0, count: 0 };
       }
 
-      const duration = log.durationMs || 0;
+      const duration = log.durationMs || log.responseTimeMs || 0;
       grouped[integrationId].queryTimes.push(duration);
       grouped[integrationId].totalRecords += log.recordsFetched || 0;
       grouped[integrationId].count += 1;
@@ -255,7 +269,7 @@ export const DashboardScheduledTab = ({
       const timeoutRate = stats.count > 0 ? (stats.timeouts / stats.count) * 100 : 0;
 
       return {
-        dataSource: integration?.__KEEP_integrationName__ || 'Unknown',
+        dataSource: integration?.__KEEP_integrationName__ || integrationId || 'Unknown',
         avgQueryTime: Math.round(avgQueryTime),
         maxQueryTime: Math.round(maxQueryTime),
         timeoutRate: timeoutRate.toFixed(1),
@@ -449,11 +463,11 @@ export const DashboardScheduledTab = ({
         >
           {analyticsLoading ? (
             <Skeleton active paragraph={{ rows: 6 }} />
-          ) : reliabilityChartData.length > 0 ? (
+          ) : durationTrendData.length > 0 ? (
             <LineChart
-              data={reliabilityChartData}
+              data={durationTrendData}
               lines={[
-                { dataKey: 'successRate', name: 'Success Rate %', color: themeColors.success.text, strokeWidth: 2 }
+                { dataKey: 'avgResponseTime', name: 'Avg Duration (ms)', color: themeColors.info.text, strokeWidth: 2 }
               ]}
               xAxisKey="date"
               height={260}
@@ -539,7 +553,7 @@ export const DashboardScheduledTab = ({
                       <List.Item style={{ padding: `${spacing[2]} 0`, borderBlockEnd: `1px solid ${cssVar.border.default}` }}>
                         <Space style={{ width: '100%', justifyContent: 'space-between' }}>
                           <Typography.Text ellipsis style={{ fontSize: 12, maxWidth: 180 }}>
-                            {error.category || error.errorMessage}
+                            {error.category || error.message}
                           </Typography.Text>
                           <Tag style={tagTone(themeColors.error.text)}>
                             {formatNumber(error.count)}

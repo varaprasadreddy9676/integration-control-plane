@@ -47,15 +47,13 @@ export const DashboardInboundTab = ({
   // KPI Metrics
   const kpiMetrics = useMemo(() => {
     const summary = analytics?.summary || {};
+    const performance = analytics?.performance || {};
+    const performanceMetrics = performanceAnalytics?.metrics || {};
     const total = summary.total || 0;
     const successful = summary.successful || 0;
-    const failed = summary.failed || 0;
     const successRate = total > 0 ? ((successful / total) * 100).toFixed(1) : '0.0';
-    const avgResponseTime = summary.avgResponseTime || 0;
-    const p95 = performanceAnalytics?.percentiles?.p95 || 0;
-
-    // Calculate rate limit status (placeholder - would need actual rate limit data)
-    const rateLimitPercentage = 100; // Assume 100% available if no data
+    const avgResponseTime = performance.avgResponseTime || 0;
+    const p95 = performanceMetrics.p95ResponseTime || 0;
 
     return [
       {
@@ -83,35 +81,39 @@ export const DashboardInboundTab = ({
       },
       {
         label: 'Rate Limit Status',
-        value: `${rateLimitPercentage}%`,
-        delta: 'Available capacity',
+        value: '—',
+        delta: 'Telemetry unavailable',
         icon: <WarningOutlined />,
-        tone: rateLimitPercentage > 80 ? themeColors.success.text : rateLimitPercentage > 50 ? themeColors.warning.text : themeColors.error.text
+        tone: token.colorTextSecondary
       }
     ];
-  }, [analytics, performanceAnalytics, themeColors, timeLabel, onNavigate]);
+  }, [analytics, performanceAnalytics, themeColors, timeLabel, onNavigate, token.colorTextSecondary]);
 
   // Response Time Trend Data
   const responseTimeTrend = useMemo(() => {
     const hourlyData = timeseriesHourly?.data || [];
-    return hourlyData.map((point: any) => ({
-      hour: point.hour || point.date || point.label,
-      count: point.total || 0,
-      avgResponseTime: point.avgResponseTime || 0,
-      successful: point.successful || 0,
-      failed: point.failed || 0
-    }));
+    return hourlyData
+      .map((point: any) => {
+        const timestamp = point.timestamp ? new Date(point.timestamp) : null;
+        if (!timestamp || Number.isNaN(timestamp.getTime())) return null;
+        return {
+          hour: `${timestamp.getHours()}:00`,
+          count: point.total || 0,
+          avgResponseTime: point.avgResponseTime || 0,
+          successful: point.successful || 0,
+          failed: point.failed || 0
+        };
+      })
+      .filter(Boolean);
   }, [timeseriesHourly]);
 
   // Performance by Endpoint Table Data
   const endpointPerformance = useMemo(() => {
     return integrationPerformance.map((integration: any) => {
-      const p95 = integration.p95 || integration.avgResponseTime * 1.5; // Estimate if not available
-      const p99 = integration.p99 || integration.avgResponseTime * 2; // Estimate if not available
       return {
         ...integration,
-        p95: Math.round(p95),
-        p99: Math.round(p99)
+        p95: integration.p95 ?? null,
+        p99: integration.p99 ?? null
       };
     }).sort((a, b) => b.total - a.total);
   }, [integrationPerformance]);
@@ -139,7 +141,7 @@ export const DashboardInboundTab = ({
     const authErrors = errorAnalytics?.topErrors?.filter((err: any) =>
       err.category?.toLowerCase().includes('auth') ||
       err.category?.toLowerCase().includes('unauthorized') ||
-      err.errorMessage?.toLowerCase().includes('auth')
+      err.message?.toLowerCase().includes('auth')
     ) || [];
 
     const authFailureCount = authErrors.reduce((sum: number, err: any) => sum + (err.count || 0), 0);
@@ -158,7 +160,9 @@ export const DashboardInboundTab = ({
     const dailyData = timeseriesDaily?.data || [];
 
     return dailyData.map((point: any) => ({
-      date: point.date || point.label,
+      date: point.timestamp
+        ? new Date(point.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+        : 'Unknown',
       total: point.total || 0
     }));
   }, [timeseriesDaily]);
@@ -167,25 +171,25 @@ export const DashboardInboundTab = ({
   const heatmapData: HeatmapData[] = useMemo(() => {
     const hourlyData = timeseriesHourly?.data || [];
     const heatmap: HeatmapData[] = [];
+    const dayLabelsByIndex = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-    // Group by day of week and hour
     const groupedData: Record<string, Record<string, number>> = {};
 
     hourlyData.forEach((point: any) => {
-      if (point.hour && point.dayOfWeek !== undefined) {
-        const day = point.dayOfWeek;
-        const hour = point.hour;
-        if (!groupedData[day]) groupedData[day] = {};
-        groupedData[day][hour] = (groupedData[day][hour] || 0) + (point.total || 0);
-      }
+      const timestamp = point.timestamp ? new Date(point.timestamp) : null;
+      if (!timestamp || Number.isNaN(timestamp.getTime())) return;
+
+      const day = dayLabelsByIndex[timestamp.getDay()];
+      const hour = `${timestamp.getHours()}`;
+      if (!groupedData[day]) groupedData[day] = {};
+      groupedData[day][hour] = (groupedData[day][hour] || 0) + (point.total || 0);
     });
 
-    // Convert to heatmap format
     Object.entries(groupedData).forEach(([day, hours]) => {
       Object.entries(hours).forEach(([hour, value]) => {
         heatmap.push({
-          x: parseInt(hour),
-          y: parseInt(day),
+          x: `${hour}h`,
+          y: day,
           value
         });
       });
@@ -336,9 +340,13 @@ export const DashboardInboundTab = ({
                   width: 100,
                   sorter: (a: any, b: any) => a.p95 - b.p95,
                   render: (latency: number) => (
-                    <Typography.Text type="secondary" style={{ fontSize: 12, fontFamily: 'ui-monospace, monospace' }}>
-                      {latency} ms
-                    </Typography.Text>
+                    latency != null ? (
+                      <Typography.Text type="secondary" style={{ fontSize: 12, fontFamily: 'ui-monospace, monospace' }}>
+                        {latency} ms
+                      </Typography.Text>
+                    ) : (
+                      <Typography.Text type="secondary" style={{ fontSize: 12 }}>—</Typography.Text>
+                    )
                   )
                 },
                 {
@@ -349,9 +357,13 @@ export const DashboardInboundTab = ({
                   width: 100,
                   sorter: (a: any, b: any) => a.p99 - b.p99,
                   render: (latency: number) => (
-                    <Typography.Text type="secondary" style={{ fontSize: 12, fontFamily: 'ui-monospace, monospace' }}>
-                      {latency} ms
-                    </Typography.Text>
+                    latency != null ? (
+                      <Typography.Text type="secondary" style={{ fontSize: 12, fontFamily: 'ui-monospace, monospace' }}>
+                        {latency} ms
+                      </Typography.Text>
+                    ) : (
+                      <Typography.Text type="secondary" style={{ fontSize: 12 }}>—</Typography.Text>
+                    )
                   )
                 }
               ]}
@@ -436,7 +448,7 @@ export const DashboardInboundTab = ({
                       <List.Item style={{ padding: `${spacing[2]} 0`, borderBlockEnd: `1px solid ${cssVar.border.default}` }}>
                         <Space style={{ width: '100%', justifyContent: 'space-between' }}>
                           <Typography.Text ellipsis style={{ fontSize: 12, maxWidth: 180 }}>
-                            {error.errorMessage || error.category}
+                            {error.message || error.category}
                           </Typography.Text>
                           <Tag style={tagTone(themeColors.error.text)}>
                             {formatNumber(error.count)}

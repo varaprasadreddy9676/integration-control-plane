@@ -48,11 +48,11 @@ export const DashboardOutboundTab = ({
     const timeseriesData = timeseriesDaily?.data || [];
 
     return Object.entries(eventTypes).map(([eventType, stats]: [string, any]) => {
-      const total = stats.total || 0;
-      const successful = stats.successful || 0;
-      const failed = stats.failed || 0;
+      const total = typeof stats === 'number' ? stats : (stats?.total || 0);
+      const successful = typeof stats === 'number' ? 0 : (stats?.successful || 0);
+      const failed = typeof stats === 'number' ? 0 : (stats?.failed || 0);
       const successRate = total > 0 ? ((successful / total) * 100).toFixed(1) : '0.0';
-      const avgLatency = stats.avgResponseTime || 0;
+      const avgLatency = typeof stats === 'number' ? 0 : (stats?.avgResponseTime || 0);
 
       // Calculate trend from timeseries
       const eventTypeSeries = timeseriesData
@@ -79,7 +79,7 @@ export const DashboardOutboundTab = ({
         failed,
         trend
       };
-    }).sort((a, b) => b.total - a.total);
+    }).filter((entry) => entry.total > 0).sort((a, b) => b.total - a.total);
   }, [analytics, timeseriesDaily]);
 
   // Per-Integration Health Status
@@ -92,17 +92,16 @@ export const DashboardOutboundTab = ({
         ? { status: 'Degraded', color: themeColors.warning.text }
         : { status: 'Unhealthy', color: themeColors.error.text };
 
-      // Find primary failure reason from error analytics
-      const integrationErrors = errorAnalytics?.topErrors?.filter((err: any) =>
-        err.__KEEP_integrationConfigId__ === integration.__KEEP___KEEP_integrationConfig__Id__
-      ) || [];
-      const primaryFailure = integrationErrors[0]?.category || integrationErrors[0]?.errorMessage || '—';
+      const integrationError = errorAnalytics?.integrationBreakdown?.find((err: any) =>
+        err.__KEEP___KEEP_integrationConfig__Id__ === integration.__KEEP___KEEP_integrationConfig__Id__
+      );
+      const primaryFailure = integrationError?.category || integrationError?.topErrorMessage || '—';
 
       return {
         ...integration,
         health,
         primaryFailure: primaryFailure.length > 50 ? primaryFailure.substring(0, 50) + '...' : primaryFailure,
-        lastDelivery: integration.lastSuccessful || integration.lastFailed || null
+        lastDelivery: integration.lastSeen || integrationError?.lastSeen || null
       };
     }).sort((a, b) => a.health.status.localeCompare(b.health.status) || b.total - a.total);
   }, [integrationPerformance, errorAnalytics, themeColors]);
@@ -110,11 +109,12 @@ export const DashboardOutboundTab = ({
   // Response Time Distribution
   const responseTimeDistribution = useMemo(() => {
     const buckets = performanceAnalytics?.distribution?.buckets || [];
+    const total = buckets.reduce((sum: number, bucket: any) => sum + Number(bucket.count || 0), 0);
     return buckets.map((bucket: any) => ({
       label: bucket.label,
       count: bucket.count,
-      percentage: performanceAnalytics?.distribution?.total > 0
-        ? ((bucket.count / performanceAnalytics.distribution.total) * 100).toFixed(1)
+      percentage: total > 0
+        ? ((bucket.count / total) * 100).toFixed(1)
         : '0.0'
     }));
   }, [performanceAnalytics]);

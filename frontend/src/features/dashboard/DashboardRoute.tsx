@@ -11,7 +11,7 @@ import {
   MailOutlined
 } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
-import { getDashboardSummary, getAnalyticsOverview, getAnalyticsTimeseries, getAnalyticsErrors, getAnalyticsPerformance, getEventAuditStats, getUIConfig, getUIConfigOverride, sendDashboardEmail, getAllIntegrations, getAllScheduledJobs, getLogs } from '../../services/api';
+import { getDashboardSummary, getAnalyticsOverview, getAnalyticsTimeseries, getAnalyticsErrors, getAnalyticsPerformance, getEventAuditStats, getUIConfig, getUIConfigOverride, sendDashboardEmail, getAllIntegrations, getAllScheduledJobs, getLogs, getScheduledJobLogs } from '../../services/api';
 import { formatDateTimeWithSeconds, formatNumber } from '../../utils/format';
 import { useDesignTokens } from '../../design-system/utils';
 import { useNavigateWithParams } from '../../utils/navigation';
@@ -62,12 +62,14 @@ export const DashboardRoute = () => {
 
       const outboundInboundOptions = (integrations || []).map((integration: any) => ({
         label: `${integration.direction ? `${integration.direction.toLowerCase()}: ` : ''}${integration.name || integration.type || integration.id || 'Integration'}`,
+        name: integration.name || integration.type || integration.id || 'Integration',
         value: String(integration.id || integration._id || integration.__KEEP___KEEP_integrationConfig__Id__ || integration.type || ''),
         direction: integration.direction || 'OUTBOUND'
       }));
 
       const scheduledOptions = (scheduledJobs || []).map((job: any) => ({
         label: `scheduled: ${job.name || job.type || job._id}`,
+        name: job.name || job.type || job._id || 'Scheduled Job',
         value: String(job._id || job.id),
         direction: 'SCHEDULED'
       }));
@@ -82,6 +84,16 @@ export const DashboardRoute = () => {
     (integrationOptions || []).forEach((option: any) => {
       if (option?.value) {
         map.set(String(option.value), option.direction || 'OUTBOUND');
+      }
+    });
+    return map;
+  }, [integrationOptions]);
+
+  const integrationNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    (integrationOptions || []).forEach((option: any) => {
+      if (option?.value && option?.name) {
+        map.set(String(option.value), option.name);
       }
     });
     return map;
@@ -212,6 +224,20 @@ export const DashboardRoute = () => {
     refetchInterval: refreshInterval
   });
 
+  const normalizedErrorAnalytics = useMemo(() => {
+    const summary = errorAnalytics?.summary || {};
+    return {
+      ...errorAnalytics,
+      summary: {
+        ...summary,
+        errorCategories: summary.errorCategories || {},
+        topErrors: summary.topErrors || errorAnalytics?.topErrors || []
+      },
+      topErrors: errorAnalytics?.topErrors || summary.topErrors || [],
+      integrationBreakdown: errorAnalytics?.integrationBreakdown || []
+    };
+  }, [errorAnalytics]);
+
   const hoursBack = days * 24;
   const { data: eventAuditStats, isLoading: eventAuditLoading, dataUpdatedAt: eventAuditUpdatedAt, refetch: refetchEventAuditStats } = useQuery({
     queryKey: ['event-audit-stats', hoursBack],
@@ -240,19 +266,39 @@ export const DashboardRoute = () => {
     return [start.toISOString(), end.toISOString()] as [string, string];
   }, [days]);
 
+  const scheduledJobIds = useMemo(() => {
+    const jobs = scheduledJobs || [];
+    if (!jobs.length) return [];
+    if (integrationId) {
+      return jobs
+        .filter((job: any) => String(job.id || job._id) === String(integrationId))
+        .map((job: any) => String(job.id || job._id));
+    }
+    return jobs.map((job: any) => String(job.id || job._id)).filter(Boolean);
+  }, [scheduledJobs, integrationId]);
+
   const { data: scheduledLogsResponse, dataUpdatedAt: scheduledLogsUpdatedAt, refetch: refetchScheduledLogs } = useQuery({
-    queryKey: ['dashboard-scheduled-logs', days, integrationId],
-    queryFn: () => getLogs({
-      triggerType: 'SCHEDULED',
-      integrationId,
-      dateRange: scheduledLogsDateRange,
-      limit: 100
-    }),
-    enabled: detailsTab === 'scheduled',
+    queryKey: ['dashboard-scheduled-job-logs', scheduledJobIds, scheduledLogsDateRange[0], scheduledLogsDateRange[1]],
+    queryFn: async () => {
+      const logsByJob = await Promise.all(
+        scheduledJobIds.map((jobId) => getScheduledJobLogs(jobId, { limit: 100 }))
+      );
+      const startMs = new Date(scheduledLogsDateRange[0]).getTime();
+      const endMs = new Date(scheduledLogsDateRange[1]).getTime();
+      return logsByJob
+        .flat()
+        .filter((log: any) => {
+          const startedAt = new Date(log.startedAt || log.createdAt || 0).getTime();
+          return Number.isFinite(startedAt) && startedAt >= startMs && startedAt <= endMs;
+        })
+        .sort((a: any, b: any) => new Date(b.startedAt || b.createdAt).getTime() - new Date(a.startedAt || a.createdAt).getTime())
+        .slice(0, 200);
+    },
+    enabled: detailsTab === 'scheduled' && scheduledJobIds.length > 0,
     refetchInterval: refreshInterval
   });
 
-  const scheduledJobLogs = useMemo(() => scheduledLogsResponse?.data || [], [scheduledLogsResponse]);
+  const scheduledJobLogs = useMemo(() => scheduledLogsResponse || [], [scheduledLogsResponse]);
 
   const { data: recentLogsResponse, isLoading: recentLogsLoading, dataUpdatedAt: recentLogsUpdatedAt, refetch: refetchRecentLogs } = useQuery({
     queryKey: ['dashboard-recent-logs', days, analyticsDirection, analyticsTriggerType, integrationId],
@@ -340,6 +386,22 @@ export const DashboardRoute = () => {
   const timeLabel = days === 1 ? 'Today' : `${days}d`;
   const hasSummaryData = (analytics?.summary?.total ?? 0) > 0;
   const noDataHint = 'No data for this range';
+
+  const normalizedEventTypeCounts = useMemo(() => {
+    const rawEventTypes = analytics?.eventTypes || {};
+    return Object.fromEntries(
+      Object.entries(rawEventTypes)
+        .filter(([name]) => Boolean(name))
+        .map(([name, stats]: [string, any]) => [
+          name,
+          typeof stats === 'number' ? stats : Number(stats?.total || 0),
+        ])
+        .filter(([, total]) => {
+          const numericTotal = Number(total);
+          return Number.isFinite(numericTotal) && numericTotal > 0;
+        })
+    );
+  }, [analytics]);
 
   // Calculate trends from timeseries data
   const trends = useMemo(() => {
@@ -462,14 +524,13 @@ export const DashboardRoute = () => {
   }, [timeseriesDaily]);
 
   const eventTypeChartData = useMemo(() => {
-    if (!analytics?.eventTypes) return [];
-    return Object.entries(analytics.eventTypes)
-      .sort(([, a], [, b]) => (b as number) - (a as number))
+    return Object.entries(normalizedEventTypeCounts)
+      .sort(([, a], [, b]) => Number(b) - Number(a))
       .map(([name, value]) => ({
         name,
-        value: value as number,
+        value: Number(value || 0),
       }));
-  }, [analytics]);
+  }, [normalizedEventTypeCounts]);
 
   const eventAuditStatusData = useMemo(() => {
     const totalReceived = Number(eventAuditStats?.totalReceived || 0);
@@ -507,9 +568,32 @@ export const DashboardRoute = () => {
     ].filter((entry) => entry.value > 0);
   }, [eventAuditStats]);
 
+  const integrationPerformance = useMemo(() => {
+    return (analytics?.integrationPerformance || []).map((integration: any) => {
+      const integrationKey = String(
+        integration.__KEEP___KEEP_integrationConfig__Id__ ||
+        integration.integrationConfigId ||
+        integration.id ||
+        ''
+      );
+      const resolvedName =
+        integration.__KEEP_integrationName__ ||
+        integration.integrationName ||
+        (integrationKey ? integrationNameMap.get(integrationKey) : undefined) ||
+        integrationKey ||
+        'Unknown';
+
+      return {
+        ...integration,
+        __KEEP_integrationName__: resolvedName,
+        integrationName: integration.integrationName || resolvedName
+      };
+    });
+  }, [analytics, integrationNameMap]);
+
   const successFailureByIntegrationData = useMemo(() => {
-    if (!analytics?.integrationPerformance) return [];
-    return analytics.integrationPerformance
+    if (!integrationPerformance?.length) return [];
+    return integrationPerformance
       .map((integration: any) => {
         const displayName = integration.__KEEP_integrationName__ || integration.integrationName || integration.__KEEP___KEEP_integrationConfig__Id__ || 'Unknown';
         const successful = integration.successful || 0;
@@ -524,15 +608,14 @@ export const DashboardRoute = () => {
           failureRate: Number(failureRate.toFixed(1)),
           successCount: successful,
           failedCount: failed,
-          total
+          total,
+          integrationId: integration.__KEEP___KEEP_integrationConfig__Id__,
         };
       })
       .map((integration: any) => ({
         ...integration
       }));
-  }, [analytics]);
-
-  const integrationPerformance = analytics?.integrationPerformance || [];
+  }, [integrationPerformance]);
 
   const performanceChartData = useMemo(() => {
     return [...successFailureByIntegrationData]
@@ -604,7 +687,7 @@ export const DashboardRoute = () => {
         const key = `${hour}-${day}`;
         const value = buckets.get(key) || 0;
         data.push({
-          x: `${hour}`,
+          x: `${hour}h`,
           y: dayNames[day],
           value
         });
@@ -693,11 +776,11 @@ export const DashboardRoute = () => {
   const statusText = `Monitoring: ${summary?.integrationHealth?.length || 0} rules · Scope: ${resolvedScope === 'ALL' ? 'All' : resolvedScope.toLowerCase()} · Updated: ${lastRefreshedAt ? formatDateTimeWithSeconds(new Date(lastRefreshedAt).toISOString()) : '—'}`;
 
   const errorCategoryData = useMemo(() => {
-    const categories = errorAnalytics?.summary?.errorCategories || {};
+    const categories = normalizedErrorAnalytics.summary.errorCategories || {};
     return Object.entries(categories)
       .map(([name, value]) => ({ name, value: Number(value || 0) }))
       .filter((entry) => entry.value > 0);
-  }, [errorAnalytics]);
+  }, [normalizedErrorAnalytics]);
 
   const recentLogs = recentLogsResponse?.data || [];
 
@@ -821,7 +904,7 @@ export const DashboardRoute = () => {
         <DashboardErrorsTab
           errorsLoading={errorsLoading}
           errorCategoryData={errorCategoryData}
-          topErrors={errorAnalytics?.summary?.topErrors || []}
+          topErrors={normalizedErrorAnalytics.summary.topErrors || []}
           noDataHint={noDataHint}
           hiddenLegends={hiddenLegends}
           onLegendClick={handleLegendClick}
@@ -857,7 +940,7 @@ export const DashboardRoute = () => {
       {detailsTab === 'deliveries' && (
         <DashboardDeliveriesTab
           analyticsLoading={analyticsLoading}
-          integrationPerformance={analytics?.integrationPerformance || []}
+          integrationPerformance={integrationPerformance}
           performanceTitle={`${scopeMeta.label} Performance (${days === 1 ? 'Today' : `${days} days`})`}
           performanceSubtitle={scopeMeta.performanceSubtitle}
           performanceEntityLabel={scopeMeta.label}
@@ -879,7 +962,7 @@ export const DashboardRoute = () => {
           eventTypeTitle={scopeMeta.eventTypeTitle}
           eventTypeSubtitle={scopeMeta.eventTypeSubtitle}
           eventTypeChartData={eventTypeChartData}
-          eventTypeCounts={analytics?.eventTypes || null}
+          eventTypeCounts={normalizedEventTypeCounts}
           showEventAudit={resolvedScope !== 'SCHEDULED'}
           eventAuditLoading={eventAuditLoading}
           eventAuditStatusData={eventAuditStatusData}
@@ -905,11 +988,8 @@ export const DashboardRoute = () => {
           }}
           onPerformanceChartClick={(data) => {
             const params = new URLSearchParams({ days: days.toString() });
-            const integration = integrationPerformance.find((i: any) =>
-              (i.__KEEP_integrationName__ || i.integrationName) === data.nameShort
-            );
-            if (integration?.__KEEP___KEEP_integrationConfig__Id__) {
-              params.set('integrationId', integration.__KEEP___KEEP_integrationConfig__Id__);
+            if (data?.integrationId) {
+              params.set('integrationId', data.integrationId);
             }
             if (data?.failedCount > 0) params.set('status', 'FAILED');
             navigate(`/logs?${params.toString()}`);
@@ -924,6 +1004,9 @@ export const DashboardRoute = () => {
           noDataHint={noDataHint}
           onViewAll={() => {
             const params = new URLSearchParams({ status: 'FAILED', days: days.toString() });
+            if (integrationId) params.set('integrationId', integrationId);
+            if (analyticsDirection) params.set('direction', analyticsDirection);
+            if (analyticsTriggerType) params.set('triggerType', analyticsTriggerType);
             navigate(`/logs?${params.toString()}`);
           }}
         />
@@ -936,9 +1019,9 @@ export const DashboardRoute = () => {
           analyticsLoading={analyticsLoading}
           analytics={analytics}
           performanceAnalytics={performanceAnalytics}
-          errorAnalytics={errorAnalytics}
+          errorAnalytics={normalizedErrorAnalytics}
           timeseriesDaily={timeseriesDaily}
-          integrationPerformance={analytics?.integrationPerformance || []}
+          integrationPerformance={integrationPerformance}
           onNavigate={(path) => navigate(path)}
           getIntegrationPath={getIntegrationPath}
           noDataHint={noDataHint}
@@ -956,8 +1039,8 @@ export const DashboardRoute = () => {
           timeseriesHourly={timeseriesHourly}
           timeseriesDaily={timeseriesDaily}
           performanceAnalytics={performanceAnalytics}
-          errorAnalytics={errorAnalytics}
-          integrationPerformance={analytics?.integrationPerformance || []}
+          errorAnalytics={normalizedErrorAnalytics}
+          integrationPerformance={integrationPerformance}
           onNavigate={(path) => navigate(path)}
           getIntegrationPath={getIntegrationPath}
           noDataHint={noDataHint}
@@ -974,8 +1057,8 @@ export const DashboardRoute = () => {
           analytics={analytics}
           timeseriesDaily={timeseriesDaily}
           performanceAnalytics={performanceAnalytics}
-          errorAnalytics={errorAnalytics}
-          integrationPerformance={analytics?.integrationPerformance || []}
+          errorAnalytics={normalizedErrorAnalytics}
+          integrationPerformance={integrationPerformance}
           scheduledJobs={scheduledJobs || []}
           scheduledJobLogs={scheduledJobLogs}
           onNavigate={(path) => navigate(path)}
