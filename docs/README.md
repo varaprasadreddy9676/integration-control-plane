@@ -12,6 +12,7 @@ Use this index to find the right guide quickly.
 - `docs/guides/GETTING-STARTED.md` - Quick setup checklist
 - `docs/guides/SETUP.md` - Detailed setup and deployment steps
 - `docs/guides/DEPLOYMENT.md` - Production deployment guide
+- `docs/guides/APACHE-SPA-TROUBLESHOOTING.md` - Apache symlink and SPA refresh troubleshooting for frontend releases
 - `docs/guides/DOCKER.md` - Docker build/deploy guide
 
 ## Security, RBAC, and Permissions

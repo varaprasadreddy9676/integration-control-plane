@@ -798,6 +798,7 @@ export const DashboardRoute = () => {
   };
 
   const handleChartClick = (data: any, context?: { chartType?: string }) => {
+    const payload = data?.payload || data;
     // Build filter params based on clicked data
     const params = new URLSearchParams();
 
@@ -817,21 +818,21 @@ export const DashboardRoute = () => {
     }
 
     // Handle different chart types
-    if (context?.chartType === 'hourly' && data?.hour) {
+    if (context?.chartType === 'hourly' && payload?.hour) {
       // Extract hour from format like "14:00"
-      const hour = parseInt(data.hour.split(':')[0]);
+      const hour = parseInt(payload.hour.split(':')[0]);
       params.set('hour', String(hour));
     }
 
-    if (context?.chartType === 'heatmap' && data?.x && data?.y) {
+    if (context?.chartType === 'heatmap' && payload?.x && payload?.y) {
       // Heatmap: x = hour, y = day of week
-      params.set('hour', String(data.x));
-      params.set('dayOfWeek', String(data.y));
+      params.set('hour', String(payload.x).replace(/h$/i, ''));
+      params.set('dayOfWeek', String(payload.y));
     }
 
-    // If there are failed deliveries in the clicked data, show failed logs
-    if (data?.Failed > 0 || data?.failed > 0) {
-      params.set('status', 'FAILED');
+    const clickedStatus = resolveDrilldownStatus(data);
+    if (clickedStatus) {
+      params.set('status', clickedStatus);
     }
 
     navigate(`/logs?${params.toString()}`);
@@ -847,6 +848,24 @@ export const DashboardRoute = () => {
       }
       return newSet;
     });
+  };
+
+  const resolveDrilldownStatus = (data: any): 'SUCCESS' | 'FAILED' | undefined => {
+    const seriesKey = String(
+      data?.__clickedDataKey ||
+      data?.__clickedSeriesName ||
+      data?.dataKey ||
+      data?.name ||
+      ''
+    ).toLowerCase();
+
+    if (seriesKey.includes('fail')) return 'FAILED';
+    if (seriesKey.includes('success')) return 'SUCCESS';
+
+    const payload = data?.payload || data;
+    if (payload?.failed > 0 || payload?.Failed > 0) return 'FAILED';
+    if (payload?.successful > 0 || payload?.Successful > 0) return 'SUCCESS';
+    return undefined;
   };
 
   return (
@@ -991,7 +1010,8 @@ export const DashboardRoute = () => {
             if (data?.integrationId) {
               params.set('integrationId', data.integrationId);
             }
-            if (data?.failedCount > 0) params.set('status', 'FAILED');
+            const clickedStatus = resolveDrilldownStatus(data);
+            if (clickedStatus) params.set('status', clickedStatus);
             navigate(`/logs?${params.toString()}`);
           }}
         />

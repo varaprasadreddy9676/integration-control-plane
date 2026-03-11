@@ -107,3 +107,15 @@ By default, the Docker image serves the SPA at root and supports `/integration-g
 
 - **Why?** This is the most portable setting for modern Docker environments and reverse proxies.
 - **Custom Subpaths**: If you must serve from a different prefix (e.g., `yourdomain.com/portal/`), handle rewrite/routing at your reverse proxy.
+
+## 7. Apache SPA Troubleshooting
+
+If you deploy the frontend behind Apache using symlinks under `/var/www/html`, see:
+
+- [APACHE-SPA-TROUBLESHOOTING.md](/Users/sai/Documents/GitHub/integration-control-plane/docs/guides/APACHE-SPA-TROUBLESHOOTING.md)
+
+This covers:
+
+- `403 Forbidden` caused by broken symlinks or inaccessible symlink targets
+- `404 Not Found` on deep-route refresh when SPA fallback is missing
+- the recommended `Alias` + `FallbackResource` Apache configuration for `/integration-gateway/`

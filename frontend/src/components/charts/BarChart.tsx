@@ -285,7 +285,13 @@ export function BarChart({
             maxBarSize={barSize || 40}
             animationDuration={chartAnimationConfig.duration}
             animationEasing={chartAnimationConfig.easing}
-            onClick={onBarClick ? (dataPoint: any, index: number) => onBarClick(dataPoint, index) : undefined}
+            onClick={onBarClick
+              ? (dataPoint: any, index: number) => onBarClick({
+                ...dataPoint,
+                __clickedDataKey: bar.dataKey,
+                __clickedSeriesName: bar.name || bar.dataKey
+              }, index)
+              : undefined}
             cursor={onBarClick ? 'pointer' : undefined}
             hide={hiddenLegends.has(bar.dataKey)}
           >

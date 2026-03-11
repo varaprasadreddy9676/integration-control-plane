@@ -147,35 +147,43 @@ export const DashboardOverviewTab = ({
       )}
 
       {/* Heatmap */}
-      {days >= 7 && (
-        analyticsLoading ? (
-          <section style={{ ...panelStyle, marginTop: spacing[4] }}>
-            <Card
-              variant="borderless"
-              title={<DashboardSectionTitle title="Activity Heatmap" subtitle="Delivery patterns by day and hour" />}
-              styles={{ body: { padding: spacing[5] } }}
-            >
-              <Skeleton active paragraph={{ rows: 8 }} />
-            </Card>
-          </section>
-        ) : heatmapData.length > 0 ? (
-          <section style={{ ...panelStyle, marginTop: spacing[4] }}>
-            <Card
-              variant="borderless"
-              title={<DashboardSectionTitle title="Activity Heatmap" subtitle="Delivery patterns by day of week and hour of day" />}
-              styles={{ body: { padding: spacing[5] } }}
-            >
-              <HeatmapChart
-                data={heatmapData}
-                xLabels={hourLabels}
-                yLabels={dayLabels}
-                height={280}
-                valueFormatter={(v) => formatNumber(v)}
-                onCellClick={onHeatmapClick}
-              />
-            </Card>
-          </section>
-        ) : null
+      {analyticsLoading ? (
+        <section style={{ ...panelStyle, marginTop: spacing[4] }}>
+          <Card
+            variant="borderless"
+            title={<DashboardSectionTitle title="Activity Heatmap" subtitle="Delivery patterns by day and hour" />}
+            styles={{ body: { padding: spacing[5] } }}
+          >
+            <Skeleton active paragraph={{ rows: 8 }} />
+          </Card>
+        </section>
+      ) : heatmapData.length > 0 ? (
+        <section style={{ ...panelStyle, marginTop: spacing[4] }}>
+          <Card
+            variant="borderless"
+            title={<DashboardSectionTitle title="Activity Heatmap" subtitle="Delivery patterns by day of week and hour of day" />}
+            styles={{ body: { padding: spacing[5] } }}
+          >
+            <HeatmapChart
+              data={heatmapData}
+              xLabels={hourLabels}
+              yLabels={dayLabels}
+              height={280}
+              valueFormatter={(v) => formatNumber(v)}
+              onCellClick={onHeatmapClick}
+            />
+          </Card>
+        </section>
+      ) : (
+        <section style={{ ...panelStyle, marginTop: spacing[4] }}>
+          <Card
+            variant="borderless"
+            title={<DashboardSectionTitle title="Activity Heatmap" subtitle="Delivery patterns by day of week and hour of day" />}
+            styles={{ body: { padding: spacing[5] } }}
+          >
+            <Typography.Text type="secondary">{noDataHint}</Typography.Text>
+          </Card>
+        </section>
       )}
     </>
   );

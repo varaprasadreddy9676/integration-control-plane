@@ -134,80 +134,99 @@ export const LogsRoute = () => {
     const endDate = searchParams.get('endDate');
     const hasDaysParam = searchParams.has('days');
     const derivedDateRange = deriveDateRangeFromDays(searchParams.get('days'));
-    let consumedPrefillParams = false;
-
     if (hasStatusParam && statusParam !== statusFilter) {
       setStatusFilter(statusParam);
     }
-    if (hasStatusParam) consumedPrefillParams = true;
 
     if (hasIntegrationParam && integrationParam !== integrationFilter) {
       setIntegrationFilter(integrationParam);
     }
-    if (hasIntegrationParam) consumedPrefillParams = true;
 
     if (hasEventTypeParam && eventTypeParam !== eventTypeFilter) {
       setEventTypeFilter(eventTypeParam);
       setShowMoreFilters(true);
     }
-    if (hasEventTypeParam) consumedPrefillParams = true;
 
     if ((hasDirectionParam || hasTriggerTypeParam) && derivedFlowFilter !== flowFilter) {
       setFlowFilter(derivedFlowFilter);
     }
-    if (hasDirectionParam || hasTriggerTypeParam) consumedPrefillParams = true;
 
     if (hasErrorCategoryParam && errorCategoryParam !== errorCategoryFilter) {
       setErrorCategoryFilter(errorCategoryParam);
       setShowMoreFilters(true);
     }
-    if (hasErrorCategoryParam) consumedPrefillParams = true;
 
     if (hasHourParam && normalizedHourFilter !== hourFilter) {
       setHourFilter(normalizedHourFilter);
       setShowMoreFilters(true);
     }
-    if (hasHourParam) consumedPrefillParams = true;
 
     if (hasDayOfWeekParam && normalizedDayOfWeekFilter !== dayOfWeekFilter) {
       setDayOfWeekFilter(normalizedDayOfWeekFilter);
       setShowMoreFilters(true);
     }
-    if (hasDayOfWeekParam) consumedPrefillParams = true;
 
     if (hasDateRangeParam && dateRangeParam === 'all') {
       if (dateRange !== null) {
         setDateRange(null);
       }
-      consumedPrefillParams = true;
     } else if (searchParams.has('startDate') && searchParams.has('endDate') && startDate && endDate) {
       if (!dateRange || dateRange[0] !== startDate || dateRange[1] !== endDate) {
         setDateRange([startDate, endDate]);
       }
-      consumedPrefillParams = true;
     } else if (hasDaysParam && derivedDateRange) {
       if (!dateRange || dateRange[0] !== derivedDateRange[0] || dateRange[1] !== derivedDateRange[1]) {
         setDateRange(derivedDateRange);
       }
-      consumedPrefillParams = true;
     }
 
-    // Header shortcut params should prefill once, then be removed so users
-    // can interact with filter controls without this effect forcing values back.
-    if (consumedPrefillParams) {
-      const nextParams = new URLSearchParams(searchParams);
-      nextParams.delete('status');
-      nextParams.delete('integrationId');
-      nextParams.delete('eventType');
+    // This effect is for URL -> state hydration only. If it re-runs on local
+    // filter state changes, it can re-apply stale query params before the
+    // canonical URL sync effect updates them.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  useEffect(() => {
+    const nextParams = new URLSearchParams(searchParams);
+
+    const syncParam = (key: string, value?: string | null) => {
+      if (value == null || value === '') {
+        nextParams.delete(key);
+        return;
+      }
+      nextParams.set(key, value);
+    };
+
+    syncParam('status', statusFilter);
+    syncParam('integrationId', integrationFilter);
+    syncParam('eventType', eventTypeFilter);
+    syncParam('errorCategory', errorCategoryFilter);
+    syncParam('hour', hourFilter);
+    syncParam('dayOfWeek', dayOfWeekFilter);
+
+    if (flowFilter === 'SCHEDULED') {
+      nextParams.delete('direction');
+      nextParams.set('triggerType', 'SCHEDULED');
+    } else if (flowFilter) {
+      nextParams.set('direction', flowFilter);
+      nextParams.delete('triggerType');
+    } else {
       nextParams.delete('direction');
       nextParams.delete('triggerType');
-      nextParams.delete('errorCategory');
-      nextParams.delete('hour');
-      nextParams.delete('dayOfWeek');
+    }
+
+    nextParams.delete('days');
+    if (dateRange?.[0] && dateRange?.[1]) {
       nextParams.delete('dateRange');
+      nextParams.set('startDate', dateRange[0]);
+      nextParams.set('endDate', dateRange[1]);
+    } else if (dateRange === null) {
       nextParams.delete('startDate');
       nextParams.delete('endDate');
-      nextParams.delete('days');
+      nextParams.set('dateRange', 'all');
+    }
+
+    if (nextParams.toString() !== searchParams.toString()) {
       setSearchParams(nextParams, { replace: true });
     }
   }, [
