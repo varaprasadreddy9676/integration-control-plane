@@ -256,6 +256,17 @@ describe('MongoDB Data Layer', () => {
     });
 
     it('should scope traceId-based updates by action for multi-action logs', async () => {
+      mockCollection.find
+        .mockReturnValueOnce({
+          sort: jest.fn().mockReturnThis(),
+          limit: jest.fn().mockReturnThis(),
+          toArray: jest.fn().mockResolvedValue([]),
+        })
+        .mockReturnValueOnce({
+          sort: jest.fn().mockReturnThis(),
+          limit: jest.fn().mockReturnThis(),
+          toArray: jest.fn().mockResolvedValue([]),
+        });
       mockCollection.updateOne
         .mockResolvedValueOnce({ matchedCount: 0, modifiedCount: 0 })
         .mockResolvedValueOnce({ matchedCount: 0, modifiedCount: 0 });
@@ -287,7 +298,7 @@ describe('MongoDB Data Layer', () => {
         actionIndex: 1,
       });
 
-      expect(mockCollection.updateOne).toHaveBeenNthCalledWith(
+      expect(mockCollection.find).toHaveBeenNthCalledWith(
         1,
         expect.objectContaining({
           traceId: 'trc-shared',
@@ -295,9 +306,8 @@ describe('MongoDB Data Layer', () => {
           actionName: 'Profile Upload',
           actionIndex: 0,
         }),
-        expect.any(Object)
       );
-      expect(mockCollection.updateOne).toHaveBeenNthCalledWith(
+      expect(mockCollection.find).toHaveBeenNthCalledWith(
         2,
         expect.objectContaining({
           traceId: 'trc-shared',
@@ -305,8 +315,8 @@ describe('MongoDB Data Layer', () => {
           actionName: 'Event Upload',
           actionIndex: 1,
         }),
-        expect.any(Object)
       );
+      expect(mockCollection.updateOne).not.toHaveBeenCalled();
       expect(mockCollection.insertOne).toHaveBeenCalledTimes(2);
     });
   });
