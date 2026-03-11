@@ -76,7 +76,13 @@ export const PortalLaunchRoute = () => {
 
         // Redirect to the first allowed view
         const allowedViews = result.profile.allowedViews ?? ['dashboard'];
-        const firstView = allowedViews.includes('dashboard') ? '/dashboard' : '/logs';
+        const firstView = allowedViews.includes('dashboard')
+          ? '/dashboard'
+          : allowedViews.includes('logs')
+            ? '/logs'
+            : allowedViews.includes('system_status')
+              ? '/status/system'
+              : '/dashboard';
         navigate(`${firstView}?embedded=true`, { replace: true });
       } catch (err: any) {
         if (!cancelled) {

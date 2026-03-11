@@ -23,7 +23,7 @@ const { log } = require('../logger');
 const router = express.Router();
 
 const ALLOWED_ROLES = ['VIEWER', 'INTEGRATION_EDITOR'];
-const ALLOWED_VIEWS = ['dashboard', 'logs'];
+const ALLOWED_VIEWS = ['dashboard', 'logs', 'system_status'];
 
 // ── Authorization helper ───────────────────────────────────────────────────────
 

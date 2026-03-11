@@ -10,6 +10,7 @@ const mongodb = require('../mongodb');
 const data = require('../data');
 const { getScheduledJobWorker } = require('../processor/scheduled-job-worker');
 const { getDeliveryWorkerManager } = require('../processor/delivery-worker-manager');
+const { assertViewAllowed } = require('../middleware/portal-scope');
 
 const router = express.Router();
 
@@ -227,7 +228,7 @@ async function getScheduledJobMetrics(db, orgId) {
   };
 }
 
-router.get('/', async (req, res) => {
+router.get('/', assertViewAllowed('system_status'), async (req, res) => {
   try {
     const orgId = getOrgId(req);
     if (!orgId) {

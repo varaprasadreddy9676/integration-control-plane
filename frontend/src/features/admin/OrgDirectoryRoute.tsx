@@ -214,6 +214,12 @@ export const OrgDirectoryRoute = () => {
     allowedOrigins: '',
   });
 
+  const portalViewLabelMap: Record<string, string> = {
+    dashboard: 'Dashboard',
+    logs: 'Logs',
+    system_status: 'System Status',
+  };
+
   const loadProfiles = useCallback(async (orgId: number) => {
     setProfilesLoading(true);
     try {
@@ -1204,6 +1210,7 @@ export const OrgDirectoryRoute = () => {
                     options={[
                       { label: 'Dashboard', value: 'dashboard' },
                       { label: 'Logs', value: 'logs' },
+                      { label: 'System Status', value: 'system_status' },
                     ]}
                   />
                 </div>
@@ -1337,7 +1344,7 @@ export const OrgDirectoryRoute = () => {
               title: 'Views',
               dataIndex: 'allowedViews',
               key: 'allowedViews',
-              render: (v: string[]) => (v ?? []).map((view) => <Tag key={view}>{view}</Tag>),
+              render: (v: string[]) => (v ?? []).map((view) => <Tag key={view}>{portalViewLabelMap[view] || view}</Tag>),
             },
             {
               title: 'Active',

@@ -56,6 +56,7 @@ import { AdminRateLimitsRoute } from '../features/settings/AdminRateLimitsRoute'
 import { AuditLogsRoute } from '../features/admin/AuditLogsRoute';
 import { UserActivityRoute } from '../features/admin/UserActivityRoute';
 import { StorageStatsRoute } from '../features/admin/StorageStatsRoute';
+import SystemStatusRoute from '../features/system-status/routes/SystemStatusRoute';
 import { OrgDirectoryRoute } from '../features/admin/OrgDirectoryRoute';
 import { AISettingsRoute } from '../features/ai-settings/AISettingsRoute';
 import { EventSourceSettingsRoute } from '../features/settings/EventSourceSettingsRoute';
@@ -349,6 +350,7 @@ export const App = () => {
           { key: '/admin/audit-logs', icon: <AuditOutlined />, label: 'Audit Logs' },
           { key: '/admin/user-activity', icon: <BarChartOutlined />, label: 'User Activity' },
           { key: '/admin/storage', icon: <PieChartOutlined />, label: 'Storage & Usage' },
+          { key: '/admin/system-status', icon: <CloudServerOutlined />, label: 'System Status' },
           { key: '/admin/permissions', icon: <IdcardOutlined />, label: 'My Permissions' }
         ]
       });
@@ -359,6 +361,7 @@ export const App = () => {
         items: [
           { key: '/admin/user-activity', icon: <BarChartOutlined />, label: 'User Activity' },
           { key: '/admin/storage', icon: <PieChartOutlined />, label: 'Storage & Usage' },
+          { key: '/admin/system-status', icon: <CloudServerOutlined />, label: 'System Status' },
           { key: '/admin/permissions', icon: <IdcardOutlined />, label: 'My Permissions' }
         ]
       });
@@ -380,6 +383,7 @@ export const App = () => {
   const isLandingRoute = location.pathname === '/';
   const isDocsRoute = location.pathname.startsWith('/docs');
   const isPortalLaunchRoute = location.pathname.startsWith('/portal/launch');
+  const isSystemStatusStandaloneRoute = location.pathname.startsWith('/status/system');
   const isAdminRoute = location.pathname.startsWith('/admin');
   const canSkipTenant = (isSuperAdmin || isAdmin) && isAdminRoute;
 
@@ -587,7 +591,7 @@ export const App = () => {
         <AIChatDrawer />
 
         {/* Desktop Sidebar - Hidden in embedded mode */}
-        {!isMobile && !isEmbedded && (
+        {!isMobile && !isEmbedded && !isSystemStatusStandaloneRoute && (
           <Layout.Sider
             collapsed={collapsed}
             collapsedWidth={68}
@@ -608,7 +612,7 @@ export const App = () => {
         )}
 
         {/* Mobile Drawer - Hidden in embedded mode */}
-        {isMobile && !isEmbedded && (
+        {isMobile && !isEmbedded && !isSystemStatusStandaloneRoute && (
           <Drawer
             placement="left"
             open={!collapsed}
@@ -629,7 +633,7 @@ export const App = () => {
           </Drawer>
         )}
         <Layout style={{ background: 'transparent', minHeight: '100vh' }}>
-          {!isEmbedded && <Layout.Header
+          {!isEmbedded && !isSystemStatusStandaloneRoute && <Layout.Header
             style={{
               background: mode === 'dark'
                 ? 'rgba(11, 18, 32, 0.98)'
@@ -910,6 +914,8 @@ export const App = () => {
                   <Route path="/admin/audit-logs" element={<AuditLogsRoute />} />
                   <Route path="/admin/user-activity" element={<UserActivityRoute />} />
                   <Route path="/admin/storage" element={<StorageStatsRoute />} />
+                  <Route path="/admin/system-status" element={<SystemStatusRoute mode="admin" />} />
+                  <Route path="/status/system" element={<SystemStatusRoute mode="standalone" />} />
                   <Route path="/help" element={<HelpRoute />} />
                   <Route path="/help/lookup-guide" element={<LookupGuideRoute />} />
                   <Route path="*" element={<Navigate to="/dashboard" replace />} />

@@ -385,7 +385,7 @@ export interface PortalAccessProfile {
   role: 'VIEWER' | 'INTEGRATION_EDITOR';
   allowedIntegrationIds: string[];
   allowedTags: string[];
-  allowedViews: string[];
+  allowedViews: Array<'dashboard' | 'logs' | 'system_status' | string>;
   allowedOrigins: string[];
   isActive: boolean;
   tokenVersion: number;
@@ -401,7 +401,7 @@ export interface CreatePortalProfileInput {
   role?: 'VIEWER' | 'INTEGRATION_EDITOR';
   allowedIntegrationIds?: string[];
   allowedTags?: string[];
-  allowedViews?: string[];
+  allowedViews?: Array<'dashboard' | 'logs' | 'system_status' | string>;
   allowedOrigins?: string[];
   isActive?: boolean;
 }
@@ -442,7 +442,14 @@ export const exchangePortalLaunchCredential = async (
   accessToken: string;
   refreshToken: string;
   expiresIn: string;
-  profile: { id: string; orgId: number; role: string; allowedIntegrationIds: string[]; allowedTags: string[]; allowedViews: string[] };
+  profile: {
+    id: string;
+    orgId: number;
+    role: string;
+    allowedIntegrationIds: string[];
+    allowedTags: string[];
+    allowedViews: Array<'dashboard' | 'logs' | 'system_status' | string>;
+  };
 }> =>
   request('/auth/portal/launch', {
     method: 'POST',
@@ -3500,3 +3507,222 @@ export interface StorageStats {
 
 export const getAdminStorageStats = async (): Promise<StorageStats> =>
   request('/admin/storage-stats');
+
+// ---------------------------------------------------------------------------
+// System Status
+// ---------------------------------------------------------------------------
+
+export interface SystemStatusAlertCount {
+  critical: number;
+  warning: number;
+  total: number;
+}
+
+export interface SystemStatusWorker {
+  workerName: string;
+  displayName: string;
+  enabled: boolean;
+  running: boolean;
+  alive: boolean;
+  status: string;
+  thresholdMs?: number | null;
+  intervalMs?: number | null;
+  lastHeartbeat?: string | null;
+  timeSinceLastMs?: number | null;
+  startedAt?: string | null;
+  stoppedAt?: string | null;
+  lastRunStartedAt?: string | null;
+  lastRunFinishedAt?: string | null;
+  lastSuccessAt?: string | null;
+  lastErrorAt?: string | null;
+  lastErrorMessage?: string | null;
+  meta?: Record<string, any>;
+}
+
+export interface SystemStatusAdapter {
+  orgId: number;
+  sourceType: string;
+  configHash?: string;
+  configOrigin?: string;
+  name: string;
+  adapterName?: string;
+  running?: boolean;
+  connectionStatus?: string;
+  connectionProbe?: { ok: boolean; responseTimeMs?: number; error?: string } | null;
+  topic?: string;
+  groupId?: string;
+  clientId?: string;
+  brokers?: string[];
+  reconnecting?: boolean;
+  connected?: boolean;
+  reconnectAttempt?: number;
+  lastReconnectReason?: string | null;
+  lastBackoffMs?: number | null;
+  nextReconnectAt?: string | null;
+  lastConnectAt?: string | null;
+  lastDisconnectAt?: string | null;
+  lastMessageAt?: string | null;
+  lastErrorAt?: string | null;
+  lastErrorMessage?: string | null;
+  lastOffset?: string | null;
+  lastTopic?: string | null;
+  lastPartition?: number | null;
+  table?: string;
+  polling?: boolean;
+  pollIntervalMs?: number;
+  batchSize?: number;
+  pollCount?: number;
+  lastPollStartedAt?: string | null;
+  lastPollFinishedAt?: string | null;
+  lastSuccessAt?: string | null;
+  lastRowsFetched?: number;
+  lastCheckpoint?: number | string | null;
+  consecutiveErrors?: number;
+  filters?: {
+    orgUnitIds?: string[];
+    eventTypes?: string[];
+  };
+  mode?: string;
+  note?: string;
+  statusError?: string;
+}
+
+export interface SystemStatusResponse {
+  timestamp: string;
+  orgId: number;
+  overall: {
+    status: string;
+    alertCount: SystemStatusAlertCount;
+    summary: {
+      deliveries24h: number;
+      successRate24h: number;
+      failed24h: number;
+      pendingCount: number;
+      retryingCount: number;
+      p95ResponseTimeMs: number;
+    };
+  };
+  process: {
+    appVersion: string;
+    pid: number;
+    nodeVersion: string;
+    platform: string;
+    arch: string;
+    environment: string;
+    startedAt: string;
+    uptime: {
+      uptime?: number;
+      formatted?: string;
+      [key: string]: any;
+    } | null;
+    memory: {
+      stats: Record<string, any>;
+      report: Record<string, any>;
+    };
+    host: {
+      hostname: string;
+      loadAverage: number[];
+      totalMemoryBytes: number;
+      freeMemoryBytes: number;
+    };
+    mysql: {
+      available: boolean;
+      status: string;
+    };
+  };
+  workers: {
+    summary: {
+      total: number;
+      healthy: number;
+      unhealthy: number;
+      stopped: number;
+      disabled: number;
+    };
+    items: SystemStatusWorker[];
+  };
+  traffic: {
+    deliveries: Record<string, number>;
+    inboundEvents: Record<string, number>;
+    directionMixLast60m: Record<string, number>;
+  };
+  backlogs: {
+    pendingDeliveries: Record<string, number>;
+    dlq: Record<string, number>;
+    scheduledIntegrations: Record<string, number>;
+  };
+  scheduledJobs: {
+    summary: {
+      total: number;
+      active: number;
+      inactive: number;
+      cron: number;
+      interval: number;
+    };
+    worker: {
+      running: boolean;
+      loadedTasks: number;
+    };
+    recentExecutions: Array<{
+      integrationId: string;
+      integrationName: string;
+      status: string;
+      startedAt: string | null;
+      completedAt: string | null;
+      durationMs: number;
+      recordsFetched: number;
+      correlationId: string | null;
+    }>;
+  };
+  eventSources: {
+    manager: {
+      adapterCount: number;
+      refreshIntervalMs: number;
+      lastSyncStartedAt: string | null;
+      lastSyncFinishedAt: string | null;
+      lastSyncErrorAt: string | null;
+      lastSyncErrorMessage: string | null;
+    };
+    configuration: {
+      configured: boolean;
+      sourceType: string | null;
+      configOrigin: string | null;
+      state: string;
+      error: Record<string, any> | null;
+    };
+    summary: Record<string, number>;
+    orgAdapters: SystemStatusAdapter[];
+  };
+  logs: {
+    directory: string;
+    app: {
+      status: string;
+      found: boolean;
+      fileName?: string | null;
+      modifiedAt?: string | null;
+      ageSeconds?: number | null;
+      sizeBytes?: number | null;
+      path?: string;
+      error?: string;
+    };
+    access: {
+      status: string;
+      found: boolean;
+      fileName?: string | null;
+      modifiedAt?: string | null;
+      ageSeconds?: number | null;
+      sizeBytes?: number | null;
+      path?: string;
+      error?: string;
+    };
+  };
+  alerts: Array<{
+    type: string;
+    severity: string;
+    message: string;
+    [key: string]: any;
+  }>;
+  checks: Record<string, any>;
+}
+
+export const getSystemStatus = async (orgId: number): Promise<SystemStatusResponse> =>
+  request(`/system-status?orgId=${orgId}`);
