@@ -2446,6 +2446,16 @@ export interface AdminRateLimitStatus {
   windowSeconds?: number | null;
 }
 
+export interface RequestPolicyConfig {
+  allowedIpCidrs?: string[];
+  allowedBrowserOrigins?: string[];
+  rateLimit?: {
+    enabled?: boolean;
+    maxRequests?: number;
+    windowSeconds?: number;
+  } | null;
+}
+
 export interface AdminRateLimitItem {
   id: string;
   name: string;
@@ -2459,6 +2469,7 @@ export interface AdminRateLimitItem {
     maxRequests?: number;
     windowSeconds?: number;
   } | null;
+  requestPolicy?: RequestPolicyConfig | null;
   updatedAt?: string | null;
   status?: AdminRateLimitStatus | null;
 }
@@ -2522,6 +2533,23 @@ export const bulkApplyAdminRateLimits = async (payload: {
   confirmAll?: boolean;
 }): Promise<{ matched: number; modified: number; mode: string; rateLimits: any }> => {
   return request('/admin/rate-limits/bulk-apply', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+};
+
+export const bulkApplyAdminRequestPolicy = async (payload: {
+  filters?: {
+    orgId?: number;
+    direction?: string;
+    enabled?: boolean;
+    search?: string;
+  };
+  requestPolicy: RequestPolicyConfig;
+  mode?: 'override' | 'merge';
+  confirmAll?: boolean;
+}): Promise<{ matched: number; modified: number; mode: string; requestPolicy: RequestPolicyConfig; direction: 'INBOUND' }> => {
+  return request('/admin/request-policies/bulk-apply', {
     method: 'POST',
     body: JSON.stringify(payload)
   });

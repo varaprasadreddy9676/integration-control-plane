@@ -10,6 +10,7 @@ const mongodb = require('../mongodb');
 const { getRateLimitStatus, resetRateLimit } = require('../middleware/rate-limiter');
 const { MemoryMonitor } = require('../services/memory-monitor');
 const { auditUser, auditOrg, auditConfig, auditAdmin } = require('../middleware/audit');
+const { normalizeRequestPolicy } = require('../services/request-policy');
 
 const router = express.Router();
 
@@ -840,6 +841,7 @@ router.get(
           direction: doc.direction || 'OUTBOUND',
           orgId: doc.orgId,
           isActive: doc.isActive !== false,
+          requestPolicy: doc.requestPolicy || null,
           rateLimits,
           updatedAt: doc.updatedAt || doc.createdAt || null,
           status,
@@ -852,6 +854,101 @@ router.get(
       total,
       page,
       limit,
+    });
+  })
+);
+
+// POST /api/v1/admin/request-policies/bulk-apply
+router.post(
+  '/request-policies/bulk-apply',
+  asyncHandler(async (req, res) => {
+    const input = req.body || {};
+    const requestPolicy = input.requestPolicy;
+    const filters = input.filters || {};
+    const mode = input.mode === 'merge' ? 'merge' : 'override';
+    const confirmAll = input.confirmAll === true;
+
+    if (!requestPolicy || typeof requestPolicy !== 'object') {
+      throw new ValidationError('requestPolicy object required');
+    }
+
+    if (filters.direction && String(filters.direction).toUpperCase() === 'OUTBOUND') {
+      throw new ValidationError('Request policies can only be bulk applied to INBOUND integrations');
+    }
+
+    const db = await mongodb.getDbSafe();
+    const query = buildRateLimitQuery({ ...filters, direction: 'INBOUND' });
+    if (!confirmAll && (!filters || Object.keys(filters).length === 0)) {
+      throw new ValidationError('confirmAll is required when applying to all inbound integrations');
+    }
+
+    const updatedAt = new Date();
+    const normalizedPolicy = normalizeRequestPolicy(requestPolicy, requestPolicy.rateLimit);
+    let modified = 0;
+    let matched = 0;
+
+    const cursor = db.collection('integration_configs').find(query, {
+      projection: { requestPolicy: 1, rateLimits: 1 },
+    });
+
+    while (await cursor.hasNext()) {
+      const doc = await cursor.next();
+      if (!doc) continue;
+      matched += 1;
+
+      const nextPolicy = mode === 'merge'
+        ? normalizeRequestPolicy(
+            {
+              ...(doc.requestPolicy || {}),
+              ...normalizedPolicy,
+              rateLimit: {
+                ...((doc.requestPolicy && doc.requestPolicy.rateLimit) || doc.rateLimits || {}),
+                ...(normalizedPolicy?.rateLimit || {}),
+              },
+            },
+            doc.rateLimits
+          )
+        : normalizedPolicy;
+
+      const updateDoc = {
+        requestPolicy: nextPolicy,
+        rateLimits: nextPolicy?.rateLimit || null,
+        updatedAt,
+      };
+
+      const result = await db.collection('integration_configs').updateOne(
+        { _id: doc._id },
+        { $set: updateDoc }
+      );
+      modified += result.modifiedCount || 0;
+    }
+
+    log('info', 'Admin bulk request policy update', {
+      adminId: req.user?.id,
+      matched,
+      modified,
+      mode,
+    });
+
+    await db.collection('admin_audit').insertOne({
+      action: 'REQUEST_POLICIES_BULK_APPLY',
+      adminId: req.user?.id,
+      adminEmail: req.user?.email || null,
+      adminRole: req.user?.role || null,
+      filters: { ...filters, direction: 'INBOUND' },
+      mode,
+      requestPolicy: normalizedPolicy,
+      matched,
+      modified,
+      createdAt: new Date(),
+    });
+
+    res.json({
+      matched,
+      modified,
+      mode,
+      requestPolicy: normalizedPolicy,
+      direction: 'INBOUND',
     });
   })
 );

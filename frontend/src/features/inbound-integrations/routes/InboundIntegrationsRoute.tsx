@@ -42,6 +42,7 @@ import {
   testInboundIntegration
 } from '../../../services/api';
 import { formatDateTime } from '../../../utils/format';
+import { RequestPolicySummary } from '../../integrations/components/detail/shared/RequestPolicySummary';
 
 const { Text } = Typography;
 
@@ -427,9 +428,12 @@ export const InboundIntegrationsRoute = ({ hideHeader = false, isActive = true }
           <Text strong style={{ fontSize: 14 }}>
             {name}
           </Text>
-          <Tag color="blue" style={{ fontSize: 11 }}>
-            {record.type}
-          </Tag>
+          <Space size={6} wrap>
+            <Tag color="blue" style={{ fontSize: 11 }}>
+              {record.type}
+            </Tag>
+            <RequestPolicySummary policy={record.requestPolicy || null} compact />
+          </Space>
         </Space>
       )
     },

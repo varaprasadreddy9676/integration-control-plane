@@ -10,6 +10,7 @@ import { useDesignTokens, spacingToNumber, withAlpha } from '../../../design-sys
 import { DeliveryAttempt } from '../../../mocks/types';
 import { checkAIStatus, diagnoseLogFix, applyLogFix, type DiagnoseLogFixResult } from '../../../services/ai-api';
 import { useTenant } from '../../../app/tenant-context';
+import { RequestPolicySummary } from '../../integrations/components/detail/shared/RequestPolicySummary';
 
 const { Panel } = Collapse;
 const { Text, Title } = Typography;
@@ -113,9 +114,10 @@ export const LogDetailRoute = () => {
     let httpMethod: string;
 
     if (direction === 'INBOUND') {
+      const usesPublicRuntime = !config?.inboundAuthType || config?.inboundAuthType === 'NONE';
       const requestUrl = typeof requestSnapshot?.url === 'string' && requestSnapshot.url.trim()
         ? requestSnapshot.url.trim()
-        : `/api/v1/integrations/${config?.type || 'integration'}?orgId=${orgId}`;
+        : `/api/v1/${usesPublicRuntime ? 'public/integrations' : 'integrations'}/${config?.type || 'integration'}?orgId=${orgId}`;
 
       if (/^https?:\/\//i.test(requestUrl)) {
         targetUrl = requestUrl;
@@ -140,8 +142,11 @@ export const LogDetailRoute = () => {
     let curl = `curl --location '${targetUrl}'`;
 
     if (direction === 'INBOUND') {
-      const gatewayApiKey = import.meta.env.VITE_API_KEY || 'YOUR_API_KEY';
-      curl += ` \\\n  --header 'X-API-Key: ${gatewayApiKey}'`;
+      const usesPublicRuntime = !config?.inboundAuthType || config?.inboundAuthType === 'NONE';
+      if (!usesPublicRuntime) {
+        const gatewayApiKey = import.meta.env.VITE_API_KEY || 'YOUR_API_KEY';
+        curl += ` \\\n  --header 'X-API-Key: ${gatewayApiKey}'`;
+      }
 
       if (config?.inboundAuthType === 'BEARER') {
         curl += ` \\\n  --header 'Authorization: Bearer <INBOUND_TOKEN>'`;
@@ -672,6 +677,11 @@ export const LogDetailRoute = () => {
                     {integration.isActive ? 'Yes' : 'No'}
                   </Tag>
                 </Descriptions.Item>
+                {data.direction === 'INBOUND' && (
+                  <Descriptions.Item label="Request Policy" span={2}>
+                    <RequestPolicySummary policy={integration.requestPolicy || null} emptyLabel="No inbound request policy configured" />
+                  </Descriptions.Item>
+                )}
               </Descriptions>
             </Card>
           )}

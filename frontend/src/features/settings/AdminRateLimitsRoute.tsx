@@ -5,7 +5,9 @@ import { useNavigateWithParams } from '../../utils/navigation';
 import { useAuth } from '../../app/auth-context';
 import { PageHeader } from '../../components/common/PageHeader';
 import { useDesignTokens, spacingToNumber } from '../../design-system/utils';
-import { bulkApplyAdminRateLimits, bulkResetAdminRateLimits, exportAdminRateLimits, listAdminRateLimits, resetAdminRateLimit, updateAdminRateLimit, type AdminRateLimitItem } from '../../services/api';
+import { bulkApplyAdminRateLimits, bulkApplyAdminRequestPolicy, bulkResetAdminRateLimits, exportAdminRateLimits, listAdminRateLimits, resetAdminRateLimit, updateAdminRateLimit, type AdminRateLimitItem } from '../../services/api';
+import { RequestPolicySection } from '../integrations/components/detail/RequestPolicySection';
+import { RequestPolicySummary } from '../integrations/components/detail/shared/RequestPolicySummary';
 
 const formatResetAt = (value?: string | null) => {
   if (!value) return '—';
@@ -24,6 +26,24 @@ const buildLimitLabel = (item: AdminRateLimitItem) => {
   return `${maxRequests} / ${windowSeconds}s`;
 };
 
+const buildRequestPolicyFormValues = (item?: AdminRateLimitItem | null) => ({
+  requestPolicy: {
+    allowedIpCidrsText: (item?.requestPolicy?.allowedIpCidrs || []).join('\n'),
+    allowedBrowserOriginsText: (item?.requestPolicy?.allowedBrowserOrigins || []).join('\n'),
+    rateLimit: {
+      enabled: item?.requestPolicy?.rateLimit?.enabled ?? true,
+      maxRequests: item?.requestPolicy?.rateLimit?.maxRequests ?? item?.rateLimits?.maxRequests ?? 100,
+      windowSeconds: item?.requestPolicy?.rateLimit?.windowSeconds ?? item?.rateLimits?.windowSeconds ?? 60,
+    }
+  }
+});
+
+const splitPolicyLines = (value?: string) =>
+  String(value || '')
+    .split(/\r?\n|,/)
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+
 export const AdminRateLimitsRoute = () => {
   const { user } = useAuth();
   const isAdmin = user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN';
@@ -40,6 +60,8 @@ export const AdminRateLimitsRoute = () => {
   const [editForm] = Form.useForm();
   const [bulkModalOpen, setBulkModalOpen] = useState(false);
   const [bulkForm] = Form.useForm();
+  const [policyBulkModalOpen, setPolicyBulkModalOpen] = useState(false);
+  const [policyBulkForm] = Form.useForm();
 
   const filterPayload = useMemo(() => ({
     orgId: filterOrgId,
@@ -79,6 +101,9 @@ export const AdminRateLimitsRoute = () => {
             <Tag color={record.direction === 'INBOUND' ? 'blue' : 'green'}>{record.direction}</Tag>
             {!record.isActive && <Tag color="red">Inactive</Tag>}
           </Space>
+          {record.direction === 'INBOUND' && (
+            <RequestPolicySummary policy={record.requestPolicy || null} compact />
+          )}
         </Space>
       )
     },
@@ -92,6 +117,15 @@ export const AdminRateLimitsRoute = () => {
       title: 'Limit',
       key: 'limit',
       render: (_: any, record: AdminRateLimitItem) => buildLimitLabel(record)
+    },
+    {
+      title: 'Request Policy',
+      key: 'requestPolicy',
+      render: (_: any, record: AdminRateLimitItem) => (
+        record.direction === 'INBOUND'
+          ? <RequestPolicySummary policy={record.requestPolicy || null} compact />
+          : '—'
+      )
     },
     {
       title: 'Usage',
@@ -264,6 +298,15 @@ export const AdminRateLimitsRoute = () => {
                   }}
                 >
                   Apply Defaults
+                </Button>
+                <Button
+                  disabled={filterDirection === 'OUTBOUND'}
+                  onClick={() => {
+                    policyBulkForm.setFieldsValue(buildRequestPolicyFormValues());
+                    setPolicyBulkModalOpen(true);
+                  }}
+                >
+                  Apply Request Policy
                 </Button>
                 <Button
                   danger
@@ -478,6 +521,64 @@ export const AdminRateLimitsRoute = () => {
               >
                 <InputNumber min={1} style={{ width: '100%' }} />
               </Form.Item>
+            </Form>
+          </Modal>
+
+          <Modal
+            open={policyBulkModalOpen}
+            title="Apply Inbound Request Policy"
+            width={760}
+            onCancel={() => setPolicyBulkModalOpen(false)}
+            onOk={async () => {
+              try {
+                const values = await policyBulkForm.validateFields();
+                const effectiveFilters = {
+                  ...bulkFilters,
+                  direction: 'INBOUND'
+                };
+                const isGlobal = Object.values(bulkFilters).every((value) => value === undefined);
+                if (isGlobal) {
+                  const confirmed = await new Promise<boolean>((resolve) => {
+                    Modal.confirm({
+                      title: 'Apply to ALL inbound integrations?',
+                      content: 'No filters are selected. This will update the request policy for every inbound integration.',
+                      okText: 'Confirm',
+                      okButtonProps: { danger: true },
+                      cancelText: 'Cancel',
+                      onOk: () => resolve(true),
+                      onCancel: () => resolve(false)
+                    });
+                  });
+                  if (!confirmed) return;
+                }
+
+                const requestPolicy = {
+                  allowedIpCidrs: splitPolicyLines(values.requestPolicy?.allowedIpCidrsText),
+                  allowedBrowserOrigins: splitPolicyLines(values.requestPolicy?.allowedBrowserOriginsText),
+                  rateLimit: values.requestPolicy?.rateLimit || { enabled: false, maxRequests: 100, windowSeconds: 60 }
+                };
+
+                const result = await bulkApplyAdminRequestPolicy({
+                  filters: effectiveFilters,
+                  requestPolicy,
+                  mode: 'override',
+                  confirmAll: isGlobal
+                });
+                messageApi.success(`Updated ${result.modified} inbound integrations`);
+                setPolicyBulkModalOpen(false);
+                refetch();
+              } catch (error: any) {
+                if (error?.errorFields) return;
+                messageApi.error(error?.message || 'Bulk request policy update failed');
+              }
+            }}
+            okText="Apply"
+          >
+            <Typography.Paragraph type="secondary" style={{ marginBottom: spacingToNumber(spacing[2]) }}>
+              Applies the inbound request guardrails to all matching inbound integrations. Outbound integrations are never affected.
+            </Typography.Paragraph>
+            <Form layout="vertical" form={policyBulkForm}>
+              <RequestPolicySection form={policyBulkForm} spacing={spacing} />
             </Form>
           </Modal>
         </>

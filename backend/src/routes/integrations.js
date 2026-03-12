@@ -1103,6 +1103,17 @@ const handleInboundRuntime = async (req, res) => {
         .catch(() => {});
 
       if (!policyDecision.allowed) {
+        log('warn', 'Inbound request blocked by request policy', {
+          type,
+          orgId: resolvedOrgId,
+          integrationId: config._id?.toString(),
+          integrationName: config.name,
+          correlationId,
+          code: policyDecision.code,
+          statusCode: policyDecision.statusCode,
+          metadata: policyDecision.metadata,
+        });
+
         await persistIntegrationLogFn(config, 'FAILED', {
           request: { body: requestBody, query: queryParams, headers: maskSensitiveData(req.headers) },
           response: { status: policyDecision.statusCode },
