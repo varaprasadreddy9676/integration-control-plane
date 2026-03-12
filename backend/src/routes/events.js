@@ -499,6 +499,10 @@ router.post(
       orgId: bodyEntityParentRid,
       orgUnitRid: bodyOrgUnitRid,
       phone,
+      entContactDetails,
+      entityContactDetails,
+      councellerPhone,
+      councellorPhone,
       mrn,
       datetime,
       createdAt,
@@ -568,6 +572,18 @@ router.post(
     const createdAtValue = createdAt || nowMysql();
     const statusValue = status || 'PENDING';
     const topicValue = topic || 'notification';
+    const resolvedContactDetailsInput =
+      (entContactDetails && typeof entContactDetails === 'object' && !Array.isArray(entContactDetails) && entContactDetails)
+      || (entityContactDetails
+        && typeof entityContactDetails === 'object'
+        && !Array.isArray(entityContactDetails)
+        && entityContactDetails)
+      || (councellerPhone || councellorPhone
+        ? {
+            ...(councellerPhone ? { councellerPhone: String(councellerPhone) } : {}),
+            ...(councellorPhone ? { councellorPhone: String(councellorPhone) } : {}),
+          }
+        : null);
     const shouldRandomizeDates = Boolean(randomizeDates);
     const daysBack = Number.isFinite(Number(randomDaysBack)) ? Number(randomDaysBack) : 7;
     const daysForward = Number.isFinite(Number(randomDaysForward)) ? Number(randomDaysForward) : 7;
@@ -701,6 +717,30 @@ router.post(
     const sql = `INSERT INTO notification_queue (topic, transaction_type, message, entity_rid, entity_parent_rid, \`STATUS\`, created_at, delivered_at, last_checked_at, retry_count, error_message)
     VALUES (:topic, :transactionType, :message, :orgUnitRid, :orgId, :status, :createdAt, :deliveredAt, :lastCheckedAt, :retryCount, :errorMessage)`;
 
+    let entityContactDetailsUpdated = false;
+    if (resolvedContactDetailsInput) {
+      try {
+        const updateSql = 'UPDATE u_entity SET ent_contact_details = :entContactDetails WHERE ent_rid = :entRid';
+        const updateResult = await db.query(updateSql, {
+          entContactDetails: JSON.stringify(resolvedContactDetailsInput),
+          entRid: resolvedOrgUnitRid,
+        });
+        entityContactDetailsUpdated = Boolean(updateResult?.affectedRows || updateResult?.[0]?.affectedRows);
+        if (!entityContactDetailsUpdated) {
+          log('warn', 'No u_entity row updated for ent_contact_details during test event insertion', {
+            orgId: resolvedOrgId,
+            orgUnitRid: resolvedOrgUnitRid,
+          });
+        }
+      } catch (error) {
+        log('warn', 'Failed to update u_entity.ent_contact_details during test event insertion', {
+          orgId: resolvedOrgId,
+          orgUnitRid: resolvedOrgUnitRid,
+          error: error.message,
+        });
+      }
+    }
+
     let inserted = 0;
     for (const row of rows) {
       // Validate that no parameters are undefined
@@ -727,6 +767,7 @@ router.post(
     return res.json({
       inserted,
       eventTypes: selectedEventTypes,
+      entityContactDetailsUpdated,
     });
   })
 );

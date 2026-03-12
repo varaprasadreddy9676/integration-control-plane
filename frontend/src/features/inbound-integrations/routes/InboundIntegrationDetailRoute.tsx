@@ -503,13 +503,28 @@ return {
       headers.push(`-H "Authorization: Basic <BASE64_USER_PASS>"`);
     }
 
+    const communicationAction = integrationConfig.actions?.find((a: any) => a.kind === 'COMMUNICATION');
+    const communicationConfig = communicationAction?.communicationConfig || {};
     const isEmailCommunication = integrationConfig.type === 'EMAIL' ||
+      communicationConfig.channel === 'EMAIL' ||
       integrationConfig.actions?.some((a: any) => a.kind === 'COMMUNICATION');
+    const isRoutedEmail = communicationConfig.provider === 'ROUTED_EMAIL' &&
+      communicationConfig.senderRouting?.enabled === true;
+    const senderField = communicationConfig.senderRouting?.sourceField || 'from';
+    const defaultProfile =
+      senderProfiles.find((profile) => profile.id === communicationConfig.senderRouting?.defaultProfileId)
+      || senderProfiles.find((profile) => profile.isDefault);
+    const fixedFromEmail = communicationConfig.smtp?.fromEmail || communicationConfig.fromEmail;
 
     let dataPart = '';
     if (httpMethod !== 'GET') {
       if (isEmailCommunication) {
         const sampleBody = {
+          ...(isRoutedEmail
+            ? { [senderField]: defaultProfile?.fromEmail || '<CONFIGURED_SENDER_EMAIL>' }
+            : fixedFromEmail
+              ? { from: fixedFromEmail }
+              : {}),
           to: 'recipient@example.com',
           subject: 'Test Email',
           html: '<h1>Test</h1><p>This is a test email.</p>',

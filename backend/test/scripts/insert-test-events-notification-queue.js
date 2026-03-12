@@ -185,6 +185,10 @@ const TEST_EVENTS = [
   }
 ];
 
+const ENTITY_CONTACT_DETAILS = {
+  councellorPhone: '112321213',
+};
+
 async function insertTestEvents() {
   let connection;
 
@@ -202,6 +206,17 @@ async function insertTestEvents() {
     });
 
     console.log('✅ Connected to MySQL\n');
+
+    const uniqueEntityIds = Array.from(new Set(TEST_EVENTS.map((event) => Number(event.entity_rid)).filter(Number.isFinite)));
+    for (const entityRid of uniqueEntityIds) {
+      await connection.query('UPDATE u_entity SET ent_contact_details = ? WHERE ent_rid = ?', [
+        JSON.stringify(ENTITY_CONTACT_DETAILS),
+        entityRid,
+      ]);
+      console.log(`  ✓ Updated u_entity.ent_contact_details for ent_rid=${entityRid}`);
+    }
+
+    console.log('');
 
     console.log('📝 Inserting test events into notification_queue...\n');
 

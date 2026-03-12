@@ -141,7 +141,17 @@ async function insertTestEvents() {
     }
   ];
 
+  const entityContactDetails = {
+    councellorPhone: '112321213',
+  };
+
   console.log('Inserting test events...');
+
+  await connection.execute('UPDATE u_entity SET ent_contact_details = ? WHERE ent_rid = ?', [
+    JSON.stringify(entityContactDetails),
+    33,
+  ]);
+  console.log('✅ Updated u_entity.ent_contact_details for ent_rid=33');
 
   for (const event of events) {
     await connection.execute(

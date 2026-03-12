@@ -14,15 +14,12 @@ LOG_FILE="${ROOT_DIR}/nohup.out"
 LOCK_DIR="${ROOT_DIR}/backend.start.lock"
 ENTRYPOINT="src/index.js"
 DEFAULT_NODE_BIN="/root/.nvm/versions/node/v14.15.3/bin/node"
+ROOT_ENV_FILE="${ROOT_DIR}/.env"
+BACKEND_ENV_FILE="${BACKEND_DIR}/.env"
 
 resolve_node_bin() {
   if [ "${NODE_BIN:-}" ] && [ -x "${NODE_BIN}" ]; then
     printf '%s\n' "${NODE_BIN}"
-    return 0
-  fi
-
-  if [ -x "${DEFAULT_NODE_BIN}" ]; then
-    printf '%s\n' "${DEFAULT_NODE_BIN}"
     return 0
   fi
 
@@ -31,8 +28,23 @@ resolve_node_bin() {
     return 0
   fi
 
+  if [ -x "${DEFAULT_NODE_BIN}" ]; then
+    printf '%s\n' "${DEFAULT_NODE_BIN}"
+    return 0
+  fi
+
   echo "ERROR: Unable to find a node binary. Set NODE_BIN or install node." >&2
   return 1
+}
+
+load_env_file() {
+  env_file="$1"
+  [ -f "${env_file}" ] || return 0
+
+  # shellcheck disable=SC1090
+  set -a
+  . "${env_file}"
+  set +a
 }
 
 is_numeric_pid() {
@@ -126,6 +138,8 @@ start_backend() {
   node_bin="$(resolve_node_bin)"
 
   (
+    load_env_file "${ROOT_ENV_FILE}"
+    load_env_file "${BACKEND_ENV_FILE}"
     cd "${BACKEND_DIR}"
     nohup "${node_bin}" "${ENTRYPOINT}" >>"${LOG_FILE}" 2>&1 < /dev/null &
     printf '%s\n' "$!" >"${PID_FILE}"

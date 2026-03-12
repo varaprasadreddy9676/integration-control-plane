@@ -62,6 +62,12 @@ async function ensureIndexes() {
     { key: { orgId: 1, normalizedFromEmail: 1 }, unique: true, name: 'org_from_unique_idx' },
     { key: { orgId: 1, isActive: 1 }, name: 'org_active_idx' },
     { key: { orgId: 1, isDefault: 1 }, name: 'org_default_idx' },
+    {
+      key: { orgId: 1, isDefault: 1 },
+      unique: true,
+      partialFilterExpression: { isDefault: true },
+      name: 'org_single_default_unique_idx',
+    },
   ]);
 }
 
@@ -81,8 +87,16 @@ function validateSenderProfileInput(input, { partial = false } = {}) {
 
   const aliases = input.aliases !== undefined ? normalizeAliases(input.aliases) : undefined;
   const channel = input.channel ? String(input.channel).trim().toUpperCase() : undefined;
+  const isDefault = input.isDefault === true;
+  const isActive = input.isActive === undefined ? true : input.isActive !== false;
   if (channel && channel !== 'EMAIL') {
     throw new ValidationError('Only EMAIL sender profiles are currently supported');
+  }
+  if (isDefault && !isActive) {
+    throw new ValidationError('Default sender profile must be active');
+  }
+  if (aliases && fromEmail && aliases.includes(fromEmail)) {
+    throw new ValidationError('aliases cannot include fromEmail');
   }
 
   let providerPayload = {};
@@ -98,8 +112,8 @@ function validateSenderProfileInput(input, { partial = false } = {}) {
     aliases,
     normalizedAliases: aliases,
     channel: channel || 'EMAIL',
-    isDefault: input.isDefault === true,
-    isActive: input.isActive === undefined ? true : input.isActive !== false,
+    isDefault,
+    isActive,
     ...providerPayload,
   };
 }
@@ -111,6 +125,26 @@ async function clearOtherDefaults(orgId, excludedId) {
     query._id = { $ne: mongodb.toObjectId(excludedId) };
   }
   await db.collection(COLLECTION).updateMany(query, { $set: { isDefault: false, updatedAt: new Date() } });
+}
+
+async function findReplacementDefault(orgId, excludedId) {
+  const db = await mongodb.getDbSafe();
+  const query = { orgId, isActive: true };
+  if (excludedId) {
+    query._id = { $ne: mongodb.toObjectId(excludedId) };
+  }
+  return db.collection(COLLECTION).findOne(query, { sort: { key: 1 } });
+}
+
+async function promoteReplacementDefault(orgId, excludedId) {
+  const db = await mongodb.getDbSafe();
+  const replacement = await findReplacementDefault(orgId, excludedId);
+  if (!replacement) {
+    throw new ValidationError('At least one active default sender profile is required');
+  }
+  await db
+    .collection(COLLECTION)
+    .updateOne({ _id: replacement._id }, { $set: { isDefault: true, updatedAt: new Date() } });
 }
 
 async function listSenderProfiles(orgId) {
@@ -135,7 +169,12 @@ async function createSenderProfile(orgId, input, { createdBy = 'system' } = {}) 
     await clearOtherDefaults(orgId);
   } else {
     const existingDefault = await db.collection(COLLECTION).findOne({ orgId, isDefault: true });
-    if (!existingDefault) payload.isDefault = true;
+    if (!existingDefault) {
+      if (!payload.isActive) {
+        throw new ValidationError('The first sender profile for an org must be active and default');
+      }
+      payload.isDefault = true;
+    }
   }
 
   const doc = {
@@ -177,7 +216,27 @@ async function updateSenderProfile(orgId, id, input) {
     nextDoc.isDefault = false;
   }
 
+  if (nextDoc.isDefault && nextDoc.isActive === false) {
+    throw new ValidationError('Default sender profile must be active');
+  }
+
+  const removingDefault = existing.isDefault === true && nextDoc.isDefault !== true;
+  const deactivatingDefault = existing.isDefault === true && nextDoc.isActive === false;
+
+  if (removingDefault || deactivatingDefault) {
+    await findReplacementDefault(orgId, id).then((replacement) => {
+      if (!replacement) {
+        throw new ValidationError('At least one active default sender profile is required');
+      }
+    });
+  }
+
   await db.collection(COLLECTION).updateOne({ _id: existing._id }, { $set: nextDoc });
+
+  if (removingDefault || deactivatingDefault) {
+    await promoteReplacementDefault(orgId, id);
+  }
+
   return mapSenderProfile(nextDoc);
 }
 
@@ -186,13 +245,17 @@ async function deleteSenderProfile(orgId, id) {
   const existing = await db.collection(COLLECTION).findOne({ _id: mongodb.toObjectId(id), orgId });
   if (!existing) throw new NotFoundError('Sender profile not found');
 
+  if (existing.isDefault) {
+    const replacement = await findReplacementDefault(orgId, id);
+    if (!replacement) {
+      throw new ValidationError('Cannot delete the only active default sender profile');
+    }
+  }
+
   await db.collection(COLLECTION).deleteOne({ _id: existing._id });
 
   if (existing.isDefault) {
-    const replacement = await db.collection(COLLECTION).findOne({ orgId }, { sort: { key: 1 } });
-    if (replacement) {
-      await db.collection(COLLECTION).updateOne({ _id: replacement._id }, { $set: { isDefault: true, updatedAt: new Date() } });
-    }
+    await promoteReplacementDefault(orgId, id);
   }
 }
 

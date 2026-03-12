@@ -219,13 +219,25 @@ export const InboundIntegrationsRoute = ({ hideHeader = false, isActive = true }
       headers.push(`-H "Authorization: Basic <BASE64_USER_PASS>"`);
     }
 
+    const communicationAction = integration.actions?.find((a: any) => a.kind === 'COMMUNICATION');
+    const communicationConfig = communicationAction?.communicationConfig || {};
     const isEmailCommunication = integration.type === 'EMAIL' ||
+      communicationConfig.channel === 'EMAIL' ||
       integration.actions?.some((a: any) => a.kind === 'COMMUNICATION');
+    const isRoutedEmail = communicationConfig.provider === 'ROUTED_EMAIL' &&
+      communicationConfig.senderRouting?.enabled === true;
+    const senderField = communicationConfig.senderRouting?.sourceField || 'from';
+    const fixedFromEmail = communicationConfig.smtp?.fromEmail || communicationConfig.fromEmail;
 
     let dataPart = '';
     if (httpMethod !== 'GET') {
       if (isEmailCommunication) {
         const sampleBody = {
+          ...(isRoutedEmail
+            ? { [senderField]: '<CONFIGURED_SENDER_EMAIL>' }
+            : fixedFromEmail
+              ? { from: fixedFromEmail }
+              : {}),
           to: 'recipient@example.com',
           subject: 'Test Email',
           html: '<h1>Test</h1><p>This is a test email.</p>',
