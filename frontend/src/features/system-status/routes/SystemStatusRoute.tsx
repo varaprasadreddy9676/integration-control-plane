@@ -325,7 +325,7 @@ function AlertsList({ data }: { data: SystemStatusResponse }) {
 export function SystemStatusRoute({ mode = 'admin' }: { mode?: 'admin' | 'standalone' }) {
   const { spacing } = useDesignTokens();
   const { user } = useAuth();
-  const { orgId } = useTenant();
+  const { orgId, tenant, clearOrgId } = useTenant();
   const screens = Grid.useBreakpoint();
   const isStandalone = mode === 'standalone';
   const isPortalSession = !!(user as any)?.isPortalSession;
@@ -403,6 +403,12 @@ export function SystemStatusRoute({ mode = 'admin' }: { mode?: 'admin' | 'standa
   );
   const isGlobalScope = data?.scope === 'global';
   const organizations = data?.organizations || [];
+  const canReturnToGlobal = !isStandalone && !isPortalSession && effectiveOrgId > 0;
+  const viewingLabel = isGlobalScope
+    ? 'Viewing: All Organizations'
+    : effectiveOrgId > 0
+      ? `Viewing: ${tenant?.tenantName || `Org ${effectiveOrgId}`}`
+      : 'Viewing: Scope Unknown';
 
   const directionMix = data?.traffic?.directionMixLast60m || {};
   const backlogRows = [
@@ -765,6 +771,7 @@ export function SystemStatusRoute({ mode = 'admin' }: { mode?: 'admin' | 'standa
         }
         titleSuffix={isPortalSession ? <PortalScopeBadge /> : undefined}
         statusChips={[
+          { label: viewingLabel, color: isGlobalScope ? '#1677ff' : undefined },
           { label: overallStatus.label, color: overallStatus.color === 'orange' ? '#faad14' : overallStatus.color === 'green' ? '#52c41a' : overallStatus.color === 'red' ? '#ff4d4f' : undefined },
           { label: lifecycleStatus.label, color: lifecycleStatus.color === 'orange' ? '#faad14' : lifecycleStatus.color === 'green' ? '#52c41a' : lifecycleStatus.color === 'red' ? '#ff4d4f' : lifecycleStatus.color === 'blue' ? '#1677ff' : undefined },
           { label: `${data?.overall?.alertCount?.total ?? 0} alerts`, color: (data?.overall?.alertCount?.total || 0) > 0 ? '#faad14' : undefined },
@@ -788,6 +795,31 @@ export function SystemStatusRoute({ mode = 'admin' }: { mode?: 'admin' | 'standa
           </Space>
         }
       />
+
+      {isGlobalScope && (
+        <Alert
+          type="info"
+          showIcon
+          message="Global Scope"
+          description="This view aggregates application and organization status across all orgs. Use the org switcher in the header to move into a single org's detailed diagnostics."
+          style={{ marginBottom: spacing[4] }}
+        />
+      )}
+
+      {canReturnToGlobal && (
+        <Alert
+          type="info"
+          showIcon
+          message={`Org Scope Active${tenant?.tenantName ? `: ${tenant.tenantName}` : ''}`}
+          description="You are viewing detailed status for one organization. Clear the current org selection to return to the global all-organizations view."
+          action={
+            <Button size="small" onClick={clearOrgId}>
+              Return to Global View
+            </Button>
+          }
+          style={{ marginBottom: spacing[4] }}
+        />
+      )}
 
       {error && (
         <Alert
