@@ -783,6 +783,55 @@ const eventTypeSchemas = [
   },
 ];
 
+const ENTITY_CONTACT_DETAILS_FIELD = {
+  path: 'entityContactDetails',
+  type: 'object',
+  description: 'Entity contact details JSON enriched from u_entity.ent_contact_details',
+  example: { councellorPhone: '112321213' },
+};
+
+const ENTITY_CONTACT_DETAILS_PHONE_FIELD = {
+  path: 'entityContactDetails.councellorPhone',
+  type: 'string',
+  description: 'Counsellor phone number from entity contact details',
+  example: '112321213',
+};
+
+const CONTACT_DETAILS_FIELD = {
+  path: 'contactDetails',
+  type: 'object|string',
+  description: 'Additional contact details payload, often delivered as a JSON string',
+  example: { phone: '12313', maplink: '1324e32', councellerNo: '323232' },
+};
+
+const CONTACT_DETAILS_COUNCELLER_FIELD = {
+  path: 'contactDetails.councellerNo',
+  type: 'string',
+  description: 'Counsellor phone number from contactDetails payload',
+  example: '323232',
+};
+
+for (const schema of eventTypeSchemas) {
+  if (!schema.fields.some(field => field.path === ENTITY_CONTACT_DETAILS_FIELD.path)) {
+    schema.fields.push({ ...ENTITY_CONTACT_DETAILS_FIELD });
+  }
+  if (!schema.fields.some(field => field.path === ENTITY_CONTACT_DETAILS_PHONE_FIELD.path)) {
+    schema.fields.push({ ...ENTITY_CONTACT_DETAILS_PHONE_FIELD });
+  }
+  if (!schema.fields.some(field => field.path === CONTACT_DETAILS_FIELD.path)) {
+    schema.fields.push({ ...CONTACT_DETAILS_FIELD });
+  }
+  if (!schema.fields.some(field => field.path === CONTACT_DETAILS_COUNCELLER_FIELD.path)) {
+    schema.fields.push({ ...CONTACT_DETAILS_COUNCELLER_FIELD });
+  }
+  if (schema.samplePayload && !schema.samplePayload.entityContactDetails) {
+    schema.samplePayload.entityContactDetails = { councellorPhone: '112321213' };
+  }
+  if (schema.samplePayload && !schema.samplePayload.contactDetails) {
+    schema.samplePayload.contactDetails = { phone: '12313', maplink: '1324e32', councellerNo: '323232' };
+  }
+}
+
 /**
  * Seed event type schemas to MongoDB
  */

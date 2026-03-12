@@ -369,6 +369,36 @@
         "type": "number",
         "description": "Update count",
         "example": 0
+      },
+      {
+        "path": "entityContactDetails",
+        "type": "object",
+        "description": "Entity contact details JSON enriched from u_entity.ent_contact_details",
+        "example": {
+          "councellorPhone": "112321213"
+        }
+      },
+      {
+        "path": "entityContactDetails.councellorPhone",
+        "type": "string",
+        "description": "Counsellor phone number from entity contact details",
+        "example": "112321213"
+      },
+      {
+        "path": "contactDetails",
+        "type": "object|string",
+        "description": "Additional contact details payload, often delivered as a JSON string",
+        "example": {
+          "phone": "12313",
+          "maplink": "1324e32",
+          "councellerNo": "323232"
+        }
+      },
+      {
+        "path": "contactDetails.councellerNo",
+        "type": "string",
+        "description": "Counsellor phone number from contactDetails payload",
+        "example": "323232"
       }
     ],
     "samplePayload": {
@@ -445,7 +475,15 @@
       "entityPhone": "9533322607",
       "enterpriseCode": "7709418",
       "orgId": 84,
-      "enterpriseEntityRID": 84
+      "enterpriseEntityRID": 84,
+      "entityContactDetails": {
+        "councellorPhone": "112321213"
+      },
+      "contactDetails": {
+        "phone": "12313",
+        "maplink": "1324e32",
+        "councellerNo": "323232"
+      }
     },
     "createdAt": {
       "$date": "2025-12-10T06:47:27.645Z"
@@ -825,6 +863,36 @@
         "type": "number",
         "description": "Enterprise entity RID",
         "example": 84
+      },
+      {
+        "path": "entityContactDetails",
+        "type": "object",
+        "description": "Entity contact details JSON enriched from u_entity.ent_contact_details",
+        "example": {
+          "councellorPhone": "112321213"
+        }
+      },
+      {
+        "path": "entityContactDetails.councellorPhone",
+        "type": "string",
+        "description": "Counsellor phone number from entity contact details",
+        "example": "112321213"
+      },
+      {
+        "path": "contactDetails",
+        "type": "object|string",
+        "description": "Additional contact details payload, often delivered as a JSON string",
+        "example": {
+          "phone": "12313",
+          "maplink": "1324e32",
+          "councellerNo": "323232"
+        }
+      },
+      {
+        "path": "contactDetails.councellerNo",
+        "type": "string",
+        "description": "Counsellor phone number from contactDetails payload",
+        "example": "323232"
       }
     ],
     "samplePayload": {
@@ -905,7 +973,15 @@
       "entityPhone": "9533322607",
       "enterpriseCode": "7709418",
       "entityParentID": 84,
-      "enterpriseEntityRID": 84
+      "enterpriseEntityRID": 84,
+      "entityContactDetails": {
+        "councellorPhone": "112321213"
+      },
+      "contactDetails": {
+        "phone": "12313",
+        "maplink": "1324e32",
+        "councellerNo": "323232"
+      }
     },
     "createdAt": {
       "$date": "2025-12-10T06:47:27.645Z"
@@ -1327,6 +1403,36 @@
         "type": "number",
         "description": "Enterprise entity RID",
         "example": 145
+      },
+      {
+        "path": "entityContactDetails",
+        "type": "object",
+        "description": "Entity contact details JSON enriched from u_entity.ent_contact_details",
+        "example": {
+          "councellorPhone": "112321213"
+        }
+      },
+      {
+        "path": "entityContactDetails.councellorPhone",
+        "type": "string",
+        "description": "Counsellor phone number from entity contact details",
+        "example": "112321213"
+      },
+      {
+        "path": "contactDetails",
+        "type": "object|string",
+        "description": "Additional contact details payload, often delivered as a JSON string",
+        "example": {
+          "phone": "12313",
+          "maplink": "1324e32",
+          "councellerNo": "323232"
+        }
+      },
+      {
+        "path": "contactDetails.councellerNo",
+        "type": "string",
+        "description": "Counsellor phone number from contactDetails payload",
+        "example": "323232"
       }
     ],
     "samplePayload": {
@@ -1414,7 +1520,15 @@
       "patientDOBISO": "1996-07-12",
       "enterpriseCode": "7859621",
       "entityParentID": 145,
-      "enterpriseEntityRID": 145
+      "enterpriseEntityRID": 145,
+      "entityContactDetails": {
+        "councellorPhone": "112321213"
+      },
+      "contactDetails": {
+        "phone": "12313",
+        "maplink": "1324e32",
+        "councellerNo": "323232"
+      }
     },
     "createdAt": {
       "$date": "2025-12-10T06:47:27.645Z"
@@ -1530,6 +1644,36 @@
         "type": "string",
         "description": "Patient address",
         "example": "Kannanda Bane"
+      },
+      {
+        "path": "entityContactDetails",
+        "type": "object",
+        "description": "Entity contact details JSON enriched from u_entity.ent_contact_details",
+        "example": {
+          "councellorPhone": "112321213"
+        }
+      },
+      {
+        "path": "entityContactDetails.councellorPhone",
+        "type": "string",
+        "description": "Counsellor phone number from entity contact details",
+        "example": "112321213"
+      },
+      {
+        "path": "contactDetails",
+        "type": "object|string",
+        "description": "Additional contact details payload, often delivered as a JSON string",
+        "example": {
+          "phone": "12313",
+          "maplink": "1324e32",
+          "councellerNo": "323232"
+        }
+      },
+      {
+        "path": "contactDetails.councellerNo",
+        "type": "string",
+        "description": "Counsellor phone number from contactDetails payload",
+        "example": "323232"
       }
     ],
     "samplePayload": {
@@ -1551,7 +1695,15 @@
         }
       },
       "datetime": "27/01/2026 02:58 PM",
-      "type": "OP_REFERRAL_DOCTOR_EVENT"
+      "type": "OP_REFERRAL_DOCTOR_EVENT",
+      "entityContactDetails": {
+        "councellorPhone": "112321213"
+      },
+      "contactDetails": {
+        "phone": "12313",
+        "maplink": "1324e32",
+        "councellerNo": "323232"
+      }
     },
     "createdAt": {
       "$date": "2025-12-10T06:47:27.645Z"
@@ -2045,6 +2197,36 @@
         "type": "string",
         "description": "Claims denied amount",
         "example": "0.0"
+      },
+      {
+        "path": "entityContactDetails",
+        "type": "object",
+        "description": "Entity contact details JSON enriched from u_entity.ent_contact_details",
+        "example": {
+          "councellorPhone": "112321213"
+        }
+      },
+      {
+        "path": "entityContactDetails.councellorPhone",
+        "type": "string",
+        "description": "Counsellor phone number from entity contact details",
+        "example": "112321213"
+      },
+      {
+        "path": "contactDetails",
+        "type": "object|string",
+        "description": "Additional contact details payload, often delivered as a JSON string",
+        "example": {
+          "phone": "12313",
+          "maplink": "1324e32",
+          "councellerNo": "323232"
+        }
+      },
+      {
+        "path": "contactDetails.councellerNo",
+        "type": "string",
+        "description": "Counsellor phone number from contactDetails payload",
+        "example": "323232"
       }
     ],
     "samplePayload": {
@@ -2104,7 +2286,15 @@
         }
       },
       "datetime": "27/01/2026 02:58 PM",
-      "type": "BILL_CREATED"
+      "type": "BILL_CREATED",
+      "entityContactDetails": {
+        "councellorPhone": "112321213"
+      },
+      "contactDetails": {
+        "phone": "12313",
+        "maplink": "1324e32",
+        "councellerNo": "323232"
+      }
     },
     "createdAt": {
       "$date": "2025-12-10T06:47:27.646Z"
@@ -2634,6 +2824,36 @@
         "type": "number",
         "description": "Enterprise entity RID",
         "example": 145
+      },
+      {
+        "path": "entityContactDetails",
+        "type": "object",
+        "description": "Entity contact details JSON enriched from u_entity.ent_contact_details",
+        "example": {
+          "councellorPhone": "112321213"
+        }
+      },
+      {
+        "path": "entityContactDetails.councellorPhone",
+        "type": "string",
+        "description": "Counsellor phone number from entity contact details",
+        "example": "112321213"
+      },
+      {
+        "path": "contactDetails",
+        "type": "object|string",
+        "description": "Additional contact details payload, often delivered as a JSON string",
+        "example": {
+          "phone": "12313",
+          "maplink": "1324e32",
+          "councellerNo": "323232"
+        }
+      },
+      {
+        "path": "contactDetails.councellerNo",
+        "type": "string",
+        "description": "Counsellor phone number from contactDetails payload",
+        "example": "323232"
       }
     ],
     "samplePayload": {
@@ -2729,7 +2949,15 @@
       "patientDOBISO": "1996-07-12",
       "enterpriseCode": "7859621",
       "entityParentID": 145,
-      "enterpriseEntityRID": 145
+      "enterpriseEntityRID": 145,
+      "entityContactDetails": {
+        "councellorPhone": "112321213"
+      },
+      "contactDetails": {
+        "phone": "12313",
+        "maplink": "1324e32",
+        "councellerNo": "323232"
+      }
     },
     "createdAt": {
       "$date": "2025-12-10T06:47:27.646Z"
@@ -3001,6 +3229,36 @@
         "type": "number",
         "description": "source system ID",
         "example": 0
+      },
+      {
+        "path": "entityContactDetails",
+        "type": "object",
+        "description": "Entity contact details JSON enriched from u_entity.ent_contact_details",
+        "example": {
+          "councellorPhone": "112321213"
+        }
+      },
+      {
+        "path": "entityContactDetails.councellorPhone",
+        "type": "string",
+        "description": "Counsellor phone number from entity contact details",
+        "example": "112321213"
+      },
+      {
+        "path": "contactDetails",
+        "type": "object|string",
+        "description": "Additional contact details payload, often delivered as a JSON string",
+        "example": {
+          "phone": "12313",
+          "maplink": "1324e32",
+          "councellerNo": "323232"
+        }
+      },
+      {
+        "path": "contactDetails.councellerNo",
+        "type": "string",
+        "description": "Counsellor phone number from contactDetails payload",
+        "example": "323232"
       }
     ],
     "samplePayload": {
@@ -3030,7 +3288,15 @@
         }
       },
       "datetime": "27/01/2026 02:58 PM",
-      "type": "APPOINTMENT_CANCELLATION"
+      "type": "APPOINTMENT_CANCELLATION",
+      "entityContactDetails": {
+        "councellorPhone": "112321213"
+      },
+      "contactDetails": {
+        "phone": "12313",
+        "maplink": "1324e32",
+        "councellerNo": "323232"
+      }
     },
     "createdAt": {
       "$date": "2025-12-10T06:47:27.646Z"
@@ -3764,6 +4030,36 @@
         "type": "number",
         "description": "Enterprise entity RID",
         "example": 145
+      },
+      {
+        "path": "entityContactDetails",
+        "type": "object",
+        "description": "Entity contact details JSON enriched from u_entity.ent_contact_details",
+        "example": {
+          "councellorPhone": "112321213"
+        }
+      },
+      {
+        "path": "entityContactDetails.councellorPhone",
+        "type": "string",
+        "description": "Counsellor phone number from entity contact details",
+        "example": "112321213"
+      },
+      {
+        "path": "contactDetails",
+        "type": "object|string",
+        "description": "Additional contact details payload, often delivered as a JSON string",
+        "example": {
+          "phone": "12313",
+          "maplink": "1324e32",
+          "councellerNo": "323232"
+        }
+      },
+      {
+        "path": "contactDetails.councellerNo",
+        "type": "string",
+        "description": "Counsellor phone number from contactDetails payload",
+        "example": "323232"
       }
     ],
     "samplePayload": {
@@ -3907,7 +4203,15 @@
       "patientDOBISO": "1996-02-18",
       "enterpriseCode": "7859621",
       "entityParentID": 145,
-      "enterpriseEntityRID": 145
+      "enterpriseEntityRID": 145,
+      "entityContactDetails": {
+        "councellorPhone": "112321213"
+      },
+      "contactDetails": {
+        "phone": "12313",
+        "maplink": "1324e32",
+        "councellerNo": "323232"
+      }
     },
     "createdAt": {
       "$date": "2025-12-10T06:47:27.646Z"
@@ -4192,6 +4496,36 @@
         "type": "string",
         "description": "Date when treatment was advised",
         "example": "07/01/2026 12:00 AM"
+      },
+      {
+        "path": "entityContactDetails",
+        "type": "object",
+        "description": "Entity contact details JSON enriched from u_entity.ent_contact_details",
+        "example": {
+          "councellorPhone": "112321213"
+        }
+      },
+      {
+        "path": "entityContactDetails.councellorPhone",
+        "type": "string",
+        "description": "Counsellor phone number from entity contact details",
+        "example": "112321213"
+      },
+      {
+        "path": "contactDetails",
+        "type": "object|string",
+        "description": "Additional contact details payload, often delivered as a JSON string",
+        "example": {
+          "phone": "12313",
+          "maplink": "1324e32",
+          "councellerNo": "323232"
+        }
+      },
+      {
+        "path": "contactDetails.councellerNo",
+        "type": "string",
+        "description": "Counsellor phone number from contactDetails payload",
+        "example": "323232"
       }
     ],
     "implementationClass": "ubq.ivf.TreatmentAdvisedEvent",
@@ -4252,6 +4586,14 @@
         "treatmentAdviseBy": "UBQ Admin",
         "treatmentAdviseId": 680061,
         "treatmentAdviseDate": "07/01/2026 12:00 AM"
+      },
+      "entityContactDetails": {
+        "councellorPhone": "112321213"
+      },
+      "contactDetails": {
+        "phone": "12313",
+        "maplink": "1324e32",
+        "councellerNo": "323232"
       }
     }
   },
@@ -4548,6 +4890,36 @@
         "type": "number",
         "description": "Related treatment advise ID",
         "example": 680061
+      },
+      {
+        "path": "entityContactDetails",
+        "type": "object",
+        "description": "Entity contact details JSON enriched from u_entity.ent_contact_details",
+        "example": {
+          "councellorPhone": "112321213"
+        }
+      },
+      {
+        "path": "entityContactDetails.councellorPhone",
+        "type": "string",
+        "description": "Counsellor phone number from entity contact details",
+        "example": "112321213"
+      },
+      {
+        "path": "contactDetails",
+        "type": "object|string",
+        "description": "Additional contact details payload, often delivered as a JSON string",
+        "example": {
+          "phone": "12313",
+          "maplink": "1324e32",
+          "councellerNo": "323232"
+        }
+      },
+      {
+        "path": "contactDetails.councellerNo",
+        "type": "string",
+        "description": "Counsellor phone number from contactDetails payload",
+        "example": "323232"
       }
     ],
     "implementationClass": "ubq.ivf.ConsentReceivedEvent",
@@ -4611,6 +4983,14 @@
         "assistantDoctor": "Dr AVINASH",
         "consentReceivedOn": "07/01/2026",
         "treatmentAdviseId": 680061
+      },
+      "entityContactDetails": {
+        "councellorPhone": "112321213"
+      },
+      "contactDetails": {
+        "phone": "12313",
+        "maplink": "1324e32",
+        "councellerNo": "323232"
       }
     }
   },
@@ -5087,6 +5467,36 @@
         "type": "string",
         "description": "treatmentCycle.cycleTypeName value",
         "example": "IVF"
+      },
+      {
+        "path": "entityContactDetails",
+        "type": "object",
+        "description": "Entity contact details JSON enriched from u_entity.ent_contact_details",
+        "example": {
+          "councellorPhone": "112321213"
+        }
+      },
+      {
+        "path": "entityContactDetails.councellorPhone",
+        "type": "string",
+        "description": "Counsellor phone number from entity contact details",
+        "example": "112321213"
+      },
+      {
+        "path": "contactDetails",
+        "type": "object|string",
+        "description": "Additional contact details payload, often delivered as a JSON string",
+        "example": {
+          "phone": "12313",
+          "maplink": "1324e32",
+          "councellerNo": "323232"
+        }
+      },
+      {
+        "path": "contactDetails.councellerNo",
+        "type": "string",
+        "description": "Counsellor phone number from contactDetails payload",
+        "example": "323232"
       }
     ],
     "implementationClass": "ubq.ivf.TreatmentCycleStartedEvent",
@@ -5195,7 +5605,15 @@
         "treatmentStartDate": "20/02/2026",
         "treatmentspecification": "IVF (Conventional IVF), Self Ovum (Fresh), Partner Sperm"
       },
-      "enterpriseEntityRID": 849
+      "enterpriseEntityRID": 849,
+      "entityContactDetails": {
+        "councellorPhone": "112321213"
+      },
+      "contactDetails": {
+        "phone": "12313",
+        "maplink": "1324e32",
+        "councellerNo": "323232"
+      }
     }
   },
   {
@@ -5467,6 +5885,36 @@
         "type": "string",
         "description": "Date stimulation started",
         "example": "09/01/2026"
+      },
+      {
+        "path": "entityContactDetails",
+        "type": "object",
+        "description": "Entity contact details JSON enriched from u_entity.ent_contact_details",
+        "example": {
+          "councellorPhone": "112321213"
+        }
+      },
+      {
+        "path": "entityContactDetails.councellorPhone",
+        "type": "string",
+        "description": "Counsellor phone number from entity contact details",
+        "example": "112321213"
+      },
+      {
+        "path": "contactDetails",
+        "type": "object|string",
+        "description": "Additional contact details payload, often delivered as a JSON string",
+        "example": {
+          "phone": "12313",
+          "maplink": "1324e32",
+          "councellerNo": "323232"
+        }
+      },
+      {
+        "path": "contactDetails.councellerNo",
+        "type": "string",
+        "description": "Counsellor phone number from contactDetails payload",
+        "example": "323232"
       }
     ],
     "implementationClass": "ubq.ivf.StimulationStartedEvent",
@@ -5526,6 +5974,14 @@
         "chartId": 527844,
         "protocolName": "Antagonist",
         "stimulationStartedOn": "09/01/2026"
+      },
+      "entityContactDetails": {
+        "councellorPhone": "112321213"
+      },
+      "contactDetails": {
+        "phone": "12313",
+        "maplink": "1324e32",
+        "councellerNo": "323232"
       }
     }
   },
@@ -5816,6 +6272,36 @@
         "type": "string",
         "description": "Stimulation start date",
         "example": "19/02/2026"
+      },
+      {
+        "path": "entityContactDetails",
+        "type": "object",
+        "description": "Entity contact details JSON enriched from u_entity.ent_contact_details",
+        "example": {
+          "councellorPhone": "112321213"
+        }
+      },
+      {
+        "path": "entityContactDetails.councellorPhone",
+        "type": "string",
+        "description": "Counsellor phone number from entity contact details",
+        "example": "112321213"
+      },
+      {
+        "path": "contactDetails",
+        "type": "object|string",
+        "description": "Additional contact details payload, often delivered as a JSON string",
+        "example": {
+          "phone": "12313",
+          "maplink": "1324e32",
+          "councellerNo": "323232"
+        }
+      },
+      {
+        "path": "contactDetails.councellerNo",
+        "type": "string",
+        "description": "Counsellor phone number from contactDetails payload",
+        "example": "323232"
       }
     ],
     "implementationClass": "ubq.ivf.StimulationMedicationRecordedEvent",
@@ -5878,6 +6364,14 @@
         "stimulationDate": "22/02/2026",
         "medicationRecorded": true,
         "stimulationStartedOn": "19/02/2026"
+      },
+      "entityContactDetails": {
+        "councellorPhone": "112321213"
+      },
+      "contactDetails": {
+        "phone": "12313",
+        "maplink": "1324e32",
+        "councellerNo": "323232"
       }
     }
   },
@@ -6168,6 +6662,36 @@
         "type": "string",
         "description": "Stimulation start date",
         "example": "09/01/2026"
+      },
+      {
+        "path": "entityContactDetails",
+        "type": "object",
+        "description": "Entity contact details JSON enriched from u_entity.ent_contact_details",
+        "example": {
+          "councellorPhone": "112321213"
+        }
+      },
+      {
+        "path": "entityContactDetails.councellorPhone",
+        "type": "string",
+        "description": "Counsellor phone number from entity contact details",
+        "example": "112321213"
+      },
+      {
+        "path": "contactDetails",
+        "type": "object|string",
+        "description": "Additional contact details payload, often delivered as a JSON string",
+        "example": {
+          "phone": "12313",
+          "maplink": "1324e32",
+          "councellerNo": "323232"
+        }
+      },
+      {
+        "path": "contactDetails.councellerNo",
+        "type": "string",
+        "description": "Counsellor phone number from contactDetails payload",
+        "example": "323232"
       }
     ],
     "implementationClass": "ubq.ivf.StimulationScanRecordedEvent",
@@ -6230,6 +6754,14 @@
         "stimulationDay": 5,
         "stimulationDate": "14/01/2026",
         "stimulationStartedOn": "09/01/2026"
+      },
+      "entityContactDetails": {
+        "councellorPhone": "112321213"
+      },
+      "contactDetails": {
+        "phone": "12313",
+        "maplink": "1324e32",
+        "councellerNo": "323232"
       }
     }
   },
@@ -6562,6 +7094,36 @@
         "type": "string",
         "description": "Second trigger other dose",
         "example": null
+      },
+      {
+        "path": "entityContactDetails",
+        "type": "object",
+        "description": "Entity contact details JSON enriched from u_entity.ent_contact_details",
+        "example": {
+          "councellorPhone": "112321213"
+        }
+      },
+      {
+        "path": "entityContactDetails.councellorPhone",
+        "type": "string",
+        "description": "Counsellor phone number from entity contact details",
+        "example": "112321213"
+      },
+      {
+        "path": "contactDetails",
+        "type": "object|string",
+        "description": "Additional contact details payload, often delivered as a JSON string",
+        "example": {
+          "phone": "12313",
+          "maplink": "1324e32",
+          "councellerNo": "323232"
+        }
+      },
+      {
+        "path": "contactDetails.councellerNo",
+        "type": "string",
+        "description": "Counsellor phone number from contactDetails payload",
+        "example": "323232"
       }
     ],
     "implementationClass": "ubq.ivf.OpuOrIuiTriggerScheduleEvent",
@@ -6631,6 +7193,14 @@
         "secondTriggeredTime": "02:35 PM",
         "firstTriggeredOtherDose": null,
         "secondTriggeredOtherDose": null
+      },
+      "entityContactDetails": {
+        "councellorPhone": "112321213"
+      },
+      "contactDetails": {
+        "phone": "12313",
+        "maplink": "1324e32",
+        "councellerNo": "323232"
       }
     }
   },
@@ -6915,6 +7485,36 @@
         "type": "string",
         "description": "OPU scheduled date",
         "example": "17/01/2026"
+      },
+      {
+        "path": "entityContactDetails",
+        "type": "object",
+        "description": "Entity contact details JSON enriched from u_entity.ent_contact_details",
+        "example": {
+          "councellorPhone": "112321213"
+        }
+      },
+      {
+        "path": "entityContactDetails.councellorPhone",
+        "type": "string",
+        "description": "Counsellor phone number from entity contact details",
+        "example": "112321213"
+      },
+      {
+        "path": "contactDetails",
+        "type": "object|string",
+        "description": "Additional contact details payload, often delivered as a JSON string",
+        "example": {
+          "phone": "12313",
+          "maplink": "1324e32",
+          "councellerNo": "323232"
+        }
+      },
+      {
+        "path": "contactDetails.councellerNo",
+        "type": "string",
+        "description": "Counsellor phone number from contactDetails payload",
+        "example": "323232"
       }
     ],
     "implementationClass": "ubq.ivf.OpuScheduleEvent",
@@ -6976,6 +7576,14 @@
         "OPUScheduledAt": "01:35 AM",
         "OPUScheduledBy": "Dr AVINASH",
         "OPUScheduledOn": "17/01/2026"
+      },
+      "entityContactDetails": {
+        "councellorPhone": "112321213"
+      },
+      "contactDetails": {
+        "phone": "12313",
+        "maplink": "1324e32",
+        "councellerNo": "323232"
       }
     }
   },
@@ -7236,6 +7844,36 @@
         "type": "string",
         "description": "Date when OPU was completed",
         "example": "17/01/2026"
+      },
+      {
+        "path": "entityContactDetails",
+        "type": "object",
+        "description": "Entity contact details JSON enriched from u_entity.ent_contact_details",
+        "example": {
+          "councellorPhone": "112321213"
+        }
+      },
+      {
+        "path": "entityContactDetails.councellorPhone",
+        "type": "string",
+        "description": "Counsellor phone number from entity contact details",
+        "example": "112321213"
+      },
+      {
+        "path": "contactDetails",
+        "type": "object|string",
+        "description": "Additional contact details payload, often delivered as a JSON string",
+        "example": {
+          "phone": "12313",
+          "maplink": "1324e32",
+          "councellerNo": "323232"
+        }
+      },
+      {
+        "path": "contactDetails.councellerNo",
+        "type": "string",
+        "description": "Counsellor phone number from contactDetails payload",
+        "example": "323232"
       }
     ],
     "implementationClass": "ubq.ivf.OpuDoneEvent",
@@ -7293,6 +7931,14 @@
       "enterpriseEntityRID": 353,
       "OPU": {
         "opuDoneDate": "17/01/2026"
+      },
+      "entityContactDetails": {
+        "councellorPhone": "112321213"
+      },
+      "contactDetails": {
+        "phone": "12313",
+        "maplink": "1324e32",
+        "councellerNo": "323232"
       }
     }
   },
@@ -7577,6 +8223,36 @@
         "type": "string",
         "description": "Type of treatment",
         "example": "IVF"
+      },
+      {
+        "path": "entityContactDetails",
+        "type": "object",
+        "description": "Entity contact details JSON enriched from u_entity.ent_contact_details",
+        "example": {
+          "councellorPhone": "112321213"
+        }
+      },
+      {
+        "path": "entityContactDetails.councellorPhone",
+        "type": "string",
+        "description": "Counsellor phone number from entity contact details",
+        "example": "112321213"
+      },
+      {
+        "path": "contactDetails",
+        "type": "object|string",
+        "description": "Additional contact details payload, often delivered as a JSON string",
+        "example": {
+          "phone": "12313",
+          "maplink": "1324e32",
+          "councellerNo": "323232"
+        }
+      },
+      {
+        "path": "contactDetails.councellerNo",
+        "type": "string",
+        "description": "Counsellor phone number from contactDetails payload",
+        "example": "323232"
       }
     ],
     "implementationClass": "ubq.ivf.EtScheduleEvent",
@@ -7638,6 +8314,14 @@
         "ETScheduledBy": "Dr AVINASH",
         "ETScheduledOn": "24/01/2026",
         "treatmentType": "IVF"
+      },
+      "entityContactDetails": {
+        "councellorPhone": "112321213"
+      },
+      "contactDetails": {
+        "phone": "12313",
+        "maplink": "1324e32",
+        "councellerNo": "323232"
       }
     }
   },
@@ -7898,6 +8582,36 @@
         "type": "string",
         "description": "Date when ET was completed",
         "example": "24/01/2026"
+      },
+      {
+        "path": "entityContactDetails",
+        "type": "object",
+        "description": "Entity contact details JSON enriched from u_entity.ent_contact_details",
+        "example": {
+          "councellorPhone": "112321213"
+        }
+      },
+      {
+        "path": "entityContactDetails.councellorPhone",
+        "type": "string",
+        "description": "Counsellor phone number from entity contact details",
+        "example": "112321213"
+      },
+      {
+        "path": "contactDetails",
+        "type": "object|string",
+        "description": "Additional contact details payload, often delivered as a JSON string",
+        "example": {
+          "phone": "12313",
+          "maplink": "1324e32",
+          "councellerNo": "323232"
+        }
+      },
+      {
+        "path": "contactDetails.councellerNo",
+        "type": "string",
+        "description": "Counsellor phone number from contactDetails payload",
+        "example": "323232"
       }
     ],
     "implementationClass": "ubq.ivf.EtDoneEvent",
@@ -7955,6 +8669,14 @@
       "enterpriseEntityRID": 353,
       "ET": {
         "etDoneDate": "24/01/2026"
+      },
+      "entityContactDetails": {
+        "councellorPhone": "112321213"
+      },
+      "contactDetails": {
+        "phone": "12313",
+        "maplink": "1324e32",
+        "councellerNo": "323232"
       }
     }
   },
@@ -8215,6 +8937,36 @@
         "type": "object",
         "description": "Beta HCG record details",
         "example": {}
+      },
+      {
+        "path": "entityContactDetails",
+        "type": "object",
+        "description": "Entity contact details JSON enriched from u_entity.ent_contact_details",
+        "example": {
+          "councellorPhone": "112321213"
+        }
+      },
+      {
+        "path": "entityContactDetails.councellorPhone",
+        "type": "string",
+        "description": "Counsellor phone number from entity contact details",
+        "example": "112321213"
+      },
+      {
+        "path": "contactDetails",
+        "type": "object|string",
+        "description": "Additional contact details payload, often delivered as a JSON string",
+        "example": {
+          "phone": "12313",
+          "maplink": "1324e32",
+          "councellerNo": "323232"
+        }
+      },
+      {
+        "path": "contactDetails.councellerNo",
+        "type": "string",
+        "description": "Counsellor phone number from contactDetails payload",
+        "example": "323232"
       }
     ],
     "implementationClass": "ubq.ivf.BetaHcgRecordEvent",
@@ -8270,7 +9022,15 @@
       "enterpriseCode": "7331985",
       "orgId": 353,
       "enterpriseEntityRID": 353,
-      "betaHCGRecord": {}
+      "betaHCGRecord": {},
+      "entityContactDetails": {
+        "councellorPhone": "112321213"
+      },
+      "contactDetails": {
+        "phone": "12313",
+        "maplink": "1324e32",
+        "councellerNo": "323232"
+      }
     }
   },
   {
@@ -8536,6 +9296,36 @@
         "type": "string",
         "description": "Treatment cycle status",
         "example": "Treatment cycle completed."
+      },
+      {
+        "path": "entityContactDetails",
+        "type": "object",
+        "description": "Entity contact details JSON enriched from u_entity.ent_contact_details",
+        "example": {
+          "councellorPhone": "112321213"
+        }
+      },
+      {
+        "path": "entityContactDetails.councellorPhone",
+        "type": "string",
+        "description": "Counsellor phone number from entity contact details",
+        "example": "112321213"
+      },
+      {
+        "path": "contactDetails",
+        "type": "object|string",
+        "description": "Additional contact details payload, often delivered as a JSON string",
+        "example": {
+          "phone": "12313",
+          "maplink": "1324e32",
+          "councellerNo": "323232"
+        }
+      },
+      {
+        "path": "contactDetails.councellerNo",
+        "type": "string",
+        "description": "Counsellor phone number from contactDetails payload",
+        "example": "323232"
       }
     ],
     "implementationClass": "ubq.ivf.CycleCompletedEvent",
@@ -8594,6 +9384,14 @@
       "treatmentCycleCompleted": {
         "treatmentType": "IVF",
         "treatmentStatus": "Treatment cycle completed."
+      },
+      "entityContactDetails": {
+        "councellorPhone": "112321213"
+      },
+      "contactDetails": {
+        "phone": "12313",
+        "maplink": "1324e32",
+        "councellerNo": "323232"
       }
     }
   },
@@ -8878,6 +9676,36 @@
         "type": "string",
         "description": "Date pregnancy was recorded",
         "example": "27/01/2026"
+      },
+      {
+        "path": "entityContactDetails",
+        "type": "object",
+        "description": "Entity contact details JSON enriched from u_entity.ent_contact_details",
+        "example": {
+          "councellorPhone": "112321213"
+        }
+      },
+      {
+        "path": "entityContactDetails.councellorPhone",
+        "type": "string",
+        "description": "Counsellor phone number from entity contact details",
+        "example": "112321213"
+      },
+      {
+        "path": "contactDetails",
+        "type": "object|string",
+        "description": "Additional contact details payload, often delivered as a JSON string",
+        "example": {
+          "phone": "12313",
+          "maplink": "1324e32",
+          "councellerNo": "323232"
+        }
+      },
+      {
+        "path": "contactDetails.councellerNo",
+        "type": "string",
+        "description": "Counsellor phone number from contactDetails payload",
+        "example": "323232"
       }
     ],
     "implementationClass": "ubq.ivf.ClinicalPregnancyEvent",
@@ -8939,6 +9767,14 @@
         "sacImplimention": "Successful",
         "clinicalPregnanyRecordedBy": "Dr CHAITHRA S K",
         "clinicalPregnanyRecordedOn": "27/01/2026"
+      },
+      "entityContactDetails": {
+        "councellorPhone": "112321213"
+      },
+      "contactDetails": {
+        "phone": "12313",
+        "maplink": "1324e32",
+        "councellerNo": "323232"
       }
     }
   },
@@ -9223,6 +10059,36 @@
         "type": "string",
         "description": "Date birth was recorded",
         "example": "27/01/2026"
+      },
+      {
+        "path": "entityContactDetails",
+        "type": "object",
+        "description": "Entity contact details JSON enriched from u_entity.ent_contact_details",
+        "example": {
+          "councellorPhone": "112321213"
+        }
+      },
+      {
+        "path": "entityContactDetails.councellorPhone",
+        "type": "string",
+        "description": "Counsellor phone number from entity contact details",
+        "example": "112321213"
+      },
+      {
+        "path": "contactDetails",
+        "type": "object|string",
+        "description": "Additional contact details payload, often delivered as a JSON string",
+        "example": {
+          "phone": "12313",
+          "maplink": "1324e32",
+          "councellerNo": "323232"
+        }
+      },
+      {
+        "path": "contactDetails.councellerNo",
+        "type": "string",
+        "description": "Counsellor phone number from contactDetails payload",
+        "example": "323232"
       }
     ],
     "implementationClass": "ubq.ivf.LiveBirthEvent",
@@ -9284,6 +10150,14 @@
         "birthWeight": null,
         "birthDetailsRecordedBy": "Dr CHAITHRA S K",
         "birthDetailsRecordedDate": "27/01/2026"
+      },
+      "entityContactDetails": {
+        "councellorPhone": "112321213"
+      },
+      "contactDetails": {
+        "phone": "12313",
+        "maplink": "1324e32",
+        "councellerNo": "323232"
       }
     }
   },
@@ -9568,6 +10442,36 @@
         "type": "string",
         "description": "IUI scheduled date",
         "example": "23/01/2026"
+      },
+      {
+        "path": "entityContactDetails",
+        "type": "object",
+        "description": "Entity contact details JSON enriched from u_entity.ent_contact_details",
+        "example": {
+          "councellorPhone": "112321213"
+        }
+      },
+      {
+        "path": "entityContactDetails.councellorPhone",
+        "type": "string",
+        "description": "Counsellor phone number from entity contact details",
+        "example": "112321213"
+      },
+      {
+        "path": "contactDetails",
+        "type": "object|string",
+        "description": "Additional contact details payload, often delivered as a JSON string",
+        "example": {
+          "phone": "12313",
+          "maplink": "1324e32",
+          "councellerNo": "323232"
+        }
+      },
+      {
+        "path": "contactDetails.councellerNo",
+        "type": "string",
+        "description": "Counsellor phone number from contactDetails payload",
+        "example": "323232"
       }
     ],
     "implementationClass": "ubq.ivf.IuiScheduleEvent",
@@ -9629,6 +10533,14 @@
         "IUIScheduledAt": "11:55 PM",
         "IUIScheduledBy": "Dr ASHA S VIJAY",
         "IUIScheduledOn": "23/01/2026"
+      },
+      "entityContactDetails": {
+        "councellorPhone": "112321213"
+      },
+      "contactDetails": {
+        "phone": "12313",
+        "maplink": "1324e32",
+        "councellerNo": "323232"
       }
     }
   },
@@ -9901,6 +10813,36 @@
         "type": "string",
         "description": "Andrologist involved",
         "example": "Dr SRINIVAS BV"
+      },
+      {
+        "path": "entityContactDetails",
+        "type": "object",
+        "description": "Entity contact details JSON enriched from u_entity.ent_contact_details",
+        "example": {
+          "councellorPhone": "112321213"
+        }
+      },
+      {
+        "path": "entityContactDetails.councellorPhone",
+        "type": "string",
+        "description": "Counsellor phone number from entity contact details",
+        "example": "112321213"
+      },
+      {
+        "path": "contactDetails",
+        "type": "object|string",
+        "description": "Additional contact details payload, often delivered as a JSON string",
+        "example": {
+          "phone": "12313",
+          "maplink": "1324e32",
+          "councellerNo": "323232"
+        }
+      },
+      {
+        "path": "contactDetails.councellerNo",
+        "type": "string",
+        "description": "Counsellor phone number from contactDetails payload",
+        "example": "323232"
       }
     ],
     "implementationClass": "ubq.ivf.IuiRecordedEvent",
@@ -9960,6 +10902,14 @@
         "iuiDoneBy": "Dr AVINASH",
         "iuiDoneDate": "23/01/2026",
         "iuiDoneAndrologist": "Dr SRINIVAS BV"
+      },
+      "entityContactDetails": {
+        "councellorPhone": "112321213"
+      },
+      "contactDetails": {
+        "phone": "12313",
+        "maplink": "1324e32",
+        "councellerNo": "323232"
       }
     }
   },
@@ -10226,6 +11176,36 @@
         "type": "string",
         "description": "Type of miscarriage",
         "example": "Biochemical Miscarriage"
+      },
+      {
+        "path": "entityContactDetails",
+        "type": "object",
+        "description": "Entity contact details JSON enriched from u_entity.ent_contact_details",
+        "example": {
+          "councellorPhone": "112321213"
+        }
+      },
+      {
+        "path": "entityContactDetails.councellorPhone",
+        "type": "string",
+        "description": "Counsellor phone number from entity contact details",
+        "example": "112321213"
+      },
+      {
+        "path": "contactDetails",
+        "type": "object|string",
+        "description": "Additional contact details payload, often delivered as a JSON string",
+        "example": {
+          "phone": "12313",
+          "maplink": "1324e32",
+          "councellerNo": "323232"
+        }
+      },
+      {
+        "path": "contactDetails.councellerNo",
+        "type": "string",
+        "description": "Counsellor phone number from contactDetails payload",
+        "example": "323232"
       }
     ],
     "implementationClass": "ubq.ivf.MiscarriageRecordedEvent",
@@ -10284,6 +11264,14 @@
       "pregnancyMiscarriage": {
         "treatmentType": "IUI",
         "cycleMiscarriageType": "Biochemical Miscarriage"
+      },
+      "entityContactDetails": {
+        "councellorPhone": "112321213"
+      },
+      "contactDetails": {
+        "phone": "12313",
+        "maplink": "1324e32",
+        "councellerNo": "323232"
       }
     }
   },
@@ -10718,6 +11706,36 @@
         "type": "string",
         "description": "Reason for stopping treatment",
         "example": "Others"
+      },
+      {
+        "path": "entityContactDetails",
+        "type": "object",
+        "description": "Entity contact details JSON enriched from u_entity.ent_contact_details",
+        "example": {
+          "councellorPhone": "112321213"
+        }
+      },
+      {
+        "path": "entityContactDetails.councellorPhone",
+        "type": "string",
+        "description": "Counsellor phone number from entity contact details",
+        "example": "112321213"
+      },
+      {
+        "path": "contactDetails",
+        "type": "object|string",
+        "description": "Additional contact details payload, often delivered as a JSON string",
+        "example": {
+          "phone": "12313",
+          "maplink": "1324e32",
+          "councellerNo": "323232"
+        }
+      },
+      {
+        "path": "contactDetails.councellerNo",
+        "type": "string",
+        "description": "Counsellor phone number from contactDetails payload",
+        "example": "323232"
       }
     ],
     "implementationClass": "ubq.ivf.CycleStoppedEvent",
@@ -10818,6 +11836,14 @@
         "treatmentType": "IVF",
         "treatmentStoppedOn": "02/03/2026",
         "treatmentStoppedReason": "Others"
+      },
+      "entityContactDetails": {
+        "councellorPhone": "112321213"
+      },
+      "contactDetails": {
+        "phone": "12313",
+        "maplink": "1324e32",
+        "councellerNo": "323232"
       }
     }
   },
@@ -11299,6 +12325,36 @@
         "type": "number",
         "description": "Auto-generated from sample payload",
         "example": 852
+      },
+      {
+        "path": "entityContactDetails",
+        "type": "object",
+        "description": "Entity contact details JSON enriched from u_entity.ent_contact_details",
+        "example": {
+          "councellorPhone": "112321213"
+        }
+      },
+      {
+        "path": "entityContactDetails.councellorPhone",
+        "type": "string",
+        "description": "Counsellor phone number from entity contact details",
+        "example": "112321213"
+      },
+      {
+        "path": "contactDetails",
+        "type": "object|string",
+        "description": "Additional contact details payload, often delivered as a JSON string",
+        "example": {
+          "phone": "12313",
+          "maplink": "1324e32",
+          "councellerNo": "323232"
+        }
+      },
+      {
+        "path": "contactDetails.councellerNo",
+        "type": "string",
+        "description": "Counsellor phone number from contactDetails payload",
+        "example": "323232"
       }
     ],
     "samplePayload": {
@@ -11389,7 +12445,15 @@
       "entityPhone": "9533322607",
       "enterpriseCode": "7982889",
       "orgId": 852,
-      "enterpriseEntityRID": 852
+      "enterpriseEntityRID": 852,
+      "entityContactDetails": {
+        "councellorPhone": "112321213"
+      },
+      "contactDetails": {
+        "phone": "12313",
+        "maplink": "1324e32",
+        "councellerNo": "323232"
+      }
     },
     "createdAt": {
       "$date": "2026-02-05T11:18:46.152Z"
@@ -11877,6 +12941,36 @@
         "type": "number",
         "description": "Auto-generated from sample payload",
         "example": 84
+      },
+      {
+        "path": "entityContactDetails",
+        "type": "object",
+        "description": "Entity contact details JSON enriched from u_entity.ent_contact_details",
+        "example": {
+          "councellorPhone": "112321213"
+        }
+      },
+      {
+        "path": "entityContactDetails.councellorPhone",
+        "type": "string",
+        "description": "Counsellor phone number from entity contact details",
+        "example": "112321213"
+      },
+      {
+        "path": "contactDetails",
+        "type": "object|string",
+        "description": "Additional contact details payload, often delivered as a JSON string",
+        "example": {
+          "phone": "12313",
+          "maplink": "1324e32",
+          "councellerNo": "323232"
+        }
+      },
+      {
+        "path": "contactDetails.councellerNo",
+        "type": "string",
+        "description": "Counsellor phone number from contactDetails payload",
+        "example": "323232"
       }
     ],
     "samplePayload": {
@@ -11967,7 +13061,15 @@
       "entityPhone": "9533322607",
       "enterpriseCode": "7709418",
       "orgId": 84,
-      "enterpriseEntityRID": 84
+      "enterpriseEntityRID": 84,
+      "entityContactDetails": {
+        "councellorPhone": "112321213"
+      },
+      "contactDetails": {
+        "phone": "12313",
+        "maplink": "1324e32",
+        "councellerNo": "323232"
+      }
     },
     "createdAt": {
       "$date": "2026-02-05T11:18:46.152Z"
@@ -12461,6 +13563,36 @@
         "type": "number",
         "description": "Auto-generated from sample payload",
         "example": 709
+      },
+      {
+        "path": "entityContactDetails",
+        "type": "object",
+        "description": "Entity contact details JSON enriched from u_entity.ent_contact_details",
+        "example": {
+          "councellorPhone": "112321213"
+        }
+      },
+      {
+        "path": "entityContactDetails.councellorPhone",
+        "type": "string",
+        "description": "Counsellor phone number from entity contact details",
+        "example": "112321213"
+      },
+      {
+        "path": "contactDetails",
+        "type": "object|string",
+        "description": "Additional contact details payload, often delivered as a JSON string",
+        "example": {
+          "phone": "12313",
+          "maplink": "1324e32",
+          "councellerNo": "323232"
+        }
+      },
+      {
+        "path": "contactDetails.councellerNo",
+        "type": "string",
+        "description": "Counsellor phone number from contactDetails payload",
+        "example": "323232"
       }
     ],
     "samplePayload": {
@@ -12648,7 +13780,15 @@
       "enterpriseCode": "7205956",
       "orgId": 709,
       "hospitalPhoneNo": "9533322607",
-      "enterpriseEntityRID": 709
+      "enterpriseEntityRID": 709,
+      "entityContactDetails": {
+        "councellorPhone": "112321213"
+      },
+      "contactDetails": {
+        "phone": "12313",
+        "maplink": "1324e32",
+        "councellerNo": "323232"
+      }
     },
     "createdAt": {
       "$date": "2026-02-05T11:18:46.152Z"
@@ -13046,6 +14186,36 @@
         "type": "number",
         "description": "Auto-generated from sample payload",
         "example": 145
+      },
+      {
+        "path": "entityContactDetails",
+        "type": "object",
+        "description": "Entity contact details JSON enriched from u_entity.ent_contact_details",
+        "example": {
+          "councellorPhone": "112321213"
+        }
+      },
+      {
+        "path": "entityContactDetails.councellorPhone",
+        "type": "string",
+        "description": "Counsellor phone number from entity contact details",
+        "example": "112321213"
+      },
+      {
+        "path": "contactDetails",
+        "type": "object|string",
+        "description": "Additional contact details payload, often delivered as a JSON string",
+        "example": {
+          "phone": "12313",
+          "maplink": "1324e32",
+          "councellerNo": "323232"
+        }
+      },
+      {
+        "path": "contactDetails.councellerNo",
+        "type": "string",
+        "description": "Counsellor phone number from contactDetails payload",
+        "example": "323232"
       }
     ],
     "samplePayload": {
@@ -13121,7 +14291,15 @@
       "entityPhone": "9533322607",
       "enterpriseCode": "7859621",
       "orgId": 145,
-      "enterpriseEntityRID": 145
+      "enterpriseEntityRID": 145,
+      "entityContactDetails": {
+        "councellorPhone": "112321213"
+      },
+      "contactDetails": {
+        "phone": "12313",
+        "maplink": "1324e32",
+        "councellerNo": "323232"
+      }
     },
     "createdAt": {
       "$date": "2026-02-05T11:18:46.152Z"
@@ -13810,6 +14988,36 @@
         "type": "number",
         "description": "Enterprise entity RID",
         "example": 84
+      },
+      {
+        "path": "entityContactDetails",
+        "type": "object",
+        "description": "Entity contact details JSON enriched from u_entity.ent_contact_details",
+        "example": {
+          "councellorPhone": "112321213"
+        }
+      },
+      {
+        "path": "entityContactDetails.councellorPhone",
+        "type": "string",
+        "description": "Counsellor phone number from entity contact details",
+        "example": "112321213"
+      },
+      {
+        "path": "contactDetails",
+        "type": "object|string",
+        "description": "Additional contact details payload, often delivered as a JSON string",
+        "example": {
+          "phone": "12313",
+          "maplink": "1324e32",
+          "councellerNo": "323232"
+        }
+      },
+      {
+        "path": "contactDetails.councellerNo",
+        "type": "string",
+        "description": "Counsellor phone number from contactDetails payload",
+        "example": "323232"
       }
     ],
     "samplePayload": {
@@ -13980,7 +15188,15 @@
       "entityPhone": "9533322607",
       "enterpriseCode": "7709418",
       "entityParentID": 84,
-      "enterpriseEntityRID": 84
+      "enterpriseEntityRID": 84,
+      "entityContactDetails": {
+        "councellorPhone": "112321213"
+      },
+      "contactDetails": {
+        "phone": "12313",
+        "maplink": "1324e32",
+        "councellerNo": "323232"
+      }
     },
     "createdAt": {
       "$date": "2026-03-02T00:00:00.000Z"
@@ -14360,6 +15576,36 @@
         "type": "string",
         "description": "Event timestamp",
         "example": "02/03/2026 11:14 AM"
+      },
+      {
+        "path": "entityContactDetails",
+        "type": "object",
+        "description": "Entity contact details JSON enriched from u_entity.ent_contact_details",
+        "example": {
+          "councellorPhone": "112321213"
+        }
+      },
+      {
+        "path": "entityContactDetails.councellorPhone",
+        "type": "string",
+        "description": "Counsellor phone number from entity contact details",
+        "example": "112321213"
+      },
+      {
+        "path": "contactDetails",
+        "type": "object|string",
+        "description": "Additional contact details payload, often delivered as a JSON string",
+        "example": {
+          "phone": "12313",
+          "maplink": "1324e32",
+          "councellerNo": "323232"
+        }
+      },
+      {
+        "path": "contactDetails.councellerNo",
+        "type": "string",
+        "description": "Counsellor phone number from contactDetails payload",
+        "example": "323232"
       }
     ],
     "samplePayload": {
@@ -14530,7 +15776,15 @@
       "entityPhone": "9533322607",
       "enterpriseCode": "7709418",
       "entityParentID": 84,
-      "enterpriseEntityRID": 84
+      "enterpriseEntityRID": 84,
+      "entityContactDetails": {
+        "councellorPhone": "112321213"
+      },
+      "contactDetails": {
+        "phone": "12313",
+        "maplink": "1324e32",
+        "councellerNo": "323232"
+      }
     },
     "createdAt": {
       "$date": "2026-03-02T00:00:00.000Z"
@@ -14940,6 +16194,36 @@
         "type": "string",
         "description": "Event timestamp",
         "example": "02/03/2026 11:09 AM"
+      },
+      {
+        "path": "entityContactDetails",
+        "type": "object",
+        "description": "Entity contact details JSON enriched from u_entity.ent_contact_details",
+        "example": {
+          "councellorPhone": "112321213"
+        }
+      },
+      {
+        "path": "entityContactDetails.councellorPhone",
+        "type": "string",
+        "description": "Counsellor phone number from entity contact details",
+        "example": "112321213"
+      },
+      {
+        "path": "contactDetails",
+        "type": "object|string",
+        "description": "Additional contact details payload, often delivered as a JSON string",
+        "example": {
+          "phone": "12313",
+          "maplink": "1324e32",
+          "councellerNo": "323232"
+        }
+      },
+      {
+        "path": "contactDetails.councellerNo",
+        "type": "string",
+        "description": "Counsellor phone number from contactDetails payload",
+        "example": "323232"
       }
     ],
     "samplePayload": {
@@ -15116,7 +16400,15 @@
       },
       "enterpriseCode": "7859621",
       "entityParentID": 145,
-      "enterpriseEntityRID": 145
+      "enterpriseEntityRID": 145,
+      "entityContactDetails": {
+        "councellorPhone": "112321213"
+      },
+      "contactDetails": {
+        "phone": "12313",
+        "maplink": "1324e32",
+        "councellerNo": "323232"
+      }
     },
     "createdAt": {
       "$date": "2026-03-02T00:00:00.000Z"
@@ -15520,6 +16812,36 @@
         "type": "string",
         "description": "Event timestamp",
         "example": "01/03/2026 09:52 PM"
+      },
+      {
+        "path": "entityContactDetails",
+        "type": "object",
+        "description": "Entity contact details JSON enriched from u_entity.ent_contact_details",
+        "example": {
+          "councellorPhone": "112321213"
+        }
+      },
+      {
+        "path": "entityContactDetails.councellorPhone",
+        "type": "string",
+        "description": "Counsellor phone number from entity contact details",
+        "example": "112321213"
+      },
+      {
+        "path": "contactDetails",
+        "type": "object|string",
+        "description": "Additional contact details payload, often delivered as a JSON string",
+        "example": {
+          "phone": "12313",
+          "maplink": "1324e32",
+          "councellerNo": "323232"
+        }
+      },
+      {
+        "path": "contactDetails.councellerNo",
+        "type": "string",
+        "description": "Counsellor phone number from contactDetails payload",
+        "example": "323232"
       }
     ],
     "samplePayload": {
@@ -15689,7 +17011,15 @@
       "entityPhone": "9533322607",
       "enterpriseCode": "7982889",
       "entityParentID": 852,
-      "enterpriseEntityRID": 852
+      "enterpriseEntityRID": 852,
+      "entityContactDetails": {
+        "councellorPhone": "112321213"
+      },
+      "contactDetails": {
+        "phone": "12313",
+        "maplink": "1324e32",
+        "councellerNo": "323232"
+      }
     },
     "createdAt": {
       "$date": "2026-03-02T00:00:00.000Z"
@@ -16378,6 +17708,36 @@
         "type": "number",
         "description": "Enterprise entity RID",
         "example": 84
+      },
+      {
+        "path": "entityContactDetails",
+        "type": "object",
+        "description": "Entity contact details JSON enriched from u_entity.ent_contact_details",
+        "example": {
+          "councellorPhone": "112321213"
+        }
+      },
+      {
+        "path": "entityContactDetails.councellorPhone",
+        "type": "string",
+        "description": "Counsellor phone number from entity contact details",
+        "example": "112321213"
+      },
+      {
+        "path": "contactDetails",
+        "type": "object|string",
+        "description": "Additional contact details payload, often delivered as a JSON string",
+        "example": {
+          "phone": "12313",
+          "maplink": "1324e32",
+          "councellerNo": "323232"
+        }
+      },
+      {
+        "path": "contactDetails.councellerNo",
+        "type": "string",
+        "description": "Counsellor phone number from contactDetails payload",
+        "example": "323232"
       }
     ],
     "samplePayload": {
@@ -16548,7 +17908,15 @@
       "entityPhone": "9533322607",
       "enterpriseCode": "7709418",
       "entityParentID": 84,
-      "enterpriseEntityRID": 84
+      "enterpriseEntityRID": 84,
+      "entityContactDetails": {
+        "councellorPhone": "112321213"
+      },
+      "contactDetails": {
+        "phone": "12313",
+        "maplink": "1324e32",
+        "councellerNo": "323232"
+      }
     },
     "createdAt": {
       "$date": "2026-03-02T00:00:00.000Z"
