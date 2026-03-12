@@ -1489,6 +1489,8 @@ export interface SystemLog {
   meta: Record<string, any>;
   category?: 'ui_error' | 'api_error' | 'validation_error' | 'business_logic' | 'unhandled' | 'unknown' | string;
   source?: 'browser' | 'server' | string;
+  stream?: 'app' | 'access' | string;
+  errorCategory?: string | null;
 }
 
 export interface SystemLogsResponse {
@@ -1501,6 +1503,7 @@ export interface SystemLogsResponse {
     search?: string;
     pollId?: string;
     errorCategory?: string;
+    source?: 'app' | 'access' | 'all' | string;
   };
   stats?: {
     total: number;
@@ -1508,6 +1511,10 @@ export interface SystemLogsResponse {
     warn: number;
     info: number;
     debug: number;
+    byStream?: {
+      app: number;
+      access: number;
+    };
     errorCategories?: {
       [key: string]: number;
     };
@@ -1529,20 +1536,50 @@ export interface SystemLogsResponse {
   }>;
 }
 
+export interface ProcessLogTailLine {
+  lineNumber: number;
+  text: string;
+}
+
+export interface ProcessLogTailResponse {
+  fileName: string;
+  fileExists: boolean;
+  updatedAt: string | null;
+  sizeBytes: number;
+  totalLines: number;
+  returnedLines: number;
+  truncated: boolean;
+  lines: ProcessLogTailLine[];
+}
+
 export const getSystemLogs = async (params?: {
   limit?: number;
   level?: string;
   search?: string;
   errorCategory?: string;
+  pollId?: string;
+  source?: 'app' | 'access' | 'all';
 }): Promise<SystemLogsResponse> => {
   const searchParams = new URLSearchParams();
   if (params?.limit) searchParams.append('limit', params.limit.toString());
   if (params?.level) searchParams.append('level', params.level);
   if (params?.search) searchParams.append('search', params.search);
   if (params?.errorCategory) searchParams.append('errorCategory', params.errorCategory);
+  if (params?.pollId) searchParams.append('pollId', params.pollId);
+  if (params?.source) searchParams.append('source', params.source);
 
   const query = searchParams.toString();
   return request<SystemLogsResponse>(`/system-logs${query ? `?${query}` : ''}`);
+};
+
+export const getSystemProcessLogTail = async (params?: {
+  lines?: number;
+}): Promise<ProcessLogTailResponse> => {
+  const searchParams = new URLSearchParams();
+  if (params?.lines) searchParams.append('lines', params.lines.toString());
+
+  const query = searchParams.toString();
+  return request<ProcessLogTailResponse>(`/system-logs/process-tail${query ? `?${query}` : ''}`);
 };
 
 // Export system logs as JSON
@@ -1553,6 +1590,7 @@ export const exportSystemLogsToJson = async (
     errorCategory?: string;
     pollId?: string;
     limit?: number;
+    source?: 'app' | 'access' | 'all';
   },
   options?: LogExportOptions
 ): Promise<void> => {
@@ -1562,6 +1600,7 @@ export const exportSystemLogsToJson = async (
   if (filters?.errorCategory) params.set('errorCategory', filters.errorCategory);
   if (filters?.pollId) params.set('pollId', filters.pollId);
   if (filters?.limit) params.set('limit', filters.limit.toString());
+  if (filters?.source) params.set('source', filters.source);
   params.set('async', 'true');
 
   const query = params.toString();
@@ -1586,6 +1625,7 @@ export const exportSystemLogsToCsv = async (
     errorCategory?: string;
     pollId?: string;
     limit?: number;
+    source?: 'app' | 'access' | 'all';
   },
   options?: LogExportOptions
 ): Promise<void> => {
@@ -1595,6 +1635,7 @@ export const exportSystemLogsToCsv = async (
   if (filters?.errorCategory) params.set('errorCategory', filters.errorCategory);
   if (filters?.pollId) params.set('pollId', filters.pollId);
   if (filters?.limit) params.set('limit', filters.limit.toString());
+  if (filters?.source) params.set('source', filters.source);
   params.set('async', 'true');
 
   const query = params.toString();

@@ -4,6 +4,7 @@ const fsp = require('fs/promises');
 const os = require('os');
 const path = require('path');
 const readline = require('readline');
+const zlib = require('zlib');
 const { randomUUID } = require('crypto');
 const { log } = require('../logger');
 const mongodb = require('../mongodb');
@@ -19,6 +20,12 @@ const SYSTEM_LOG_EXPORT_JOB_TTL_MS = Math.max(
   5 * 60 * 1000,
   Number.parseInt(process.env.SYSTEM_LOG_EXPORT_JOB_TTL_MS || String(6 * 60 * 60 * 1000), 10)
 );
+const BACKEND_ROOT = path.join(__dirname, '..', '..');
+const APP_ROOT = path.join(BACKEND_ROOT, '..');
+const LOG_DIR = process.env.SYSTEM_LOG_DIR || path.join(BACKEND_ROOT, 'logs');
+const PROCESS_LOG_FILE = process.env.SYSTEM_PROCESS_LOG_FILE || path.join(APP_ROOT, 'nohup.out');
+const DEFAULT_LOOKBACK_MS = 24 * 60 * 60 * 1000;
+const LOG_SOURCE_VALUES = new Set(['app', 'access', 'all']);
 let exportIndexesEnsured = false;
 
 const parseBooleanQuery = (value) => {
@@ -26,6 +33,27 @@ const parseBooleanQuery = (value) => {
   if (typeof value !== 'string') return false;
   return ['1', 'true', 'yes', 'y'].includes(value.trim().toLowerCase());
 };
+
+const parseInteger = (value, fallback, minimum = 0, maximum = Number.MAX_SAFE_INTEGER) => {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(Math.max(parsed, minimum), maximum);
+};
+
+const normalizeLogSource = (value) => {
+  if (typeof value !== 'string') return 'app';
+  const normalized = value.trim().toLowerCase();
+  return LOG_SOURCE_VALUES.has(normalized) ? normalized : 'app';
+};
+
+const parseSystemLogFilters = (query = {}) => ({
+  limit: Math.min(parseInteger(query.limit, 1000, 1, 50000), 50000),
+  level: typeof query.level === 'string' ? query.level.trim() : '',
+  search: typeof query.search === 'string' ? query.search.trim() : '',
+  pollId: typeof query.pollId === 'string' ? query.pollId.trim() : '',
+  errorCategory: typeof query.errorCategory === 'string' ? query.errorCategory.trim() : '',
+  source: normalizeLogSource(query.source),
+});
 
 const ensureExportJobIndexes = async (db) => {
   if (exportIndexesEnsured) return;
@@ -62,7 +90,8 @@ const createExportJob = async (format, filters, totalRecords = 0) => {
   await ensureExportJobIndexes(db);
   const now = new Date();
   const jobId = `slexp_${Date.now()}_${randomUUID().replace(/-/g, '').slice(0, 8)}`;
-  const fileName = `system-logs-${now.toISOString().split('T')[0]}-${jobId}.${format}`;
+  const sourceSuffix = filters.source && filters.source !== 'app' ? `-${filters.source}` : '';
+  const fileName = `system-logs${sourceSuffix}-${now.toISOString().split('T')[0]}-${jobId}.${format}`;
   const doc = {
     jobId,
     format,
@@ -90,50 +119,475 @@ const getExportJob = async (jobId) => {
   return db.collection(SYSTEM_LOG_EXPORT_JOBS_COLLECTION).findOne({ jobId });
 };
 
-const readSystemLogs = async (filters) => {
-  const limit = Math.min(parseInt(filters.limit, 10) || 5000, 50000);
-  const level = filters.level;
-  const search = filters.search;
-  const errorCategory = filters.errorCategory;
-  const logFile = path.join(__dirname, '..', '..', 'logs', 'app.log');
+const extractPollId = (message) => {
+  if (!message) return null;
+  const match = message.match(/\[POLL\s*#(\d+)\]/i);
+  return match ? match[1] : null;
+};
 
-  if (!fs.existsSync(logFile)) {
+const categorizeError = (message, level, meta) => {
+  if (level !== 'error') return null;
+  if (!message) return 'unknown';
+
+  if (meta && meta.category) {
+    return meta.category;
+  }
+
+  const msg = message.toLowerCase();
+
+  if (meta && meta.source === 'browser') {
+    return 'browser_error';
+  }
+
+  if (
+    msg.includes('400') ||
+    msg.includes('401') ||
+    msg.includes('403') ||
+    msg.includes('404') ||
+    msg.includes('bad request')
+  ) {
+    return 'http_4xx';
+  }
+
+  if (
+    msg.includes('500') ||
+    msg.includes('502') ||
+    msg.includes('503') ||
+    msg.includes('504') ||
+    msg.includes('server error')
+  ) {
+    return 'http_5xx';
+  }
+
+  if (
+    msg.includes('timeout') ||
+    msg.includes('connection') ||
+    msg.includes('econnrefused') ||
+    msg.includes('network')
+  ) {
+    return 'network';
+  }
+
+  if (msg.includes('transform failed') || msg.includes('transformation')) {
+    return 'transform';
+  }
+
+  if (msg.includes('rate limit') || msg.includes('429')) {
+    return 'ratelimit';
+  }
+
+  if (
+    msg.includes('mongodb') ||
+    msg.includes('mysql') ||
+    msg.includes('database') ||
+    msg.includes('query') ||
+    msg.includes('sequelize')
+  ) {
+    return 'database';
+  }
+
+  if (msg.includes('validation') || msg.includes('invalid') || msg.includes('required field')) {
+    return 'validation_error';
+  }
+
+  return 'other';
+};
+
+const groupLogsByPoll = (logs) => {
+  const groups = {};
+
+  logs.forEach((entry) => {
+    const pollId = extractPollId(entry.message) || 'NO_POLL';
+
+    if (!groups[pollId]) {
+      groups[pollId] = {
+        pollId,
+        logs: [],
+        firstTimestamp: entry.timestamp,
+        lastTimestamp: entry.timestamp,
+        hasError: false,
+        hasWarn: false,
+        levels: { error: 0, warn: 0, info: 0, debug: 0 },
+        eventsProcessed: 0,
+        retriesProcessed: 0,
+        totalDurationMs: 0,
+      };
+    }
+
+    const group = groups[pollId];
+    group.logs.push(entry);
+
+    if (entry.timestamp < group.firstTimestamp) group.firstTimestamp = entry.timestamp;
+    if (entry.timestamp > group.lastTimestamp) group.lastTimestamp = entry.timestamp;
+
+    if (entry.level === 'error') group.hasError = true;
+    if (entry.level === 'warn') group.hasWarn = true;
+    if (group.levels[entry.level] !== undefined) {
+      group.levels[entry.level] += 1;
+    }
+
+    if (entry.meta) {
+      if (typeof entry.meta.eventsProcessed === 'number') {
+        group.eventsProcessed = Math.max(group.eventsProcessed, entry.meta.eventsProcessed);
+      }
+      if (typeof entry.meta.retriesProcessed === 'number') {
+        group.retriesProcessed = Math.max(group.retriesProcessed, entry.meta.retriesProcessed);
+      }
+      if (typeof entry.meta.durationMs === 'number') {
+        group.totalDurationMs += entry.meta.durationMs;
+      }
+    }
+  });
+
+  Object.values(groups).forEach((group) => {
+    group.pollDurationMs = new Date(group.lastTimestamp).getTime() - new Date(group.firstTimestamp).getTime();
+    group.logs.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  });
+
+  return Object.values(groups).sort(
+    (a, b) => new Date(b.lastTimestamp).getTime() - new Date(a.lastTimestamp).getTime()
+  );
+};
+
+const getSourceTypes = (source) => {
+  if (source === 'all') return ['app', 'access'];
+  return [source || 'app'];
+};
+
+const getLogFilenamePrefix = (sourceType) => (sourceType === 'access' ? 'access' : 'app');
+
+const matchesRotatedLogName = (fileName, prefix) => {
+  const escapedPrefix = prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const rotatedPattern = new RegExp(`^${escapedPrefix}-\\d{4}-\\d{2}-\\d{2}\\.log(?:\\.gz)?$`);
+  return rotatedPattern.test(fileName) || fileName === `${prefix}.log`;
+};
+
+const getRecentLogFiles = async (sourceType) => {
+  const prefix = getLogFilenamePrefix(sourceType);
+  let entries = [];
+
+  try {
+    entries = await fsp.readdir(LOG_DIR, { withFileTypes: true });
+  } catch (_error) {
     return [];
   }
 
-  const logs = [];
   const now = Date.now();
-  const oneDayAgo = now - 24 * 60 * 60 * 1000;
+  const files = [];
 
-  const fileStream = fs.createReadStream(logFile);
-  const rl = readline.createInterface({
-    input: fileStream,
-    crlfDelay: Infinity,
-  });
+  for (const entry of entries) {
+    if (!entry.isFile()) continue;
+    if (!matchesRotatedLogName(entry.name, prefix)) continue;
 
-  const allLines = [];
-  for await (const line of rl) {
-    if (line.trim()) allLines.push(line);
-  }
+    const filePath = path.join(LOG_DIR, entry.name);
 
-  for (let i = allLines.length - 1; i >= 0 && logs.length < limit; i--) {
-    const line = allLines[i];
     try {
-      const logEntry = JSON.parse(line);
-      const logTime = new Date(logEntry.timestamp).getTime();
-
-      if (logTime < oneDayAgo) continue;
-      if (level && logEntry.level !== level) continue;
-      if (search && !logEntry.message.toLowerCase().includes(search.toLowerCase())) continue;
-
-      logEntry.errorCategory = categorizeError(logEntry.message, logEntry.level, logEntry.meta);
-      if (errorCategory && logEntry.errorCategory !== errorCategory) continue;
-
-      logs.push(logEntry);
-    } catch (_err) {}
+      const stat = await fsp.stat(filePath);
+      files.push({ filePath, mtimeMs: stat.mtimeMs, size: stat.size, name: entry.name });
+    } catch (_error) {}
   }
 
-  return logs;
+  files.sort((a, b) => b.mtimeMs - a.mtimeMs);
+  return files.filter((file, index) => index < 3 || now - file.mtimeMs <= 48 * 60 * 60 * 1000);
+};
+
+const createReadableStreamForLogFile = (filePath) => {
+  const stream = fs.createReadStream(filePath);
+  if (filePath.endsWith('.gz')) {
+    return stream.pipe(zlib.createGunzip());
+  }
+  return stream;
+};
+
+const readLogFileLines = async (filePath) => {
+  const input = createReadableStreamForLogFile(filePath);
+  const rl = readline.createInterface({ input, crlfDelay: Infinity });
+  const lines = [];
+
+  for await (const line of rl) {
+    if (line.trim()) {
+      lines.push(line);
+    }
+  }
+
+  return lines;
+};
+
+const normalizeAppLogEntry = (entry) => {
+  if (!entry || typeof entry !== 'object') return null;
+  if (!entry.timestamp || !entry.level || typeof entry.message !== 'string') return null;
+
+  const normalized = {
+    timestamp: entry.timestamp,
+    level: entry.level,
+    message: entry.message,
+    meta: entry.meta && typeof entry.meta === 'object' ? entry.meta : {},
+    category: entry.category || null,
+    source: entry.source || (entry.meta && entry.meta.source) || 'server',
+    stream: 'app',
+  };
+
+  normalized.errorCategory = categorizeError(normalized.message, normalized.level, normalized.meta);
+  return normalized;
+};
+
+const ACCESS_LOG_PATTERN = /^(\S+)\s+([A-Z]+)\s+(\S+)\s+(\d{3})\s+(\S+)\s+-\s+([\d.]+)\s+ms$/;
+
+const parseAccessLogLine = (line) => {
+  if (!line || typeof line !== 'string') return null;
+
+  const match = line.match(ACCESS_LOG_PATTERN);
+  if (!match) {
+    const timestampToken = line.split(/\s+/, 1)[0];
+    const parsedTime = new Date(timestampToken);
+    return {
+      timestamp: Number.isNaN(parsedTime.getTime()) ? new Date().toISOString() : parsedTime.toISOString(),
+      level: 'info',
+      message: line,
+      meta: {},
+      category: null,
+      source: 'server',
+      stream: 'access',
+      errorCategory: null,
+    };
+  }
+
+  const [, timestamp, method, url, statusText, contentLengthText, responseTimeText] = match;
+  const status = Number.parseInt(statusText, 10);
+  const responseTimeMs = Number.parseFloat(responseTimeText);
+  const contentLength = contentLengthText === '-' ? null : Number.parseInt(contentLengthText, 10);
+  const level = status >= 500 ? 'error' : status >= 400 ? 'warn' : 'info';
+  const meta = {
+    method,
+    url,
+    status,
+    contentLength,
+    responseTimeMs,
+  };
+
+  return {
+    timestamp: new Date(timestamp).toISOString(),
+    level,
+    message: line,
+    meta,
+    category: null,
+    source: 'server',
+    stream: 'access',
+    errorCategory: categorizeError(line, level, meta),
+  };
+};
+
+const parseLogLineForSource = (line, sourceType) => {
+  if (sourceType === 'access') {
+    return parseAccessLogLine(line);
+  }
+
+  try {
+    const parsed = JSON.parse(line);
+    return normalizeAppLogEntry(parsed);
+  } catch (_error) {
+    return null;
+  }
+};
+
+const matchesSearch = (entry, search) => {
+  if (!search) return true;
+  const haystack = [
+    entry.message,
+    entry.stream,
+    entry.source,
+    entry.meta ? JSON.stringify(entry.meta) : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+
+  return haystack.includes(search.toLowerCase());
+};
+
+const matchesPollId = (entry, pollId) => {
+  if (!pollId) return true;
+  const logPollId = extractPollId(entry.message);
+  const acceptedPollIds = String(pollId)
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+  if (acceptedPollIds.length === 0) return true;
+  if (acceptedPollIds.includes('NO_POLL')) {
+    if (logPollId === null) return true;
+  }
+  return logPollId !== null && acceptedPollIds.includes(logPollId);
+};
+
+const listSystemLogs = async (filters) => {
+  const effectiveFilters = {
+    limit: filters.limit || 1000,
+    level: filters.level || '',
+    search: filters.search || '',
+    pollId: filters.pollId || '',
+    errorCategory: filters.errorCategory || '',
+    source: normalizeLogSource(filters.source),
+  };
+  const now = Date.now();
+  const oneDayAgo = now - DEFAULT_LOOKBACK_MS;
+  const sourceTypes = getSourceTypes(effectiveFilters.source);
+  const allLogsForStats = [];
+
+  for (const sourceType of sourceTypes) {
+    const files = await getRecentLogFiles(sourceType);
+    for (const file of files) {
+      const lines = await readLogFileLines(file.filePath);
+      for (let index = lines.length - 1; index >= 0; index -= 1) {
+        const entry = parseLogLineForSource(lines[index], sourceType);
+        if (!entry) continue;
+
+        const logTime = new Date(entry.timestamp).getTime();
+        if (!Number.isFinite(logTime)) continue;
+        if (logTime < oneDayAgo) break;
+
+        allLogsForStats.push(entry);
+      }
+    }
+  }
+
+  allLogsForStats.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+  const logs = allLogsForStats.filter((entry) => {
+    if (effectiveFilters.level && entry.level !== effectiveFilters.level) return false;
+    if (!matchesSearch(entry, effectiveFilters.search)) return false;
+    if (!matchesPollId(entry, effectiveFilters.pollId)) return false;
+    if (effectiveFilters.errorCategory && entry.errorCategory !== effectiveFilters.errorCategory) return false;
+    return true;
+  }).slice(0, effectiveFilters.limit);
+
+  const errorLogsAll = allLogsForStats.filter((entry) => entry.level === 'error');
+  const stats = {
+    total: allLogsForStats.length,
+    error: errorLogsAll.length,
+    warn: allLogsForStats.filter((entry) => entry.level === 'warn').length,
+    info: allLogsForStats.filter((entry) => entry.level === 'info').length,
+    debug: allLogsForStats.filter((entry) => entry.level === 'debug').length,
+    byStream: {
+      app: allLogsForStats.filter((entry) => entry.stream === 'app').length,
+      access: allLogsForStats.filter((entry) => entry.stream === 'access').length,
+    },
+    errorCategories: {
+      ui_error: errorLogsAll.filter((entry) => entry.errorCategory === 'ui_error').length,
+      api_error: errorLogsAll.filter((entry) => entry.errorCategory === 'api_error').length,
+      validation_error: errorLogsAll.filter((entry) => entry.errorCategory === 'validation_error').length,
+      business_logic: errorLogsAll.filter((entry) => entry.errorCategory === 'business_logic').length,
+      unhandled: errorLogsAll.filter((entry) => entry.errorCategory === 'unhandled').length,
+      browser_error: errorLogsAll.filter((entry) => entry.errorCategory === 'browser_error').length,
+      http_4xx: errorLogsAll.filter((entry) => entry.errorCategory === 'http_4xx').length,
+      http_5xx: errorLogsAll.filter((entry) => entry.errorCategory === 'http_5xx').length,
+      network: errorLogsAll.filter((entry) => entry.errorCategory === 'network').length,
+      transform: errorLogsAll.filter((entry) => entry.errorCategory === 'transform').length,
+      ratelimit: errorLogsAll.filter((entry) => entry.errorCategory === 'ratelimit').length,
+      database: errorLogsAll.filter((entry) => entry.errorCategory === 'database').length,
+      other: errorLogsAll.filter((entry) => entry.errorCategory === 'other').length,
+      unknown: errorLogsAll.filter((entry) => entry.errorCategory === 'unknown').length,
+    },
+  };
+
+  const pollGroups = groupLogsByPoll(logs.filter((entry) => entry.stream === 'app'));
+  const pollStats = {
+    total: pollGroups.length,
+    withErrors: pollGroups.filter((group) => group.hasError).length,
+    withWarnings: pollGroups.filter((group) => group.hasWarn && !group.hasError).length,
+    healthy: pollGroups.filter((group) => !group.hasError && !group.hasWarn).length,
+  };
+  const pollPerformance = pollGroups
+    .filter((group) => group.pollId !== 'NO_POLL')
+    .slice(0, 10)
+    .map((group) => ({
+      pollId: group.pollId,
+      durationMs: group.pollDurationMs,
+      eventsProcessed: group.eventsProcessed,
+      retriesProcessed: group.retriesProcessed,
+      logCount: group.logs.length,
+      hasError: group.hasError,
+      hasWarn: group.hasWarn,
+    }));
+
+  return {
+    logs,
+    displayed: logs.length,
+    totalInPeriod: allLogsForStats.length,
+    limit: effectiveFilters.limit,
+    filters: {
+      level: effectiveFilters.level || undefined,
+      search: effectiveFilters.search || undefined,
+      pollId: effectiveFilters.pollId || undefined,
+      errorCategory: effectiveFilters.errorCategory || undefined,
+      source: effectiveFilters.source,
+    },
+    stats,
+    pollStats,
+    pollPerformance,
+    pollGroups,
+  };
+};
+
+const readSystemLogs = async (filters) => {
+  const response = await listSystemLogs(filters);
+  return response.logs;
+};
+
+const getProcessLogTail = async ({ lines = 200, maxBytes = 256 * 1024 } = {}) => {
+  const filePath = PROCESS_LOG_FILE;
+  const lineLimit = Math.min(Math.max(Number(lines) || 200, 1), 2000);
+  const maxReadBytes = Math.min(Math.max(Number(maxBytes) || 256 * 1024, 1024), 2 * 1024 * 1024);
+
+  if (!filePath || !fs.existsSync(filePath)) {
+    return {
+      fileName: filePath ? path.basename(filePath) : 'nohup.out',
+      fileExists: false,
+      updatedAt: null,
+      sizeBytes: 0,
+      totalLines: 0,
+      returnedLines: 0,
+      truncated: false,
+      lines: [],
+    };
+  }
+
+  const stat = await fsp.stat(filePath);
+  const readLength = Math.min(stat.size, maxReadBytes);
+  const startPosition = Math.max(0, stat.size - readLength);
+  const handle = await fsp.open(filePath, 'r');
+
+  try {
+    const buffer = Buffer.alloc(readLength);
+    await handle.read(buffer, 0, readLength, startPosition);
+    let content = buffer.toString('utf8');
+
+    if (startPosition > 0) {
+      const firstNewline = content.indexOf('\n');
+      if (firstNewline >= 0) {
+        content = content.slice(firstNewline + 1);
+      }
+    }
+
+    const allLines = content.split(/\r?\n/).filter((line) => line.trim().length > 0);
+    const visibleLines = allLines.slice(-lineLimit);
+    const lineNumberOffset = Math.max(0, allLines.length - visibleLines.length);
+
+    return {
+      fileName: path.basename(filePath),
+      fileExists: true,
+      updatedAt: stat.mtime.toISOString(),
+      sizeBytes: stat.size,
+      totalLines: allLines.length,
+      returnedLines: visibleLines.length,
+      truncated: startPosition > 0 || allLines.length > visibleLines.length,
+      lines: visibleLines.map((line, index) => ({
+        lineNumber: lineNumberOffset + index + 1,
+        text: line,
+      })),
+    };
+  } finally {
+    await handle.close();
+  }
 };
 
 const processExportJob = async (jobId) => {
@@ -157,13 +611,14 @@ const processExportJob = async (jobId) => {
     if (job.format === 'json') {
       await fsp.writeFile(filePath, JSON.stringify(logs), 'utf8');
     } else {
-      const headers = ['Timestamp', 'Level', 'Message', 'Error Category', 'Metadata'];
-      const rows = logs.map((log) => [
-        log.timestamp,
-        log.level,
-        log.message || '',
-        log.errorCategory || '',
-        log.meta ? JSON.stringify(log.meta) : '',
+      const headers = ['Timestamp', 'Level', 'Stream', 'Message', 'Error Category', 'Metadata'];
+      const rows = logs.map((entry) => [
+        entry.timestamp,
+        entry.level,
+        entry.stream || 'app',
+        entry.message || '',
+        entry.errorCategory || '',
+        entry.meta ? JSON.stringify(entry.meta) : '',
       ]);
       const csvContent = [
         headers.join(','),
@@ -226,330 +681,14 @@ const startExportJob = async (format, filters, totalRecords) => {
   return job;
 };
 
-// Helper: Extract poll ID from message
-const extractPollId = (message) => {
-  if (!message) return null;
-  const match = message.match(/\[POLL\s*#(\d+)\]/i);
-  return match ? match[1] : null;
-};
-
-// Helper: Categorize error type
-const categorizeError = (message, level, meta) => {
-  if (level !== 'error') return null;
-  if (!message) return 'unknown';
-
-  // PRIORITY 1: Use explicit category from meta if it exists (from frontend error logger or other sources)
-  if (meta?.category) {
-    // Frontend sends: ui_error, api_error, validation_error, business_logic, unhandled, unknown
-    // Use these directly - they are more accurate than inference
-    return meta.category;
-  }
-
-  // PRIORITY 2: Infer category from message patterns (fallback for logs without explicit category)
-  const msg = message.toLowerCase();
-
-  // Browser/UI errors (from frontend source marker)
-  if (meta?.source === 'browser') {
-    return 'browser_error';
-  }
-
-  // HTTP 4xx client errors
-  if (
-    msg.includes('400') ||
-    msg.includes('401') ||
-    msg.includes('403') ||
-    msg.includes('404') ||
-    msg.includes('bad request')
-  ) {
-    return 'http_4xx';
-  }
-
-  // HTTP 5xx server errors
-  if (
-    msg.includes('500') ||
-    msg.includes('502') ||
-    msg.includes('503') ||
-    msg.includes('504') ||
-    msg.includes('server error')
-  ) {
-    return 'http_5xx';
-  }
-
-  // Network/Connection errors
-  if (
-    msg.includes('timeout') ||
-    msg.includes('connection') ||
-    msg.includes('econnrefused') ||
-    msg.includes('network')
-  ) {
-    return 'network';
-  }
-
-  // Transform errors
-  if (msg.includes('transform failed') || msg.includes('transformation')) {
-    return 'transform';
-  }
-
-  // Rate limiting
-  if (msg.includes('rate limit') || msg.includes('429')) {
-    return 'ratelimit';
-  }
-
-  // Database errors
-  if (
-    msg.includes('mongodb') ||
-    msg.includes('mysql') ||
-    msg.includes('database') ||
-    msg.includes('query') ||
-    msg.includes('sequelize')
-  ) {
-    return 'database';
-  }
-
-  // Validation errors
-  if (msg.includes('validation') || msg.includes('invalid') || msg.includes('required field')) {
-    return 'validation_error';
-  }
-
-  return 'other';
-};
-
-// Helper: Group logs by poll ID
-const groupLogsByPoll = (logs) => {
-  const groups = {};
-
-  logs.forEach((log) => {
-    const pollId = extractPollId(log.message) || 'NO_POLL';
-
-    if (!groups[pollId]) {
-      groups[pollId] = {
-        pollId,
-        logs: [],
-        firstTimestamp: log.timestamp,
-        lastTimestamp: log.timestamp,
-        hasError: false,
-        hasWarn: false,
-        levels: { error: 0, warn: 0, info: 0, debug: 0 },
-        eventsProcessed: 0,
-        retriesProcessed: 0,
-        totalDurationMs: 0,
-      };
-    }
-
-    const group = groups[pollId];
-    group.logs.push(log);
-
-    // Update timestamps
-    if (log.timestamp < group.firstTimestamp) {
-      group.firstTimestamp = log.timestamp;
-    }
-    if (log.timestamp > group.lastTimestamp) {
-      group.lastTimestamp = log.timestamp;
-    }
-
-    // Update flags
-    if (log.level === 'error') group.hasError = true;
-    if (log.level === 'warn') group.hasWarn = true;
-
-    // Count levels
-    if (group.levels[log.level] !== undefined) {
-      group.levels[log.level]++;
-    }
-
-    // Extract metadata
-    if (log.meta) {
-      if (typeof log.meta.eventsProcessed === 'number') {
-        group.eventsProcessed = Math.max(group.eventsProcessed, log.meta.eventsProcessed);
-      }
-      if (typeof log.meta.retriesProcessed === 'number') {
-        group.retriesProcessed = Math.max(group.retriesProcessed, log.meta.retriesProcessed);
-      }
-      if (typeof log.meta.durationMs === 'number') {
-        group.totalDurationMs += log.meta.durationMs;
-      }
-    }
-  });
-
-  // Calculate poll durations and sort logs
-  Object.values(groups).forEach((group) => {
-    const startTime = new Date(group.firstTimestamp).getTime();
-    const endTime = new Date(group.lastTimestamp).getTime();
-    group.pollDurationMs = endTime - startTime;
-
-    // Sort logs chronologically
-    group.logs.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-  });
-
-  return Object.values(groups).sort(
-    (a, b) => new Date(b.lastTimestamp).getTime() - new Date(a.lastTimestamp).getTime()
-  );
-};
-
-// Get system logs (last 24 hours)
 router.get('/', async (req, res) => {
-  const limit = Math.min(parseInt(req.query.limit, 10) || 1000, 10000); // Increased to 10000 for high-volume systems
-  const level = req.query.level; // Filter by level: info, error, debug, warn
-  const search = req.query.search; // Search in message
-  const pollId = req.query.pollId; // Filter by specific poll ID
-  const errorCategory = req.query.errorCategory; // Filter by error category
-  const grouped = req.query.grouped === 'true'; // Return grouped by poll cycles
-
-  const logFile = path.join(__dirname, '..', '..', 'logs', 'app.log');
-
-  if (!fs.existsSync(logFile)) {
-    return res.json({
-      logs: [],
-      total: 0,
-      pollGroups: [],
-      stats: { total: 0, error: 0, warn: 0, info: 0, debug: 0 },
-      pollStats: { total: 0, withErrors: 0, withWarnings: 0, healthy: 0 },
-    });
-  }
-
-  const logs = [];
-  const now = Date.now();
-  const oneDayAgo = now - 24 * 60 * 60 * 1000;
-
   try {
-    // Read file line by line from the end (most recent first)
-    const fileStream = fs.createReadStream(logFile);
-    const rl = readline.createInterface({
-      input: fileStream,
-      crlfDelay: Infinity,
-    });
-
-    const allLines = [];
-    const allLogsForStats = []; // For calculating accurate statistics
-    for await (const line of rl) {
-      if (line.trim()) {
-        allLines.push(line);
-      }
+    const filters = parseSystemLogFilters(req.query || {});
+    const grouped = req.query.grouped === 'true';
+    const response = await listSystemLogs(filters);
+    if (!grouped) {
+      delete response.pollGroups;
     }
-
-    // First pass: collect ALL logs within 24 hours for accurate statistics
-    for (let i = allLines.length - 1; i >= 0; i--) {
-      const line = allLines[i];
-      try {
-        const logEntry = JSON.parse(line);
-        const logTime = new Date(logEntry.timestamp).getTime();
-
-        // Skip logs older than 24 hours
-        if (logTime < oneDayAgo) continue;
-
-        // Add error category
-        logEntry.errorCategory = categorizeError(logEntry.message, logEntry.level, logEntry.meta);
-
-        // Add to stats array (no filters applied for accurate counts)
-        allLogsForStats.push(logEntry);
-      } catch (_err) {}
-    }
-
-    // Second pass: apply filters and limit for display
-    for (let i = allLines.length - 1; i >= 0 && logs.length < limit; i--) {
-      const line = allLines[i];
-      try {
-        const logEntry = JSON.parse(line);
-        const logTime = new Date(logEntry.timestamp).getTime();
-
-        // Skip logs older than 24 hours
-        if (logTime < oneDayAgo) continue;
-
-        // Filter by level if specified
-        if (level && logEntry.level !== level) continue;
-
-        // Filter by search term if specified
-        if (search && !logEntry.message.toLowerCase().includes(search.toLowerCase())) {
-          continue;
-        }
-
-        // Filter by poll ID if specified
-        if (pollId) {
-          const logPollId = extractPollId(logEntry.message);
-          if (pollId === 'NO_POLL' && logPollId !== null) continue;
-          if (pollId !== 'NO_POLL' && logPollId !== pollId) continue;
-        }
-
-        // Add error category
-        logEntry.errorCategory = categorizeError(logEntry.message, logEntry.level, logEntry.meta);
-
-        // Filter by error category if specified
-        if (errorCategory && logEntry.errorCategory !== errorCategory) continue;
-
-        logs.push(logEntry);
-      } catch (_err) {}
-    }
-
-    // Calculate statistics from ALL logs (not just filtered/limited display logs)
-    const errorLogsAll = allLogsForStats.filter((l) => l.level === 'error');
-    const stats = {
-      total: allLogsForStats.length,
-      error: errorLogsAll.length,
-      warn: allLogsForStats.filter((l) => l.level === 'warn').length,
-      info: allLogsForStats.filter((l) => l.level === 'info').length,
-      debug: allLogsForStats.filter((l) => l.level === 'debug').length,
-      errorCategories: {
-        // Frontend-sent categories (explicit)
-        ui_error: errorLogsAll.filter((l) => l.errorCategory === 'ui_error').length,
-        api_error: errorLogsAll.filter((l) => l.errorCategory === 'api_error').length,
-        validation_error: errorLogsAll.filter((l) => l.errorCategory === 'validation_error').length,
-        business_logic: errorLogsAll.filter((l) => l.errorCategory === 'business_logic').length,
-        unhandled: errorLogsAll.filter((l) => l.errorCategory === 'unhandled').length,
-
-        // Inferred categories (fallback)
-        browser_error: errorLogsAll.filter((l) => l.errorCategory === 'browser_error').length,
-        http_4xx: errorLogsAll.filter((l) => l.errorCategory === 'http_4xx').length,
-        http_5xx: errorLogsAll.filter((l) => l.errorCategory === 'http_5xx').length,
-        network: errorLogsAll.filter((l) => l.errorCategory === 'network').length,
-        transform: errorLogsAll.filter((l) => l.errorCategory === 'transform').length,
-        ratelimit: errorLogsAll.filter((l) => l.errorCategory === 'ratelimit').length,
-        database: errorLogsAll.filter((l) => l.errorCategory === 'database').length,
-
-        // Catch-all
-        other: errorLogsAll.filter((l) => l.errorCategory === 'other').length,
-        unknown: errorLogsAll.filter((l) => l.errorCategory === 'unknown').length,
-      },
-    };
-
-    // Group by poll cycles
-    const pollGroups = groupLogsByPoll(logs);
-
-    const pollStats = {
-      total: pollGroups.length,
-      withErrors: pollGroups.filter((g) => g.hasError).length,
-      withWarnings: pollGroups.filter((g) => g.hasWarn && !g.hasError).length,
-      healthy: pollGroups.filter((g) => !g.hasError && !g.hasWarn).length,
-    };
-
-    // Performance insights
-    const pollPerformance = pollGroups
-      .filter((g) => g.pollId !== 'NO_POLL')
-      .slice(0, 10)
-      .map((g) => ({
-        pollId: g.pollId,
-        durationMs: g.pollDurationMs,
-        eventsProcessed: g.eventsProcessed,
-        retriesProcessed: g.retriesProcessed,
-        logCount: g.logs.length,
-        hasError: g.hasError,
-        hasWarn: g.hasWarn,
-      }));
-
-    const response = {
-      logs,
-      displayed: logs.length, // Number of logs returned (with filters & limit)
-      totalInPeriod: allLogsForStats.length, // Total logs in 24h period (for accurate stats)
-      limit,
-      filters: { level, search, pollId, errorCategory },
-      stats, // Stats calculated from ALL logs in period, not just displayed
-      pollStats,
-      pollPerformance,
-    };
-
-    // Optionally include full poll groups
-    if (grouped) {
-      response.pollGroups = pollGroups;
-    }
-
     res.json(response);
   } catch (err) {
     res.status(500).json({
@@ -559,14 +698,21 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Export system logs as JSON
+router.get('/process-tail', async (req, res) => {
+  try {
+    const lines = parseInteger(req.query.lines, 200, 1, 2000);
+    const payload = await getProcessLogTail({ lines });
+    res.json(payload);
+  } catch (err) {
+    res.status(500).json({
+      error: 'Failed to read process log',
+      message: err.message,
+    });
+  }
+});
+
 router.get('/export/json', async (req, res) => {
-  const filters = {
-    limit: Math.min(parseInt(req.query.limit, 10) || 5000, 50000),
-    level: req.query.level,
-    search: req.query.search,
-    errorCategory: req.query.errorCategory,
-  };
+  const filters = parseSystemLogFilters(req.query || {});
   const useAsyncExport =
     parseBooleanQuery(req.query.async) || (filters.limit && filters.limit >= SYSTEM_LOG_EXPORT_ASYNC_THRESHOLD);
   if (useAsyncExport) {
@@ -579,7 +725,8 @@ router.get('/export/json', async (req, res) => {
 
   try {
     const logs = await readSystemLogs(filters);
-    const filename = `system-logs-${new Date().toISOString().split('T')[0]}.json`;
+    const sourceSuffix = filters.source && filters.source !== 'app' ? `-${filters.source}` : '';
+    const filename = `system-logs${sourceSuffix}-${new Date().toISOString().split('T')[0]}.json`;
     res.setHeader('Content-Type', 'application/json; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.json(logs);
@@ -588,14 +735,8 @@ router.get('/export/json', async (req, res) => {
   }
 });
 
-// Export system logs as CSV
 router.get('/export/csv', async (req, res) => {
-  const filters = {
-    limit: Math.min(parseInt(req.query.limit, 10) || 5000, 50000),
-    level: req.query.level,
-    search: req.query.search,
-    errorCategory: req.query.errorCategory,
-  };
+  const filters = parseSystemLogFilters(req.query || {});
   const useAsyncExport =
     parseBooleanQuery(req.query.async) || (filters.limit && filters.limit >= SYSTEM_LOG_EXPORT_ASYNC_THRESHOLD);
   if (useAsyncExport) {
@@ -608,13 +749,14 @@ router.get('/export/csv', async (req, res) => {
 
   try {
     const logs = await readSystemLogs(filters);
-    const headers = ['Timestamp', 'Level', 'Message', 'Error Category', 'Metadata'];
-    const rows = logs.map((log) => [
-      log.timestamp,
-      log.level,
-      log.message || '',
-      log.errorCategory || '',
-      log.meta ? JSON.stringify(log.meta) : '',
+    const headers = ['Timestamp', 'Level', 'Stream', 'Message', 'Error Category', 'Metadata'];
+    const rows = logs.map((entry) => [
+      entry.timestamp,
+      entry.level,
+      entry.stream || 'app',
+      entry.message || '',
+      entry.errorCategory || '',
+      entry.meta ? JSON.stringify(entry.meta) : '',
     ]);
 
     const csvContent = [
@@ -632,7 +774,8 @@ router.get('/export/csv', async (req, res) => {
       ),
     ].join('\n');
 
-    const filename = `system-logs-${new Date().toISOString().split('T')[0]}.csv`;
+    const sourceSuffix = filters.source && filters.source !== 'app' ? `-${filters.source}` : '';
+    const filename = `system-logs${sourceSuffix}-${new Date().toISOString().split('T')[0]}.csv`;
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.send(csvContent);
@@ -701,23 +844,31 @@ router.get('/export/jobs/:jobId/download', async (req, res) => {
   });
 });
 
-// Clear all system logs (truncate file)
 router.delete('/clear', async (_req, res) => {
-  const logFile = path.join(__dirname, '..', '..', 'logs', 'app.log');
+  const archivedFiles = [];
 
   try {
-    // Archive current logs before clearing
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const archiveFile = path.join(__dirname, '..', '..', 'logs', `app.log.${timestamp}.archive`);
+    const targets = [];
 
-    if (fs.existsSync(logFile)) {
-      fs.copyFileSync(logFile, archiveFile);
-      fs.truncateSync(logFile, 0);
+    for (const sourceType of ['app', 'access']) {
+      const files = await getRecentLogFiles(sourceType);
+      const currentFile = files.find((file) => file.filePath.endsWith('.log'));
+      if (currentFile) {
+        targets.push(currentFile.filePath);
+      }
+    }
+
+    for (const filePath of targets) {
+      const archiveFile = `${filePath}.${timestamp}.archive`;
+      await fsp.copyFile(filePath, archiveFile);
+      await fsp.truncate(filePath, 0);
+      archivedFiles.push(archiveFile);
     }
 
     res.json({
       message: 'System logs cleared successfully',
-      archived: archiveFile,
+      archived: archivedFiles.join(', '),
     });
   } catch (err) {
     res.status(500).json({
