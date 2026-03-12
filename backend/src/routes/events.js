@@ -22,6 +22,9 @@ const EVENT_AUDIT_EXPORT_JOB_TTL_MS = Math.max(
   5 * 60 * 1000,
   Number.parseInt(process.env.EVENT_AUDIT_EXPORT_JOB_TTL_MS || String(6 * 60 * 60 * 1000), 10)
 );
+const DEFAULT_TEST_CONTACT_DETAILS = Object.freeze({
+  councellorPhone: '112321213',
+});
 let exportIndexesEnsured = false;
 
 const parseBooleanQuery = (value) => {
@@ -572,7 +575,7 @@ router.post(
     const createdAtValue = createdAt || nowMysql();
     const statusValue = status || 'PENDING';
     const topicValue = topic || 'notification';
-    const resolvedContactDetailsInput =
+    let resolvedContactDetailsInput =
       (entContactDetails && typeof entContactDetails === 'object' && !Array.isArray(entContactDetails) && entContactDetails)
       || (entityContactDetails
         && typeof entityContactDetails === 'object'
@@ -688,36 +691,51 @@ router.post(
         next.patientMRN = mrn;
       }
 
+      if (resolvedContactDetailsInput) {
+        next.contactDetails = JSON.stringify(resolvedContactDetailsInput);
+      }
+
       const randomized = randomizePayloadDates(next);
       if (datetime) randomized.datetime = datetime;
       return randomized;
     };
 
-    const rows = selectedEventTypes.map((eventType) => {
-      const basePayload = sampleMap.get(eventType)
-        ? JSON.parse(JSON.stringify(sampleMap.get(eventType)))
-        : { type: eventType };
-      const uniquePayloadId = `test-${resolvedOrgId}-${eventType}-${Date.now()}-${randomUUID().slice(0, 8)}`;
-      const payload = applyOverrides(basePayload, uniquePayloadId);
-      return {
-        topic: topicValue || 'notification',
-        transactionType: eventType || 'UNKNOWN',
-        message: JSON.stringify(payload),
-        orgUnitRid: resolvedOrgUnitRid || null,
-        orgId: resolvedOrgId || null,
-        status: statusValue || 'PENDING',
-        createdAt: createdAtValue || nowMysql(),
-        deliveredAt: null,
-        lastCheckedAt: null,
-        retryCount: 0,
-        errorMessage: null,
-      };
-    });
-
     const sql = `INSERT INTO notification_queue (topic, transaction_type, message, entity_rid, entity_parent_rid, \`STATUS\`, created_at, delivered_at, last_checked_at, retry_count, error_message)
     VALUES (:topic, :transactionType, :message, :orgUnitRid, :orgId, :status, :createdAt, :deliveredAt, :lastCheckedAt, :retryCount, :errorMessage)`;
 
     let entityContactDetailsUpdated = false;
+    if (!resolvedContactDetailsInput) {
+      try {
+        const [existingRows] = await db.query(
+          'SELECT ent_contact_details AS entContactDetails FROM u_entity WHERE ent_rid = :entRid LIMIT 1',
+          { entRid: resolvedOrgUnitRid }
+        );
+        const existingRaw = existingRows?.[0]?.entContactDetails;
+        if (existingRaw && typeof existingRaw === 'object' && !Array.isArray(existingRaw)) {
+          resolvedContactDetailsInput = existingRaw;
+        } else if (typeof existingRaw === 'string') {
+          try {
+            const parsed = JSON.parse(existingRaw);
+            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+              resolvedContactDetailsInput = parsed;
+            }
+          } catch {
+            resolvedContactDetailsInput = null;
+          }
+        }
+      } catch (error) {
+        log('warn', 'Failed to read existing u_entity.ent_contact_details during test event insertion', {
+          orgId: resolvedOrgId,
+          orgUnitRid: resolvedOrgUnitRid,
+          error: error.message,
+        });
+      }
+    }
+
+    if (!resolvedContactDetailsInput) {
+      resolvedContactDetailsInput = { ...DEFAULT_TEST_CONTACT_DETAILS };
+    }
+
     if (resolvedContactDetailsInput) {
       try {
         const updateSql = 'UPDATE u_entity SET ent_contact_details = :entContactDetails WHERE ent_rid = :entRid';
@@ -740,6 +758,27 @@ router.post(
         });
       }
     }
+
+    const rows = selectedEventTypes.map((eventType) => {
+      const basePayload = sampleMap.get(eventType)
+        ? JSON.parse(JSON.stringify(sampleMap.get(eventType)))
+        : { type: eventType };
+      const uniquePayloadId = `test-${resolvedOrgId}-${eventType}-${Date.now()}-${randomUUID().slice(0, 8)}`;
+      const payload = applyOverrides(basePayload, uniquePayloadId);
+      return {
+        topic: topicValue || 'notification',
+        transactionType: eventType || 'UNKNOWN',
+        message: JSON.stringify(payload),
+        orgUnitRid: resolvedOrgUnitRid || null,
+        orgId: resolvedOrgId || null,
+        status: statusValue || 'PENDING',
+        createdAt: createdAtValue || nowMysql(),
+        deliveredAt: null,
+        lastCheckedAt: null,
+        retryCount: 0,
+        errorMessage: null,
+      };
+    });
 
     let inserted = 0;
     for (const row of rows) {

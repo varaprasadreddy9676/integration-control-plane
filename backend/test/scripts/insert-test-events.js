@@ -144,6 +144,11 @@ async function insertTestEvents() {
   const entityContactDetails = {
     councellorPhone: '112321213',
   };
+  const contactDetails = JSON.stringify(entityContactDetails);
+
+  for (const event of events) {
+    event.message.contactDetails = contactDetails;
+  }
 
   console.log('Inserting test events...');
 

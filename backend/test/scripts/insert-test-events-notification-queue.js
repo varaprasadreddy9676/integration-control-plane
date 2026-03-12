@@ -188,6 +188,7 @@ const TEST_EVENTS = [
 const ENTITY_CONTACT_DETAILS = {
   councellorPhone: '112321213',
 };
+const CONTACT_DETAILS = JSON.stringify(ENTITY_CONTACT_DETAILS);
 
 async function insertTestEvents() {
   let connection;
@@ -224,6 +225,7 @@ async function insertTestEvents() {
     const insertedIds = [];
 
     for (const event of TEST_EVENTS) {
+      event.message.contactDetails = CONTACT_DETAILS;
       const messageJson = JSON.stringify(event.message);
 
       const [result] = await connection.query(
