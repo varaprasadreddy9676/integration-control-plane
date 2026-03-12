@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   getAdapterStatusPresentation,
   getEventSourceConfigurationPresentation,
+  getProcessLifecyclePresentation,
   getWorkerStatusPresentation,
 } from '../features/system-status/system-status-utils';
 
@@ -30,6 +31,13 @@ describe('system-status-utils', () => {
   it('treats running but non-alive workers as stale', () => {
     expect(getWorkerStatusPresentation({ enabled: true, running: true, alive: false, status: 'stale' })).toMatchObject({
       label: 'Stale',
+      color: 'orange',
+    });
+  });
+
+  it('treats draining process state as warning', () => {
+    expect(getProcessLifecyclePresentation({ status: 'draining' })).toMatchObject({
+      label: 'Draining',
       color: 'orange',
     });
   });

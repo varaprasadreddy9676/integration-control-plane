@@ -41,6 +41,7 @@ import {
   getAdapterStatusPresentation,
   getEventSourceConfigurationPresentation,
   getOverallStatusPresentation,
+  getProcessLifecyclePresentation,
   getWorkerStatusPresentation,
 } from '../system-status-utils';
 import { useSearchParams } from 'react-router-dom';
@@ -316,6 +317,10 @@ export function SystemStatusRoute({ mode = 'admin' }: { mode?: 'admin' | 'standa
   const dataStale = !!(autoRefresh && dataUpdatedAt && Date.now() - dataUpdatedAt > AUTO_REFRESH_INTERVAL_MS * 2);
 
   const overallStatus = useMemo(() => getOverallStatusPresentation(data?.overall?.status), [data?.overall?.status]);
+  const lifecycleStatus = useMemo(
+    () => getProcessLifecyclePresentation(data?.processLifecycle?.current),
+    [data?.processLifecycle?.current]
+  );
   const workerSummary = data?.workers?.summary;
   const configurationPresentation = useMemo(
     () => getEventSourceConfigurationPresentation(data?.eventSources?.configuration),
@@ -352,6 +357,19 @@ export function SystemStatusRoute({ mode = 'admin' }: { mode?: 'admin' | 'standa
             <Col xs={24} md={12} xl={4}>
               <Card size="small">
                 <Statistic title="Overall Health" value={overallStatus.label} prefix={overallStatus.color === 'green' ? <CheckCircleOutlined /> : overallStatus.color === 'red' ? <ExclamationCircleOutlined /> : <WarningOutlined />} />
+              </Card>
+            </Col>
+            <Col xs={24} md={12} xl={4}>
+              <Card size="small">
+                <Statistic
+                  title="Process State"
+                  value={lifecycleStatus.label}
+                  prefix={
+                    lifecycleStatus.color === 'green' ? <CheckCircleOutlined /> :
+                    lifecycleStatus.color === 'orange' ? <WarningOutlined /> :
+                    <ClockCircleOutlined />
+                  }
+                />
               </Card>
             </Col>
             <Col xs={24} md={12} xl={4}>
@@ -406,6 +424,12 @@ export function SystemStatusRoute({ mode = 'admin' }: { mode?: 'admin' | 'standa
                   rows={[
                     { label: 'App Log', value: `${data?.logs?.app?.status || 'unknown'} · ${formatAgeLabel(data?.logs?.app?.modifiedAt)}` },
                     { label: 'Access Log', value: `${data?.logs?.access?.status || 'unknown'} · ${formatAgeLabel(data?.logs?.access?.modifiedAt)}` },
+                    {
+                      label: 'Abrupt Restart',
+                      value: data?.processLifecycle?.abruptRestart?.detected
+                        ? `Yes · ${formatAgeLabel(data?.processLifecycle?.abruptRestart?.detectedAt)}`
+                        : 'No',
+                    },
                     { label: 'Event Source Config', value: configurationPresentation.label },
                     { label: 'Workers Healthy', value: workerSummary ? `${workerSummary.healthy}/${workerSummary.total}` : '—' },
                   ]}
@@ -464,6 +488,9 @@ export function SystemStatusRoute({ mode = 'admin' }: { mode?: 'admin' | 'standa
                   { label: 'Environment', value: data?.process?.environment || '—' },
                   { label: 'PID', value: data?.process?.pid ?? '—' },
                   { label: 'Started', value: formatDateTime(data?.process?.startedAt) },
+                  { label: 'Lifecycle Status', value: lifecycleStatus.label },
+                  { label: 'Lifecycle Updated', value: formatDateTime(data?.processLifecycle?.current?.updatedAt) },
+                  { label: 'Drain Reason', value: data?.processLifecycle?.current?.reason || '—' },
                   { label: 'MySQL', value: data?.process?.mysql?.status || '—' },
                 ]}
               />
@@ -473,12 +500,68 @@ export function SystemStatusRoute({ mode = 'admin' }: { mode?: 'admin' | 'standa
             <Card size="small" title="Memory & Host">
               <KeyValueTable
                 rows={[
-                  { label: 'Heap Used', value: formatBytes(data?.process?.memory?.stats?.heapUsedMB ? data.process.memory.stats.heapUsedMB * 1024 * 1024 : null) },
-                  { label: 'RSS', value: formatBytes(data?.process?.memory?.stats?.rss ? data.process.memory.stats.rss * 1024 * 1024 : null) },
+                  {
+                    label: 'Node Heap Used',
+                    value:
+                      data?.process?.memory?.stats?.nodeHeapUsedMB !== undefined
+                        ? `${data.process.memory.stats.nodeHeapUsedMB} MB`
+                        : '—',
+                  },
+                  {
+                    label: 'Node Heap Limit',
+                    value:
+                      data?.process?.memory?.stats?.nodeHeapLimitMB !== undefined
+                        ? `${data.process.memory.stats.nodeHeapLimitMB} MB`
+                        : '—',
+                  },
+                  {
+                    label: 'Node Heap Usage',
+                    value:
+                      data?.process?.memory?.stats?.nodeHeapUsagePercent !== undefined
+                        ? formatPercentage(data.process.memory.stats.nodeHeapUsagePercent, 0)
+                        : '—',
+                  },
+                  {
+                    label: 'RSS',
+                    value:
+                      data?.process?.memory?.stats?.processRssMB !== undefined
+                        ? `${data.process.memory.stats.processRssMB} MB`
+                        : data?.process?.memory?.stats?.rss !== undefined
+                          ? `${data.process.memory.stats.rss} MB`
+                          : '—',
+                  },
+                  {
+                    label: 'Host Memory Usage',
+                    value:
+                      data?.process?.memory?.stats?.hostUsagePercent !== undefined
+                        ? formatPercentage(data.process.memory.stats.hostUsagePercent, 0)
+                        : '—',
+                  },
                   { label: 'Host Free Memory', value: formatBytes(data?.process?.host?.freeMemoryBytes) },
                   { label: 'Host Total Memory', value: formatBytes(data?.process?.host?.totalMemoryBytes) },
                   { label: 'Host Load', value: Array.isArray(data?.process?.host?.loadAverage) ? data?.process?.host?.loadAverage?.map((value) => value.toFixed(2)).join(' / ') : '—' },
                   { label: 'Hostname', value: data?.process?.host?.hostname || '—' },
+                ]}
+              />
+            </Card>
+          </Col>
+          <Col xs={24}>
+            <Card size="small" title="Lifecycle Diagnostics">
+              <KeyValueTable
+                rows={[
+                  { label: 'Current Status', value: lifecycleStatus.label },
+                  { label: 'Current PID', value: data?.processLifecycle?.current?.pid ?? '—' },
+                  { label: 'Current Started', value: formatDateTime(data?.processLifecycle?.current?.startedAt) },
+                  { label: 'Current Updated', value: formatDateTime(data?.processLifecycle?.current?.updatedAt) },
+                  { label: 'Current Stopped', value: formatDateTime(data?.processLifecycle?.current?.stoppedAt) },
+                  { label: 'Current Error', value: data?.processLifecycle?.current?.error?.message || '—' },
+                  { label: 'Abrupt Previous Restart', value: data?.processLifecycle?.abruptRestart?.detected ? 'Detected' : 'Not detected' },
+                  { label: 'Abrupt Restart Detected At', value: formatDateTime(data?.processLifecycle?.abruptRestart?.detectedAt) },
+                  { label: 'Previous PID', value: data?.processLifecycle?.abruptRestart?.previousPid ?? '—' },
+                  { label: 'Previous Status', value: data?.processLifecycle?.abruptRestart?.previousStatus || '—' },
+                  { label: 'Previous Started', value: formatDateTime(data?.processLifecycle?.abruptRestart?.previousStartedAt) },
+                  { label: 'Previous Updated', value: formatDateTime(data?.processLifecycle?.abruptRestart?.previousUpdatedAt) },
+                  { label: 'Previous Reason', value: data?.processLifecycle?.abruptRestart?.previousReason || '—' },
                 ]}
               />
             </Card>
@@ -586,7 +669,9 @@ export function SystemStatusRoute({ mode = 'admin' }: { mode?: 'admin' | 'standa
         titleSuffix={isPortalSession ? <PortalScopeBadge /> : undefined}
         statusChips={[
           { label: overallStatus.label, color: overallStatus.color === 'orange' ? '#faad14' : overallStatus.color === 'green' ? '#52c41a' : overallStatus.color === 'red' ? '#ff4d4f' : undefined },
+          { label: lifecycleStatus.label, color: lifecycleStatus.color === 'orange' ? '#faad14' : lifecycleStatus.color === 'green' ? '#52c41a' : lifecycleStatus.color === 'red' ? '#ff4d4f' : lifecycleStatus.color === 'blue' ? '#1677ff' : undefined },
           { label: `${data?.overall?.alertCount?.total ?? 0} alerts`, color: (data?.overall?.alertCount?.total || 0) > 0 ? '#faad14' : undefined },
+          { label: data?.processLifecycle?.abruptRestart?.detected ? 'Abrupt restart detected' : 'No abrupt restart' },
           { label: configurationPresentation.label, color: configurationPresentation.color === 'orange' ? '#faad14' : configurationPresentation.color === 'green' ? '#52c41a' : configurationPresentation.color === 'red' ? '#ff4d4f' : configurationPresentation.color === 'blue' ? '#1677ff' : undefined },
           { label: workerSummary ? `${workerSummary.healthy}/${workerSummary.total} workers healthy` : 'Workers unknown' },
         ]}
@@ -611,6 +696,32 @@ export function SystemStatusRoute({ mode = 'admin' }: { mode?: 'admin' | 'standa
           showIcon
           message="Failed to load system status"
           description={(error as Error).message}
+          style={{ marginBottom: spacing[4] }}
+        />
+      )}
+
+      {data?.processLifecycle?.current?.status === 'draining' && (
+        <Alert
+          type="warning"
+          showIcon
+          icon={<WarningOutlined />}
+          message="Application is draining"
+          description={
+            data?.processLifecycle?.current?.reason
+              ? `New traffic should be routed away from this instance. Drain reason: ${data.processLifecycle.current.reason}`
+              : 'New traffic should be routed away from this instance while background work winds down.'
+          }
+          style={{ marginBottom: spacing[4] }}
+        />
+      )}
+
+      {data?.processLifecycle?.abruptRestart?.detected && (
+        <Alert
+          type="warning"
+          showIcon
+          icon={<ExclamationCircleOutlined />}
+          message="Abrupt previous restart detected"
+          description={`The previous process did not record a clean stop. Detected ${formatAgeLabel(data.processLifecycle.abruptRestart.detectedAt)}.`}
           style={{ marginBottom: spacing[4] }}
         />
       )}

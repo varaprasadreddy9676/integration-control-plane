@@ -11,6 +11,7 @@ const data = require('../data');
 const { getScheduledJobWorker } = require('../processor/scheduled-job-worker');
 const { getDeliveryWorkerManager } = require('../processor/delivery-worker-manager');
 const { assertViewAllowed } = require('../middleware/portal-scope');
+const processLifecycle = require('../services/process-lifecycle');
 
 const router = express.Router();
 
@@ -120,6 +121,63 @@ async function readLatestLogFile(prefix) {
       modifiedAt: null,
       ageSeconds: null,
       sizeBytes: null,
+      error: error.message,
+    };
+  }
+}
+
+async function readJsonFileSafe(filePath) {
+  try {
+    const raw = await fs.readFile(filePath, 'utf8');
+    return JSON.parse(raw);
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      return null;
+    }
+    throw error;
+  }
+}
+
+async function readLatestCrashMarker() {
+  try {
+    const files = await fs.readdir(processLifecycle.paths.crashMarkerDir);
+    const matched = files
+      .filter((file) => file.startsWith('abrupt-restart-') && file.endsWith('.json'))
+      .sort()
+      .reverse();
+
+    if (!matched.length) {
+      return {
+        detected: false,
+        detectedAt: null,
+        previousPid: null,
+        previousStatus: null,
+        previousStartedAt: null,
+        previousUpdatedAt: null,
+        previousReason: null,
+      };
+    }
+
+    const latest = await readJsonFileSafe(path.join(processLifecycle.paths.crashMarkerDir, matched[0]));
+    const previousState = latest?.previousState || {};
+    return {
+      detected: true,
+      detectedAt: latest?.detectedAt || null,
+      previousPid: previousState.pid || null,
+      previousStatus: formatStatus(previousState.status),
+      previousStartedAt: previousState.startedAt || null,
+      previousUpdatedAt: previousState.updatedAt || null,
+      previousReason: previousState.metadata?.reason || null,
+    };
+  } catch (error) {
+    return {
+      detected: false,
+      detectedAt: null,
+      previousPid: null,
+      previousStatus: null,
+      previousStartedAt: null,
+      previousUpdatedAt: null,
+      previousReason: null,
       error: error.message,
     };
   }
@@ -241,7 +299,7 @@ router.get('/', assertViewAllowed('system_status'), async (req, res) => {
     const memoryMonitor = new MemoryMonitor();
     const deliveryWorkerManager = getDeliveryWorkerManager();
 
-    const [healthStatus, backlogMetrics, trafficMetrics, scheduledJobs, appLog, accessLog, adapterStatus] = await Promise.all([
+    const [healthStatus, backlogMetrics, trafficMetrics, scheduledJobs, appLog, accessLog, adapterStatus, processState, abruptRestart] = await Promise.all([
       healthMonitor.getSystemHealth(orgId),
       getBacklogMetrics(db, orgId),
       getTrafficMetrics(db, orgId),
@@ -249,6 +307,8 @@ router.get('/', assertViewAllowed('system_status'), async (req, res) => {
       readLatestLogFile('app'),
       readLatestLogFile('access'),
       deliveryWorkerManager.getStatus(),
+      readJsonFileSafe(processLifecycle.paths.stateFile),
+      readLatestCrashMarker(),
     ]);
 
     const workers = getWorkersStatus();
@@ -318,6 +378,25 @@ router.get('/', assertViewAllowed('system_status'), async (req, res) => {
           available: mysqlAvailable,
           status: mysqlAvailable ? 'connected' : 'disconnected',
         },
+      },
+      processLifecycle: {
+        current: {
+          status: formatStatus(processState?.status || 'running'),
+          pid: processState?.pid || process.pid,
+          startedAt: processState?.startedAt || processStartedAt,
+          updatedAt: processState?.updatedAt || null,
+          stoppedAt: processState?.stoppedAt || null,
+          reason: processState?.metadata?.reason || null,
+          allowNaturalExit: Boolean(processState?.metadata?.allowNaturalExit),
+          naturalExitExpected: Boolean(processState?.metadata?.naturalExitExpected),
+          error: processState?.error
+            ? {
+                name: processState.error.name || 'Error',
+                message: processState.error.message || null,
+              }
+            : null,
+        },
+        abruptRestart,
       },
       workers: {
         summary: workerSummary,

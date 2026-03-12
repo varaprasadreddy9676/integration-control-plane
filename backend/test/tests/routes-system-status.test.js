@@ -22,6 +22,7 @@ function makeFindCursor(rows) {
 jest.mock('fs/promises', () => ({
   readdir: jest.fn(),
   stat: jest.fn(),
+  readFile: jest.fn(),
 }));
 
 jest.mock('../../src/mongodb', () => ({
@@ -303,15 +304,48 @@ describe('System Status Route', () => {
       }),
     });
 
-    fsPromises.readdir.mockResolvedValue([
-      'app-2026-03-11.log',
-      'access-2026-03-11.log',
-    ]);
+    fsPromises.readdir.mockImplementation(async (dirPath) => {
+      if (String(dirPath).includes('crash-markers')) {
+        return ['abrupt-restart-2026-03-11T09-01-00-000Z-pid-1234.json'];
+      }
+      return [
+        'app-2026-03-11.log',
+        'access-2026-03-11.log',
+      ];
+    });
     fsPromises.stat.mockImplementation(async (fullPath) => ({
       mtimeMs: fullPath.includes('app-') ? Date.now() - 30_000 : Date.now() - 45_000,
       mtime: new Date(fullPath.includes('app-') ? Date.now() - 30_000 : Date.now() - 45_000),
       size: fullPath.includes('app-') ? 2048 : 4096,
     }));
+    fsPromises.readFile.mockImplementation(async (fullPath) => {
+      if (String(fullPath).endsWith('process-state.json')) {
+        return JSON.stringify({
+          status: 'running',
+          pid: 4321,
+          startedAt: '2026-03-11T09:00:00.000Z',
+          updatedAt: '2026-03-11T10:10:00.000Z',
+          metadata: {
+            allowNaturalExit: true,
+          },
+        });
+      }
+      if (String(fullPath).includes('abrupt-restart-')) {
+        return JSON.stringify({
+          detectedAt: '2026-03-11T09:01:00.000Z',
+          previousState: {
+            pid: 1234,
+            status: 'running',
+            startedAt: '2026-03-11T08:00:00.000Z',
+            updatedAt: '2026-03-11T08:59:00.000Z',
+            metadata: {
+              reason: null,
+            },
+          },
+        });
+      }
+      throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+    });
 
     const router = require('../../src/routes/system-status');
     app = express();
@@ -360,6 +394,19 @@ describe('System Status Route', () => {
     expect(res.body.logs.app).toMatchObject({
       status: 'fresh',
       fileName: 'app-2026-03-11.log',
+    });
+    expect(res.body.processLifecycle.current).toMatchObject({
+      status: 'running',
+      pid: 4321,
+      startedAt: '2026-03-11T09:00:00.000Z',
+      updatedAt: '2026-03-11T10:10:00.000Z',
+      allowNaturalExit: true,
+    });
+    expect(res.body.processLifecycle.abruptRestart).toMatchObject({
+      detected: true,
+      detectedAt: '2026-03-11T09:01:00.000Z',
+      previousPid: 1234,
+      previousStatus: 'running',
     });
     expect(res.body.scheduledJobs.summary).toMatchObject({
       total: 4,
@@ -415,5 +462,31 @@ describe('System Status Route', () => {
     });
     expect(res.body.eventSources.summary).toEqual({ total: 0 });
     expect(res.body.eventSources.orgAdapters).toEqual([]);
+  });
+
+  it('returns default lifecycle data when no marker files exist', async () => {
+    fsPromises.readdir.mockImplementation(async () => [
+      'app-2026-03-11.log',
+      'access-2026-03-11.log',
+    ]);
+    fsPromises.readFile.mockRejectedValue(Object.assign(new Error('ENOENT'), { code: 'ENOENT' }));
+
+    const router = require('../../src/routes/system-status');
+    app = express();
+    app.use('/api/v1/system-status', router);
+
+    const res = await request(app).get('/api/v1/system-status?orgId=812');
+
+    expect(res.status).toBe(200);
+    expect(res.body.processLifecycle.current.status).toBe('running');
+    expect(res.body.processLifecycle.abruptRestart).toEqual({
+      detected: false,
+      detectedAt: null,
+      previousPid: null,
+      previousStatus: null,
+      previousStartedAt: null,
+      previousUpdatedAt: null,
+      previousReason: null,
+    });
   });
 });

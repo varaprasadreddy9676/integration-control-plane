@@ -3630,6 +3630,32 @@ export interface SystemStatusResponse {
       status: string;
     };
   };
+  processLifecycle: {
+    current: {
+      status: string;
+      pid: number;
+      startedAt: string | null;
+      updatedAt: string | null;
+      stoppedAt: string | null;
+      reason: string | null;
+      allowNaturalExit: boolean;
+      naturalExitExpected: boolean;
+      error: {
+        name: string;
+        message: string | null;
+      } | null;
+    };
+    abruptRestart: {
+      detected: boolean;
+      detectedAt: string | null;
+      previousPid: number | null;
+      previousStatus: string | null;
+      previousStartedAt: string | null;
+      previousUpdatedAt: string | null;
+      previousReason: string | null;
+      error?: string;
+    };
+  };
   workers: {
     summary: {
       total: number;

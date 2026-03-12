@@ -33,6 +33,10 @@ export interface EventSourceAdapterLike {
   connectionStatus?: string | null;
 }
 
+export interface ProcessLifecycleLike {
+  status?: string | null;
+}
+
 export function formatAgeLabel(timestamp?: string | null, now = Date.now()): string {
   if (!timestamp) return '—';
   const time = new Date(timestamp).getTime();
@@ -152,3 +156,18 @@ export function getOverallStatusPresentation(status?: string | null): StatusPres
   }
 }
 
+export function getProcessLifecyclePresentation(lifecycle?: ProcessLifecycleLike | null): StatusPresentation {
+  const normalized = String(lifecycle?.status || '').toLowerCase();
+  switch (normalized) {
+    case 'running':
+      return { tone: 'healthy', color: 'green', label: 'Running' };
+    case 'draining':
+      return { tone: 'warning', color: 'orange', label: 'Draining' };
+    case 'stopped':
+      return { tone: 'stopped', color: 'default', label: 'Stopped' };
+    case 'starting':
+      return { tone: 'info', color: 'blue', label: 'Starting' };
+    default:
+      return { tone: 'unknown', color: 'default', label: 'Unknown' };
+  }
+}
