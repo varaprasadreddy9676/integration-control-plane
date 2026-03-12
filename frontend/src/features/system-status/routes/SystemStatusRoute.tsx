@@ -67,6 +67,16 @@ function DataAgeLabel({ timestamp }: { timestamp?: string | null }) {
   return <Text type="secondary">{formatAgeLabel(timestamp)}</Text>;
 }
 
+function humanizeKey(value?: string | null) {
+  if (!value) return 'Unknown';
+  return String(value)
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
 function KeyValueTable({ rows }: { rows: Array<{ label: string; value: React.ReactNode }> }) {
   return (
     <Descriptions size="small" column={1} bordered>
@@ -322,6 +332,78 @@ function AlertsList({ data }: { data: SystemStatusResponse }) {
   );
 }
 
+function getOverallHealthFactors(data?: SystemStatusResponse | null) {
+  if (!data) return [];
+
+  const factors: Array<{ key: string; severity: 'critical' | 'warning' | 'info'; label: string; detail: string }> = [];
+  const pushFactor = (key: string, severity: 'critical' | 'warning' | 'info', label: string, detail: string) => {
+    if (!factors.some((factor) => factor.key === key)) {
+      factors.push({ key, severity, label, detail });
+    }
+  };
+
+  const criticalAlerts = (data.alerts || []).filter((alert) => String(alert.severity).toLowerCase() === 'critical');
+  const warningAlerts = (data.alerts || []).filter((alert) => String(alert.severity).toLowerCase() === 'warning');
+  if (criticalAlerts.length > 0) {
+    pushFactor('critical-alerts', 'critical', 'Critical alerts active', `${criticalAlerts.length} critical alert${criticalAlerts.length === 1 ? '' : 's'} currently active.`);
+  }
+  if (warningAlerts.length > 0) {
+    pushFactor('warning-alerts', 'warning', 'Warning alerts active', `${warningAlerts.length} warning alert${warningAlerts.length === 1 ? '' : 's'} currently active.`);
+  }
+
+  Object.entries(data.checks || {}).forEach(([key, value]) => {
+    const normalized = String(value || '').toLowerCase();
+    if (normalized === 'critical' || normalized === 'error') {
+      pushFactor(`check-${key}`, 'critical', `${humanizeKey(key)} check failing`, `The ${humanizeKey(key).toLowerCase()} check is reporting ${normalized}.`);
+    } else if (normalized === 'warning' || normalized === 'degraded') {
+      pushFactor(`check-${key}`, 'warning', `${humanizeKey(key)} check degraded`, `The ${humanizeKey(key).toLowerCase()} check is reporting ${normalized}.`);
+    }
+  });
+
+  if (data.scope === 'global') {
+    const criticalOrgs = Number(data.globalSummary?.organizationStatusCounts?.critical || 0);
+    const warningOrgs = Number(data.globalSummary?.organizationStatusCounts?.warning || 0);
+    if (criticalOrgs > 0) {
+      pushFactor('critical-orgs', 'critical', 'Critical organizations present', `${criticalOrgs} organization${criticalOrgs === 1 ? '' : 's'} currently report critical status.`);
+    }
+    if (warningOrgs > 0) {
+      pushFactor('warning-orgs', 'warning', 'Degraded organizations present', `${warningOrgs} organization${warningOrgs === 1 ? '' : 's'} currently report degraded or warning status.`);
+    }
+  }
+
+  const workerSummary = data.workers?.summary;
+  if (Number(workerSummary?.stopped || 0) > 0) {
+    pushFactor('stopped-workers', 'critical', 'Stopped workers detected', `${workerSummary?.stopped} background worker${workerSummary?.stopped === 1 ? '' : 's'} are stopped.`);
+  }
+  if (Number(workerSummary?.stale || 0) > 0) {
+    pushFactor('stale-workers', 'warning', 'Stale workers detected', `${workerSummary?.stale} background worker${workerSummary?.stale === 1 ? '' : 's'} are stale.`);
+  }
+
+  if (data.logs?.app?.status === 'error' || data.logs?.access?.status === 'error') {
+    pushFactor('log-errors', 'critical', 'Runtime log collection failing', 'One or more runtime log files are reporting an error state.');
+  } else if (data.logs?.app?.status === 'stale' || data.logs?.access?.status === 'stale') {
+    pushFactor('log-stale', 'warning', 'Runtime logs are stale', 'Recent log files are not being updated as expected.');
+  }
+
+  if (data.scope !== 'global') {
+    if (Number(data.overall?.summary?.failed24h || 0) > 0) {
+      pushFactor('failed-deliveries', 'warning', 'Recent delivery failures present', `${data.overall.summary.failed24h} failed deliver${data.overall.summary.failed24h === 1 ? 'y' : 'ies'} in the last 24 hours.`);
+    }
+    if (Number(data.overall?.summary?.pendingCount || 0) > 0) {
+      pushFactor('pending-deliveries', 'warning', 'Pending deliveries queued', `${data.overall.summary.pendingCount} pending deliver${data.overall.summary.pendingCount === 1 ? 'y remains' : 'ies remain'} in backlog.`);
+    }
+    if (String(data.eventSources?.configuration?.state || '').toLowerCase() === 'error') {
+      pushFactor('event-source-config', 'critical', 'Event source configuration error', 'The configured event source is in an error state.');
+    }
+  }
+
+  if (data.processLifecycle?.abruptRestart?.detected) {
+    pushFactor('abrupt-restart', 'warning', 'Abrupt previous restart detected', 'The previous process ended without a clean shutdown record.');
+  }
+
+  return factors.slice(0, 6);
+}
+
 export function SystemStatusRoute({ mode = 'admin' }: { mode?: 'admin' | 'standalone' }) {
   const { spacing } = useDesignTokens();
   const { user } = useAuth();
@@ -409,6 +491,7 @@ export function SystemStatusRoute({ mode = 'admin' }: { mode?: 'admin' | 'standa
     : effectiveOrgId > 0
       ? `Viewing: ${tenant?.tenantName || `Org ${effectiveOrgId}`}`
       : 'Viewing: Scope Unknown';
+  const overallHealthFactors = useMemo(() => getOverallHealthFactors(data), [data]);
 
   const directionMix = data?.traffic?.directionMixLast60m || {};
   const backlogRows = [
@@ -436,6 +519,33 @@ export function SystemStatusRoute({ mode = 'admin' }: { mode?: 'admin' | 'standa
       label: 'Overview',
       children: (
         <Space direction="vertical" size={16} style={{ width: '100%' }}>
+          <Card size="small" title="Health Drivers">
+            {overallHealthFactors.length > 0 ? (
+              <List
+                size="small"
+                dataSource={overallHealthFactors}
+                renderItem={(factor) => (
+                  <List.Item>
+                    <List.Item.Meta
+                      title={
+                        <Space>
+                          {statusTag(
+                            factor.severity === 'critical' ? 'Critical' : factor.severity === 'warning' ? 'Warning' : 'Info',
+                            factor.severity === 'critical' ? 'red' : factor.severity === 'warning' ? 'warning' : 'blue'
+                          )}
+                          <Text strong>{factor.label}</Text>
+                        </Space>
+                      }
+                      description={factor.detail}
+                    />
+                  </List.Item>
+                )}
+              />
+            ) : (
+              <Text type="secondary">No warning or critical factors are currently driving the overall status.</Text>
+            )}
+          </Card>
+
           <Row gutter={[16, 16]}>
             <Col xs={24} md={12} xl={4}>
               <Card size="small">
