@@ -8,6 +8,7 @@ WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
+COPY scripts ./scripts
 
 # Install production dependencies only
 RUN npm install --omit=dev && npm cache clean --force
