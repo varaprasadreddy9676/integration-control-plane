@@ -133,15 +133,38 @@ function stopWorker(workerName, patch = {}) {
 function toWorkerStatus(worker) {
   const now = Date.now();
   const lastHeartbeatMs = worker.lastHeartbeat ? worker.lastHeartbeat.getTime() : null;
+  const startedAtMs = worker.startedAt ? worker.startedAt.getTime() : null;
   const timeSinceLastMs = lastHeartbeatMs ? now - lastHeartbeatMs : null;
-  const alive = worker.running && lastHeartbeatMs !== null && timeSinceLastMs < worker.thresholdMs;
+  const startupGraceMs = Math.max(
+    worker.thresholdMs || DEFAULT_THRESHOLD_MS,
+    worker.intervalMs ? worker.intervalMs * 2 : 0,
+    30000
+  );
+
+  let status = 'stopped';
+  if (!worker.enabled) {
+    status = 'disabled';
+  } else if (worker.running) {
+    if (lastHeartbeatMs !== null && timeSinceLastMs < worker.thresholdMs) {
+      status = 'healthy';
+    } else if (lastHeartbeatMs === null && startedAtMs !== null && now - startedAtMs < startupGraceMs) {
+      status = 'starting';
+    } else {
+      status = 'stale';
+    }
+  }
+
+  const alive = status === 'healthy' || status === 'starting';
+  const available = status === 'healthy' || status === 'starting' || status === 'stale' || status === 'disabled';
 
   return {
     workerName: worker.workerName,
     displayName: worker.displayName,
     enabled: worker.enabled,
     running: worker.running,
+    status,
     alive,
+    available,
     thresholdMs: worker.thresholdMs,
     intervalMs: worker.intervalMs,
     lastHeartbeat: worker.lastHeartbeat ? worker.lastHeartbeat.toISOString() : null,

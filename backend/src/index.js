@@ -11,17 +11,20 @@ const express = require('express');
 const cors = require('cors');
 
 const { requestLogger, log, logError } = require('./logger');
+const { closeLogStreams } = require('./logger');
 const errorHandler = require('./middleware/error-handler');
 const auth = require('./middleware/auth');
 const rateLimit = require('./middleware/rate-limit');
 const requestIdMiddleware = require('./middleware/request-id');
 const data = require('./data');
 const config = require('./config');
+const db = require('./db');
+const mongodb = require('./mongodb');
 const { startDeliveryWorker } = require('./processor/worker');
-const { startPendingDeliveriesWorker } = require('./processor/pending-deliveries-worker');
+const { startPendingDeliveriesWorker, stopPendingDeliveriesWorker } = require('./processor/pending-deliveries-worker');
 const { startSchedulerWorker } = require('./processor/scheduler-worker');
 const { getScheduledJobWorker } = require('./processor/scheduled-job-worker');
-const { startDLQWorker } = require('./processor/dlq-worker');
+const { startDLQWorker, stopDLQWorker } = require('./processor/dlq-worker');
 const { startFailureEmailReportScheduler } = require('./services/notifications/failure-report');
 const emailService = require('./services/email-service');
 const dailyReportsScheduler = require('./services/daily-reports-scheduler');
@@ -62,8 +65,147 @@ const portalProfilesRouter = require('./routes/portal-profiles');
 const healthMonitor = require('./services/health-monitor');
 const { initializeCommunicationAdapters } = require('./services/communication/bootstrap');
 const { MemoryMonitor } = require('./services/memory-monitor');
+const processLifecycle = require('./services/process-lifecycle');
+
+let server = null;
+let memoryMonitor = null;
+let stopDeliveryWorker = async () => {};
+let stopSchedulerWorker = () => {};
+let stopFailureEmailReportScheduler = () => {};
+let shutdownState = {
+  draining: false,
+  reason: null,
+  startedAt: null,
+};
+
+function normalizeHealthStatus(status) {
+  const normalized = String(status || '').toLowerCase();
+  if (normalized === 'ok') return 'healthy';
+  if (normalized === 'degraded') return 'warning';
+  if (normalized === 'healthy' || normalized === 'warning' || normalized === 'critical' || normalized === 'error') {
+    return normalized;
+  }
+  return 'unknown';
+}
+
+function getWorkerHealthState(worker) {
+  if (!worker) {
+    return {
+      enabled: true,
+      state: 'unknown',
+      available: false,
+      hardFailure: true,
+      degraded: false,
+    };
+  }
+
+  if (worker.enabled === false) {
+    return {
+      enabled: false,
+      state: 'disabled',
+      available: true,
+      hardFailure: false,
+      degraded: false,
+    };
+  }
+
+  const state = worker.status
+    || (worker.alive ? 'healthy' : worker.running ? 'stale' : 'stopped');
+
+  return {
+    enabled: true,
+    state,
+    available: worker.available !== undefined ? Boolean(worker.available) : state !== 'stopped',
+    hardFailure: state === 'stopped' || state === 'unknown',
+    degraded: state === 'stale' || state === 'starting',
+  };
+}
+
+async function closeHttpServer() {
+  if (!server) return;
+
+  await new Promise((resolve) => {
+    try {
+      server.close(() => resolve());
+      setTimeout(resolve, 5000);
+    } catch (_error) {
+      resolve();
+    }
+  });
+}
+
+async function initiateGracefulDrain(reason, error = null, options = {}) {
+  if (shutdownState.draining) {
+    return;
+  }
+
+  shutdownState = {
+    draining: true,
+    reason,
+    startedAt: new Date().toISOString(),
+  };
+
+  const severity = error ? 'error' : 'warn';
+  log(severity, 'Initiating graceful drain', {
+    reason,
+    error: error?.message || null,
+  });
+
+  await processLifecycle.markProcessDraining(reason, error, {
+    pid: process.pid,
+    allowNaturalExit: true,
+  }).catch((markerError) => {
+    log('error', 'Failed to write draining process marker', { error: markerError.message, reason });
+  });
+
+  if (memoryMonitor) {
+    memoryMonitor.stop();
+  }
+
+  dailyReportsScheduler.stop();
+
+  await Promise.allSettled([
+    Promise.resolve().then(() => stopDeliveryWorker()),
+    Promise.resolve().then(() => stopSchedulerWorker()),
+    Promise.resolve().then(() => stopPendingDeliveriesWorker()),
+    Promise.resolve().then(() => stopDLQWorker()),
+    Promise.resolve().then(() => getScheduledJobWorker().stop()),
+    Promise.resolve().then(() => stopFailureEmailReportScheduler()),
+    Promise.resolve().then(() => closeHttpServer()),
+    Promise.resolve().then(() => db.closePool?.()),
+    Promise.resolve().then(() => mongodb.close?.()),
+  ]);
+
+  await processLifecycle.markProcessStopped(reason, error, {
+    pid: process.pid,
+    naturalExitExpected: true,
+  }).catch((markerError) => {
+    log('error', 'Failed to write stopped process marker', { error: markerError.message, reason });
+  });
+
+  closeLogStreams();
+
+  if (options.exitCode !== undefined) {
+    process.exitCode = options.exitCode;
+  }
+}
 
 async function bootstrap() {
+  const lifecycleInfo = await processLifecycle.markProcessStart({
+    status: 'starting',
+    pid: process.pid,
+    startedAt: new Date().toISOString(),
+  });
+  if (lifecycleInfo.crashMarker) {
+    log('error', 'Detected previous abrupt process stop', {
+      markerPath: lifecycleInfo.crashMarker.markerPath,
+      previousPid: lifecycleInfo.crashMarker.previousState?.pid || null,
+      previousStatus: lifecycleInfo.crashMarker.previousState?.status || null,
+      previousStartedAt: lifecycleInfo.crashMarker.previousState?.startedAt || null,
+      detectedAt: lifecycleInfo.crashMarker.detectedAt,
+    });
+  }
+
   await data.initDataLayer();
 
   // Initialize communication adapters (email, SMS, WhatsApp, etc.)
@@ -131,6 +273,15 @@ async function bootstrap() {
 
   app.get('/health', async (req, res) => {
     try {
+      if (shutdownState.draining) {
+        return res.status(503).json({
+          status: 'draining',
+          timestamp: new Date().toISOString(),
+          reason: shutdownState.reason,
+          startedAt: shutdownState.startedAt,
+        });
+      }
+
       const { checkWorkers } = require('./worker-heartbeat');
 
       // Get orgId from auth middleware if present, otherwise use default
@@ -140,24 +291,30 @@ async function bootstrap() {
       const workerStatus = checkWorkers();
       const mysqlAvailable = data.isMysqlAvailable();
 
-      // Check if workers are frozen
-      const workersAlive = workerStatus.deliveryWorker.alive && workerStatus.schedulerWorker.alive;
+      const coreWorkers = {
+        deliveryWorker: getWorkerHealthState(workerStatus.deliveryWorker),
+        schedulerWorker: getWorkerHealthState(workerStatus.schedulerWorker),
+      };
+      const workerHardFailure = Object.values(coreWorkers).some((worker) => worker.hardFailure);
+      const workerDegraded = Object.values(coreWorkers).some((worker) => worker.degraded);
 
       // Set appropriate HTTP status based on health AND worker status
       let statusCode = 200;
-      let overallStatus = healthStatus.status;
+      let overallStatus = normalizeHealthStatus(healthStatus.status);
 
       // MySQL unavailability is a warning, not a critical failure (API/UI still work)
-      if (!mysqlAvailable && overallStatus === 'ok') {
-        overallStatus = 'degraded';
+      if (!mysqlAvailable && overallStatus === 'healthy') {
+        overallStatus = 'warning';
       }
 
-      if (!workersAlive) {
-        statusCode = 503; // Service Unavailable - workers frozen
+      if (workerHardFailure) {
+        statusCode = 503; // Service Unavailable - core worker is stopped/unavailable
         overallStatus = 'critical';
-      } else if (healthStatus.status === 'critical') {
+      } else if (workerDegraded && overallStatus === 'healthy') {
+        overallStatus = 'warning';
+      } else if (overallStatus === 'critical') {
         statusCode = 503;
-      } else if (healthStatus.status === 'error') {
+      } else if (overallStatus === 'error') {
         statusCode = 500;
       }
 
@@ -165,6 +322,11 @@ async function bootstrap() {
         ...healthStatus,
         status: overallStatus,
         workers: workerStatus,
+        workerSummary: {
+          coreWorkers,
+          hardFailure: workerHardFailure,
+          degraded: workerDegraded,
+        },
         mysql: {
           available: mysqlAvailable,
           status: mysqlAvailable ? 'connected' : 'disconnected',
@@ -218,11 +380,11 @@ async function bootstrap() {
 
   app.use(errorHandler);
 
-  app.listen(config.port, () => {
+  server = app.listen(config.port, async () => {
     log('info', `Event Gateway API listening on port ${config.port}`);
 
     // Initialize memory monitor for production stability
-    const memoryMonitor = new MemoryMonitor({
+    memoryMonitor = new MemoryMonitor({
       heapThresholdMB: config.memory?.heapThresholdMB || undefined, // Auto-detect if not configured
       checkIntervalMs: config.memory?.checkIntervalMs || 60000, // Check every minute
       gracefulShutdown: config.memory?.gracefulShutdown !== false, // Default true
@@ -231,12 +393,19 @@ async function bootstrap() {
 
     // Log initial memory stats
     log('info', 'Memory monitor initialized', memoryMonitor.getMemoryReport());
+    await processLifecycle.markProcessRunning({
+      port: config.port,
+      pid: process.pid,
+      memoryGracefulShutdownEnabled: config.memory?.gracefulShutdown !== false,
+    }).catch((markerError) => {
+      log('error', 'Failed to write running process marker', { error: markerError.message });
+    });
   });
 
-  startDeliveryWorker();
-  startSchedulerWorker(); // Start scheduler for delayed/recurring integrations
+  stopDeliveryWorker = await startDeliveryWorker();
+  stopSchedulerWorker = startSchedulerWorker(); // Start scheduler for delayed/recurring integrations
   startDLQWorker(); // Start DLQ worker for automatic retries
-  startFailureEmailReportScheduler(); // Periodic failure report emails
+  stopFailureEmailReportScheduler = startFailureEmailReportScheduler(); // Periodic failure report emails
   startPendingDeliveriesWorker(); // Start worker for INBOUND COMMUNICATION jobs
 
   // Start scheduled job worker for cron-based batch integrations
@@ -282,7 +451,9 @@ async function runDailyCleanup() {
 
 bootstrap().catch((err) => {
   logError(err, { scope: 'bootstrap' });
-  process.exit(1);
+  processLifecycle.markProcessStopped('bootstrap_failed', err, { pid: process.pid }).finally(() => {
+    process.exit(1);
+  });
 });
 
 process.on('unhandledRejection', (reason) => {
@@ -291,5 +462,20 @@ process.on('unhandledRejection', (reason) => {
 
 process.on('uncaughtException', (err) => {
   logError(err, { scope: 'uncaughtException' });
-  process.exit(1);
+  initiateGracefulDrain('uncaughtException', err, { exitCode: 1 }).catch((drainError) => {
+    logError(drainError, { scope: 'uncaughtExceptionDrain' });
+    process.exitCode = 1;
+  });
+});
+
+process.on('SIGTERM', () => {
+  initiateGracefulDrain('SIGTERM', null, { exitCode: 0 }).catch((err) => {
+    logError(err, { scope: 'sigtermDrain' });
+  });
+});
+
+process.on('SIGINT', () => {
+  initiateGracefulDrain('SIGINT', null, { exitCode: 0 }).catch((err) => {
+    logError(err, { scope: 'sigintDrain' });
+  });
 });

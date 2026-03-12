@@ -16,7 +16,13 @@ const { Title, Text, Paragraph } = Typography;
  *
  * SUPER_ADMIN can access admin routes without orgId, but needs to select an org for org-specific routes.
  */
-export const OrgContextGuard = ({ children }: { children: React.ReactNode }) => {
+export const OrgContextGuard = ({
+  children,
+  requireOrgSelectionOnAdminRoute = false,
+}: {
+  children: React.ReactNode;
+  requireOrgSelectionOnAdminRoute?: boolean;
+}) => {
   const { shadows } = useDesignTokens();
   const { orgId, setManualOrgId } = useTenant();
   const { user } = useAuth();
@@ -42,7 +48,7 @@ export const OrgContextGuard = ({ children }: { children: React.ReactNode }) => 
   }
 
   // If on admin route and user is SUPER_ADMIN/ADMIN, allow access without orgId
-  if (isAdminRoute && (isSuperAdmin || isAdmin)) {
+  if (isAdminRoute && (isSuperAdmin || isAdmin) && !requireOrgSelectionOnAdminRoute) {
     return <>{children}</>;
   }
 

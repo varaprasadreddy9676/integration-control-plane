@@ -273,4 +273,17 @@ async function reinitPool(newDbConfig) {
   }
 }
 
-module.exports = { query, ping, isConfigured, getConnection, getPool, getPoolVersion, reinitPool };
+async function closePool() {
+  if (pool) {
+    try {
+      await pool.end();
+      log('info', 'MySQL pool closed');
+    } finally {
+      pool = null;
+      poolRecreating = false;
+      poolRecreationPromise = null;
+    }
+  }
+}
+
+module.exports = { query, ping, isConfigured, getConnection, getPool, getPoolVersion, reinitPool, closePool };

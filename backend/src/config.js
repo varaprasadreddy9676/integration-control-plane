@@ -109,6 +109,12 @@ const defaultConfig = {
     compress: true,       // gzip rotated files
     inboundMinimalMode: parseBoolean(process.env.INBOUND_MINIMAL_LOGGING, false),
   },
+  memory: {
+    heapThresholdMB: parsePositiveNumber(process.env.MEMORY_HEAP_THRESHOLD_MB, undefined),
+    checkIntervalMs: parsePositiveNumber(process.env.MEMORY_CHECK_INTERVAL_MS, 60000),
+    // Until the service is under a real process manager, production should not self-exit on memory alerts.
+    gracefulShutdown: parseBoolean(process.env.MEMORY_GRACEFUL_SHUTDOWN, process.env.NODE_ENV !== 'production'),
+  },
   rateLimit: {
     enabled: parseBoolean(process.env.API_RATE_LIMIT_ENABLED, true),
     maxRequests: parsePositiveNumber(process.env.API_RATE_LIMIT_MAX_REQUESTS, 100),
@@ -160,6 +166,7 @@ const merged = {
   scheduler: { ...defaultConfig.scheduler, ...(fileConfig.scheduler || {}) },
   eventAudit: { ...defaultConfig.eventAudit, ...(fileConfig.eventAudit || {}) },
   logging: { ...defaultConfig.logging, ...(fileConfig.logging || {}) },
+  memory: { ...defaultConfig.memory, ...(fileConfig.memory || {}) },
   rateLimit: { ...defaultConfig.rateLimit, ...(fileConfig.rateLimit || {}) },
   portal: { ...defaultConfig.portal, ...(fileConfig.portal || {}) },
   // communicationServiceUrl and frontendUrl: file overrides default if present

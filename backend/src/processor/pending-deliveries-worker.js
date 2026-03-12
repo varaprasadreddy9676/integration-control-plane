@@ -7,7 +7,10 @@ const {
   markWorkerRunStart,
   markWorkerRunSuccess,
   setWorkerState,
+  stopWorker,
 } = require('../worker-heartbeat');
+
+let workerInterval = null;
 
 /**
  * Process pending INBOUND COMMUNICATION jobs
@@ -244,6 +247,11 @@ function startPendingDeliveriesWorker() {
 
   log('info', `Starting pending deliveries worker (interval: ${intervalMs}ms)`);
 
+  if (workerInterval) {
+    clearInterval(workerInterval);
+    workerInterval = null;
+  }
+
   setWorkerState('pendingDeliveriesWorker', {
     enabled: true,
     running: true,
@@ -254,7 +262,7 @@ function startPendingDeliveriesWorker() {
     },
   });
 
-  setInterval(async () => {
+  workerInterval = setInterval(async () => {
     try {
       markWorkerRunStart('pendingDeliveriesWorker');
       const processedCount = await processPendingDeliveries();
@@ -289,7 +297,17 @@ function startPendingDeliveriesWorker() {
     });
 }
 
+function stopPendingDeliveriesWorker() {
+  if (workerInterval) {
+    clearInterval(workerInterval);
+    workerInterval = null;
+  }
+  stopWorker('pendingDeliveriesWorker');
+  log('info', 'Pending deliveries worker stopped');
+}
+
 module.exports = {
   processPendingDeliveries,
   startPendingDeliveriesWorker,
+  stopPendingDeliveriesWorker,
 };
