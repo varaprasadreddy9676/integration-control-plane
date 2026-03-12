@@ -18,9 +18,14 @@ const { maskSensitiveData } = require('../utils/mask');
 const { log } = require('../logger');
 const { ObjectId } = require('mongodb');
 const { createExecutionLogger } = require('../utils/execution-logger');
-const { checkRateLimit } = require('../middleware/rate-limiter');
 const adapterRegistry = require('../services/communication/adapter-registry');
 const { validateLookupConfigs } = require('../services/lookup-validator');
+const {
+  normalizeRateLimit,
+  normalizeRequestPolicy,
+  evaluateInboundRequestPolicy,
+  validateRequestPolicy,
+} = require('../services/request-policy');
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -232,6 +237,11 @@ function validateInboundPayload(payload) {
     }
   }
 
+  const requestPolicyError = validateRequestPolicy(payload.requestPolicy);
+  if (requestPolicyError) {
+    return requestPolicyError;
+  }
+
   if (payload.lookups !== undefined && payload.lookups !== null) {
     if (!Array.isArray(payload.lookups)) {
       return 'lookups must be an array when provided';
@@ -257,25 +267,6 @@ function validateInboundPayload(payload) {
   }
 
   return null;
-}
-
-function normalizeRateLimits(rateLimits) {
-  if (rateLimits === undefined) {
-    return undefined;
-  }
-  if (rateLimits === null) {
-    return null;
-  }
-
-  const enabled = rateLimits.enabled === true;
-  const maxRequestsRaw = Number(rateLimits.maxRequests);
-  const windowSecondsRaw = Number(rateLimits.windowSeconds);
-
-  return {
-    enabled,
-    maxRequests: Number.isFinite(maxRequestsRaw) ? Math.max(1, maxRequestsRaw) : 100,
-    windowSeconds: Number.isFinite(windowSecondsRaw) ? Math.max(1, windowSecondsRaw) : 60,
-  };
 }
 
 function buildOrgScopeQuery(orgId) {
@@ -441,6 +432,7 @@ router.post('/', async (req, res) => {
       requestTransformation = { mode: 'SCRIPT', script: '' },
       responseTransformation = { mode: 'SCRIPT', script: '' },
       streamResponse = false,
+      requestPolicy = null,
       rateLimits = null,
       timeout = 10000,
       retryCount = 3,
@@ -488,7 +480,8 @@ router.post('/', async (req, res) => {
       requestTransformation,
       responseTransformation,
       streamResponse: !!streamResponse,
-      rateLimits: normalizeRateLimits(rateLimits),
+      requestPolicy: normalizeRequestPolicy(requestPolicy, rateLimits),
+      rateLimits: normalizeRateLimit(rateLimits),
       timeout,
       timeoutMs: timeout,
       retryCount,
@@ -541,7 +534,10 @@ router.put('/:id([0-9a-fA-F]{24})', async (req, res) => {
     const updateData = { ...req.body };
     delete updateData._id; // Remove _id if present
     if (Object.prototype.hasOwnProperty.call(updateData, 'rateLimits')) {
-      updateData.rateLimits = normalizeRateLimits(updateData.rateLimits);
+      updateData.rateLimits = normalizeRateLimit(updateData.rateLimits);
+    }
+    if (Object.prototype.hasOwnProperty.call(updateData, 'requestPolicy') || Object.prototype.hasOwnProperty.call(updateData, 'rateLimits')) {
+      updateData.requestPolicy = normalizeRequestPolicy(updateData.requestPolicy, updateData.rateLimits);
     }
     if (Object.prototype.hasOwnProperty.call(updateData, 'timeout')) {
       updateData.timeoutMs = updateData.timeout;
@@ -996,7 +992,11 @@ const handleInboundRuntime = async (req, res) => {
       };
     }
 
-    if (!minimalLoggingEnabled) {
+    const hasCommunicationAction =
+      config.actions && Array.isArray(config.actions) && config.actions.some((a) => a.kind === 'COMMUNICATION');
+    const executionLoggingEnabled = !minimalLoggingEnabled || hasCommunicationAction;
+
+    if (executionLoggingEnabled) {
       executionLogger = createExecutionLogger({
         traceId: correlationId,
         direction: 'INBOUND',
@@ -1085,89 +1085,56 @@ const handleInboundRuntime = async (req, res) => {
       });
     }
 
-    // 2.5 Rate limit check (if configured) - MUST run before COMMUNICATION branch
-    if (config.rateLimits?.enabled) {
-      const rateStart = Date.now();
-      try {
-        const rateResult = await checkRateLimit(config._id.toString(), resolvedOrgId, config.rateLimits);
-        const durationMs = Date.now() - rateStart;
-        const maxRequests = config.rateLimits.maxRequests || 100;
-        const windowSeconds = config.rateLimits.windowSeconds || 60;
+    // 2.5 Evaluate request policy before any provider work
+    const requestPolicyStart = Date.now();
+    try {
+      const policyDecision = await evaluateInboundRequestPolicy(req, config);
+      if (policyDecision.headers) {
+        res.set(policyDecision.headers);
+      }
 
-        res.set({
-          'X-RateLimit-Limit': maxRequests,
-          'X-RateLimit-Remaining': rateResult.remaining,
-          'X-RateLimit-Reset': rateResult.resetAt ? Math.floor(rateResult.resetAt.getTime() / 1000) : '',
+      await executionLogger
+        .addStep('request_policy', {
+          status: policyDecision.allowed ? 'success' : 'failed',
+          durationMs: Date.now() - requestPolicyStart,
+          metadata: policyDecision.metadata,
+          error: policyDecision.allowed ? undefined : { message: policyDecision.message },
+        })
+        .catch(() => {});
+
+      if (!policyDecision.allowed) {
+        await persistIntegrationLogFn(config, 'FAILED', {
+          request: { body: requestBody, query: queryParams, headers: maskSensitiveData(req.headers) },
+          response: { status: policyDecision.statusCode },
+          error: {
+            error: policyDecision.code,
+            message: policyDecision.message,
+            ...policyDecision.metadata,
+          },
+          correlationId,
         });
 
-        if (!rateResult.allowed) {
-          await executionLogger
-            .addStep('rate_limit', {
-              status: 'failed',
-              durationMs,
-              metadata: {
-                remaining: rateResult.remaining,
-                resetAt: rateResult.resetAt,
-                maxRequests,
-                windowSeconds,
-              },
-              error: { message: 'Rate limit exceeded' },
-            })
-            .catch(() => {});
-
-          if (rateResult.retryAfter) {
-            res.set('Retry-After', rateResult.retryAfter);
-          }
-
-          await persistIntegrationLogFn(config, 'FAILED', {
-            request: { body: requestBody, query: queryParams, headers: maskSensitiveData(req.headers) },
-            response: { status: 429 },
-            error: {
-              error: 'RATE_LIMIT_EXCEEDED',
-              message: 'Rate limit exceeded',
-              retryAfter: rateResult.retryAfter,
-            },
-            correlationId,
-          });
-
-          const rateError = new Error('Rate limit exceeded');
-          rateError.code = 'RATE_LIMIT_EXCEEDED';
-          await executionLogger
-            .fail(rateError, {
-              createDLQ: false,
-              statusCode: 429,
-            })
-            .catch(() => {});
-
-          return res.status(429).json({
-            error: 'RATE_LIMIT_EXCEEDED',
-            message: 'Too many requests for this integration. Please try again later.',
-            retryAfter: rateResult.retryAfter,
-            resetAt: rateResult.resetAt,
-          });
-        }
-
+        const policyError = new Error(policyDecision.message);
+        policyError.code = policyDecision.code;
         await executionLogger
-          .addStep('rate_limit', {
-            status: 'success',
-            durationMs,
-            metadata: {
-              remaining: rateResult.remaining,
-              resetAt: rateResult.resetAt,
-              maxRequests,
-              windowSeconds,
-            },
+          .fail(policyError, {
+            createDLQ: false,
+            statusCode: policyDecision.statusCode,
           })
           .catch(() => {});
-      } catch (error) {
-        log('warn', 'Rate limit check failed', { error: error.message, correlationId });
+
+        return res.status(policyDecision.statusCode).json({
+          error: policyDecision.code,
+          message: policyDecision.message,
+          ...(policyDecision.metadata?.retryAfter ? { retryAfter: policyDecision.metadata.retryAfter } : {}),
+          ...(policyDecision.metadata?.resetAt ? { resetAt: policyDecision.metadata.resetAt } : {}),
+        });
       }
+    } catch (error) {
+      log('warn', 'Request policy evaluation failed', { error: error.message, correlationId });
     }
 
     // 2.75 Check if this integration has COMMUNICATION actions (async delivery)
-    const hasCommunicationAction =
-      config.actions && Array.isArray(config.actions) && config.actions.some((a) => a.kind === 'COMMUNICATION');
-
     if (hasCommunicationAction) {
       log('info', 'INBOUND COMMUNICATION integration - creating async job', {
         type,

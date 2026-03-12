@@ -2,6 +2,7 @@
 const { log, logError } = require('../logger');
 const mongodb = require('../mongodb');
 const { generateSigningSecret } = require('../services/integration-signing');
+const { normalizeRequestPolicy, normalizeRateLimit } = require('../services/request-policy');
 const {
   useMongo,
   normalizeOrgId,
@@ -296,7 +297,8 @@ async function addIntegration(orgId, payload) {
         maxInboundFileSizeMb: Number.isFinite(Number(payload.maxInboundFileSizeMb))
           ? Math.max(1, Math.min(100, Math.floor(Number(payload.maxInboundFileSizeMb))))
           : 50,
-        rateLimits: payload.rateLimits || null, // Per-integration rate limiting
+        requestPolicy: normalizeRequestPolicy(payload.requestPolicy, payload.rateLimits) || null,
+        rateLimits: normalizeRateLimit(payload.rateLimits) || null, // Legacy per-integration rate limiting
         isActive: payload.isActive !== false,
         timeoutMs: payload.timeoutMs,
         retryCount: payload.retryCount,
@@ -370,6 +372,12 @@ async function updateIntegration(orgId, id, patch) {
         updateDoc.type = updateDoc.eventType;
       } else if (updateDoc.type && !updateDoc.eventType) {
         updateDoc.eventType = updateDoc.type;
+      }
+      if (Object.prototype.hasOwnProperty.call(updateDoc, 'rateLimits')) {
+        updateDoc.rateLimits = normalizeRateLimit(updateDoc.rateLimits);
+      }
+      if (Object.prototype.hasOwnProperty.call(updateDoc, 'requestPolicy') || Object.prototype.hasOwnProperty.call(updateDoc, 'rateLimits')) {
+        updateDoc.requestPolicy = normalizeRequestPolicy(updateDoc.requestPolicy, updateDoc.rateLimits);
       }
 
       // Debug: Log what we're saving

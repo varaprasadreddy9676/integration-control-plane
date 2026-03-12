@@ -78,6 +78,7 @@ function mapIntegrationFromMongo(doc) {
     responseTransformation: doc.responseTransformation || null, // INBOUND response transformation
     streamResponse: !!doc.streamResponse, // INBOUND response streaming
     maxInboundFileSizeMb: doc.maxInboundFileSizeMb ?? 50,
+    requestPolicy: doc.requestPolicy || null,
     rateLimits: doc.rateLimits || null, // Per-integration rate limiting
     isActive: !!doc.isActive,
     timeoutMs: doc.timeoutMs,

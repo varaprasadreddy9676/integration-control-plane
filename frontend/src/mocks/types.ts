@@ -77,6 +77,17 @@ export interface IntegrationConfig {
   httpMethod: 'POST' | 'PUT';
   outgoingAuthType: OutgoingAuthType;
   outgoingAuthConfig?: Record<string, unknown>;
+  inboundAuthType?: string | null;
+  inboundAuthConfig?: Record<string, unknown> | null;
+  requestPolicy?: {
+    allowedIpCidrs?: string[];
+    allowedBrowserOrigins?: string[];
+    rateLimit?: {
+      enabled?: boolean;
+      maxRequests?: number;
+      windowSeconds?: number;
+    };
+  } | null;
   isActive: boolean;
   timeoutMs: number;
   retryCount: number;

@@ -53,7 +53,7 @@ import {
   AuthenticationFields,
   HttpConfigFields
 } from '../../../shared/integration-forms';
-import { RateLimitSection } from '../../integrations/components/detail/RateLimitSection';
+import { RequestPolicySection } from '../../integrations/components/detail/RequestPolicySection';
 
 const { Text, Paragraph } = Typography;
 
@@ -76,6 +76,7 @@ export const InboundIntegrationDetailRoute = () => {
   const formType = Form.useWatch('type', form);
   const formTargetUrl = Form.useWatch('targetUrl', form);
   const formHttpMethod = Form.useWatch('httpMethod', form);
+  const inboundAuthTypeValue = Form.useWatch('inboundAuthType', form);
   const streamResponse = Form.useWatch('streamResponse', form);
   const actionType = Form.useWatch('actionType', form); // NEW: HTTP or COMMUNICATION
   const communicationChannel = Form.useWatch(['communicationConfig', 'channel'], form); // EMAIL, SMS, etc.
@@ -86,8 +87,9 @@ export const InboundIntegrationDetailRoute = () => {
     const base = apiBase.replace(/\/$/, '');
     const typedType = typeof formType === 'string' ? formType.trim() : '';
     const typeSegment = typedType ? encodeURIComponent(typedType) : '<type>';
-    return `${base}/integrations/${typeSegment}?orgId=<orgId>`;
-  }, [formType]);
+    const runtimePath = !inboundAuthTypeValue || inboundAuthTypeValue === 'NONE' ? 'public/integrations' : 'integrations';
+    return `${base}/${runtimePath}/${typeSegment}?orgId=<orgId>`;
+  }, [formType, inboundAuthTypeValue]);
 
   // Watch SMTP fields for reactive button enabling
   const smtpHost = Form.useWatch(['communicationConfig', 'smtp', 'host'], form);
@@ -114,6 +116,11 @@ export const InboundIntegrationDetailRoute = () => {
   const [testEmailBody, setTestEmailBody] = useState('<h1>Test Email</h1><p>This is a test email sent from the Integration Gateway.</p>');
   const [isSendingTest, setIsSendingTest] = useState(false);
   const [activeTab, setActiveTab] = useState('basic');
+  const splitPolicyLines = (value: unknown) =>
+    String(value || '')
+      .split(/\r?\n|,/)
+      .map((entry) => entry.trim())
+      .filter(Boolean);
   const getDefaultRequestTransformScript = (actionType: string) => {
     if (actionType === 'COMMUNICATION') {
       return `/**
@@ -610,7 +617,11 @@ return {
         contentType: integration.contentType || 'application/json',
         maxInboundFileSizeMb: integration.maxInboundFileSizeMb || 50,
         streamResponse: integration.streamResponse || false,
-        rateLimits: integration.rateLimits || { enabled: false, maxRequests: 100, windowSeconds: 60 },
+        requestPolicy: {
+          rateLimit: integration.requestPolicy?.rateLimit || integration.rateLimits || { enabled: false, maxRequests: 100, windowSeconds: 60 },
+          allowedIpCidrsText: (integration.requestPolicy?.allowedIpCidrs || []).join('\n'),
+          allowedBrowserOriginsText: (integration.requestPolicy?.allowedBrowserOrigins || []).join('\n'),
+        },
         communicationConfig: integration.actions?.[0]?.communicationConfig || {
           channel: 'EMAIL',
           provider: 'SMTP'
@@ -705,13 +716,20 @@ return {
         direction: 'INBOUND',
         inboundAuthType: values.inboundAuthType,
         inboundAuthConfig: values.inboundAuthConfig,
-        rateLimits: values.rateLimits || { enabled: false, maxRequests: 100, windowSeconds: 60 },
         requestTransformation: {
           mode: 'SCRIPT',
           script: requestTransformEnabled ? requestTransformScript : ''
         },
         isActive: true
       };
+
+      const requestPolicy = {
+        rateLimit: values.requestPolicy?.rateLimit || { enabled: false, maxRequests: 100, windowSeconds: 60 },
+        allowedIpCidrs: splitPolicyLines(values.requestPolicy?.allowedIpCidrsText),
+        allowedBrowserOrigins: splitPolicyLines(values.requestPolicy?.allowedBrowserOriginsText),
+      };
+      payload.requestPolicy = requestPolicy;
+      payload.rateLimits = requestPolicy.rateLimit;
 
       if (values.actionType === 'COMMUNICATION') {
         // COMMUNICATION integration
@@ -820,10 +838,14 @@ return {
           contentType: 'application/json',
           maxInboundFileSizeMb: 50,
           inboundAuthType: 'NONE',
-          rateLimits: {
-            enabled: false,
-            maxRequests: 100,
-            windowSeconds: 60
+          requestPolicy: {
+            rateLimit: {
+              enabled: false,
+              maxRequests: 100,
+              windowSeconds: 60
+            },
+            allowedIpCidrsText: '',
+            allowedBrowserOriginsText: '',
           },
           communicationConfig: {
             channel: 'EMAIL',
@@ -1081,7 +1103,7 @@ return {
                           />
 
                           <Divider style={{ margin: `${spacing[4]} 0` }} />
-                          <RateLimitSection form={form} spacing={spacing} />
+                          <RequestPolicySection form={form} spacing={spacing} />
 
                           <Divider style={{ margin: `${spacing[4]} 0` }} />
 
@@ -1112,7 +1134,7 @@ return {
                       />
 
                       <Divider style={{ margin: `${spacing[4]} 0` }} />
-                      <RateLimitSection form={form} spacing={spacing} />
+                      <RequestPolicySection form={form} spacing={spacing} />
 
                       <Divider style={{ margin: `${spacing[4]} 0` }} />
 
