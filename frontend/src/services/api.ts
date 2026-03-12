@@ -3587,9 +3587,33 @@ export interface SystemStatusAdapter {
   statusError?: string;
 }
 
+export interface SystemStatusOrganizationRow {
+  orgId: number;
+  name: string;
+  code?: string | null;
+  status: string;
+  alertCount: SystemStatusAlertCount;
+  summary: {
+    deliveries24h: number;
+    successRate24h: number;
+    failed24h: number;
+    pendingCount: number;
+    retryingCount: number;
+    p95ResponseTimeMs: number;
+  };
+  eventSources: {
+    configured: boolean;
+    sourceType: string | null;
+    state: string;
+    adapterStatus: string | null;
+    summary: Record<string, number>;
+  };
+}
+
 export interface SystemStatusResponse {
   timestamp: string;
-  orgId: number;
+  scope?: 'org' | 'global';
+  orgId: number | null;
   overall: {
     status: string;
     alertCount: SystemStatusAlertCount;
@@ -3602,6 +3626,13 @@ export interface SystemStatusResponse {
       p95ResponseTimeMs: number;
     };
   };
+  globalSummary?: {
+    organizationCount: number;
+    organizationStatusCounts: Record<string, number>;
+    eventSourceConfiguredCount: number;
+    eventSourceNotConfiguredCount: number;
+  };
+  organizations?: SystemStatusOrganizationRow[];
   process: {
     appVersion: string;
     pid: number;
@@ -3660,7 +3691,7 @@ export interface SystemStatusResponse {
     summary: {
       total: number;
       healthy: number;
-      unhealthy: number;
+      stale: number;
       stopped: number;
       disabled: number;
     };
@@ -3750,5 +3781,5 @@ export interface SystemStatusResponse {
   checks: Record<string, any>;
 }
 
-export const getSystemStatus = async (orgId: number): Promise<SystemStatusResponse> =>
-  request(`/system-status?orgId=${orgId}`);
+export const getSystemStatus = async (orgId?: number | null): Promise<SystemStatusResponse> =>
+  request(orgId && orgId > 0 ? `/system-status?orgId=${orgId}` : '/system-status');

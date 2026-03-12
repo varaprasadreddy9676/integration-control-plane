@@ -31,7 +31,13 @@ import { PortalScopeBadge } from '../../../components/portal/PortalScopeBadge';
 import { useAuth } from '../../../app/auth-context';
 import { useTenant } from '../../../app/tenant-context';
 import { useDesignTokens } from '../../../design-system/utils';
-import { getSystemStatus, type SystemStatusAdapter, type SystemStatusResponse, type SystemStatusWorker } from '../../../services/api';
+import {
+  getSystemStatus,
+  type SystemStatusAdapter,
+  type SystemStatusOrganizationRow,
+  type SystemStatusResponse,
+  type SystemStatusWorker,
+} from '../../../services/api';
 import {
   formatAgeLabel,
   formatBytes,
@@ -135,13 +141,22 @@ function WorkerTable({ workers }: { workers: SystemStatusWorker[] }) {
 }
 
 function EventSourceTable({ adapters }: { adapters: SystemStatusAdapter[] }) {
+  const showOrgColumn = adapters.some((adapter) => Number.isFinite(Number(adapter.orgId)));
   return (
     <Table
       size="small"
-      rowKey={(adapter) => `${adapter.sourceType}-${adapter.name}`}
+      rowKey={(adapter) => `${adapter.orgId}-${adapter.sourceType}-${adapter.name}`}
       pagination={false}
       dataSource={adapters}
       columns={[
+        ...(showOrgColumn
+          ? [{
+              title: 'Org',
+              dataIndex: 'orgId',
+              key: 'orgId',
+              render: (value: number) => value || '—',
+            }]
+          : []),
         {
           title: 'Source',
           key: 'source',
@@ -193,6 +208,65 @@ function EventSourceTable({ adapters }: { adapters: SystemStatusAdapter[] }) {
             if (adapter.lastRowsFetched !== undefined) tags.push(`rows: ${adapter.lastRowsFetched}`);
             if (adapter.lastCheckpoint !== null && adapter.lastCheckpoint !== undefined) tags.push(`checkpoint: ${String(adapter.lastCheckpoint)}`);
             return tags.length ? <Space size={[4, 4]} wrap>{tags.map((tag) => <Tag key={tag}>{tag}</Tag>)}</Space> : '—';
+          },
+        },
+      ]}
+    />
+  );
+}
+
+function OrganizationStatusTable({ organizations }: { organizations: SystemStatusOrganizationRow[] }) {
+  return (
+    <Table
+      size="small"
+      rowKey={(row) => row.orgId}
+      pagination={false}
+      dataSource={organizations}
+      columns={[
+        {
+          title: 'Organization',
+          key: 'org',
+          render: (_, row) => (
+            <Space direction="vertical" size={0}>
+              <Text strong>{row.name || `Org ${row.orgId}`}</Text>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                {row.code || `Org ${row.orgId}`}
+              </Text>
+            </Space>
+          ),
+        },
+        {
+          title: 'Status',
+          key: 'status',
+          render: (_, row) => {
+            const presentation = getOverallStatusPresentation(row.status);
+            return statusTag(presentation.label, presentation.color === 'orange' ? 'warning' : presentation.color);
+          },
+        },
+        {
+          title: 'Deliveries (24h)',
+          dataIndex: ['summary', 'deliveries24h'],
+          key: 'deliveries24h',
+        },
+        {
+          title: 'Success Rate',
+          key: 'successRate24h',
+          render: (_, row) => formatPercentage(row.summary?.successRate24h),
+        },
+        {
+          title: 'P95',
+          key: 'p95ResponseTimeMs',
+          render: (_, row) => formatDuration(row.summary?.p95ResponseTimeMs),
+        },
+        {
+          title: 'Event Source',
+          key: 'eventSources',
+          render: (_, row) => {
+            if (!row.eventSources?.configured) {
+              return statusTag('Not Configured', 'blue');
+            }
+            const adapterLabel = row.eventSources?.adapterStatus || row.eventSources?.state || 'configured';
+            return statusTag(String(adapterLabel).replace(/_/g, ' '), adapterLabel === 'connected' ? 'green' : 'warning');
           },
         },
       ]}
@@ -271,11 +345,12 @@ export function SystemStatusRoute({ mode = 'admin' }: { mode?: 'admin' | 'standa
   const canViewPortalStatus = !isPortalSession || allowedViews.length === 0 || allowedViews.includes('system_status');
 
   const effectiveOrgId = orgId > 0 ? orgId : Number(searchParams.get('orgId') || 0);
+  const isGlobalAdminMode = !isStandalone && !isPortalSession && effectiveOrgId <= 0;
 
   const { data, isLoading, error, dataUpdatedAt, refetch } = useQuery({
-    queryKey: ['systemStatus', effectiveOrgId],
-    queryFn: () => getSystemStatus(effectiveOrgId),
-    enabled: effectiveOrgId > 0 && canViewPortalStatus,
+    queryKey: ['systemStatus', isGlobalAdminMode ? 'global' : effectiveOrgId],
+    queryFn: () => getSystemStatus(isGlobalAdminMode ? null : effectiveOrgId),
+    enabled: canViewPortalStatus && (effectiveOrgId > 0 || isGlobalAdminMode),
     staleTime: 20000,
     refetchInterval: autoRefresh ? AUTO_REFRESH_INTERVAL_MS : false,
   });
@@ -326,6 +401,8 @@ export function SystemStatusRoute({ mode = 'admin' }: { mode?: 'admin' | 'standa
     () => getEventSourceConfigurationPresentation(data?.eventSources?.configuration),
     [data?.eventSources?.configuration]
   );
+  const isGlobalScope = data?.scope === 'global';
+  const organizations = data?.organizations || [];
 
   const directionMix = data?.traffic?.directionMixLast60m || {};
   const backlogRows = [
@@ -379,17 +456,17 @@ export function SystemStatusRoute({ mode = 'admin' }: { mode?: 'admin' | 'standa
             </Col>
             <Col xs={24} md={12} xl={4}>
               <Card size="small">
-                <Statistic title="Deliveries (24h)" value={data?.overall?.summary?.deliveries24h ?? 0} />
+                <Statistic title={isGlobalScope ? 'Organizations' : 'Deliveries (24h)'} value={isGlobalScope ? data?.globalSummary?.organizationCount ?? 0 : data?.overall?.summary?.deliveries24h ?? 0} />
               </Card>
             </Col>
             <Col xs={24} md={12} xl={4}>
               <Card size="small">
-                <Statistic title="Success Rate" value={formatPercentage(data?.overall?.summary?.successRate24h)} />
+                <Statistic title={isGlobalScope ? 'Critical Orgs' : 'Success Rate'} value={isGlobalScope ? data?.globalSummary?.organizationStatusCounts?.critical ?? 0 : formatPercentage(data?.overall?.summary?.successRate24h)} />
               </Card>
             </Col>
             <Col xs={24} md={12} xl={4}>
               <Card size="small">
-                <Statistic title="P95 Response" value={formatDuration(data?.overall?.summary?.p95ResponseTimeMs)} />
+                <Statistic title={isGlobalScope ? 'Warning Orgs' : 'P95 Response'} value={isGlobalScope ? data?.globalSummary?.organizationStatusCounts?.warning ?? 0 : formatDuration(data?.overall?.summary?.p95ResponseTimeMs)} />
               </Card>
             </Col>
             <Col xs={24} md={12} xl={4}>
@@ -430,13 +507,19 @@ export function SystemStatusRoute({ mode = 'admin' }: { mode?: 'admin' | 'standa
                         ? `Yes · ${formatAgeLabel(data?.processLifecycle?.abruptRestart?.detectedAt)}`
                         : 'No',
                     },
-                    { label: 'Event Source Config', value: configurationPresentation.label },
+                    { label: isGlobalScope ? 'Configured Event Sources' : 'Event Source Config', value: isGlobalScope ? `${data?.globalSummary?.eventSourceConfiguredCount ?? 0}/${data?.globalSummary?.organizationCount ?? 0}` : configurationPresentation.label },
                     { label: 'Workers Healthy', value: workerSummary ? `${workerSummary.healthy}/${workerSummary.total}` : '—' },
                   ]}
                 />
               </Card>
             </Col>
           </Row>
+
+          {isGlobalScope && (
+            <Card size="small" title="Organization Health">
+              <OrganizationStatusTable organizations={organizations} />
+            </Card>
+          )}
         </Space>
       ),
     },
@@ -452,16 +535,24 @@ export function SystemStatusRoute({ mode = 'admin' }: { mode?: 'admin' | 'standa
         <Space direction="vertical" size={16} style={{ width: '100%' }}>
           <Card size="small" title="Configuration">
             <KeyValueTable
-              rows={[
-                { label: 'State', value: configurationPresentation.label },
-                { label: 'Configured', value: data?.eventSources?.configuration?.configured ? 'Yes' : 'No' },
-                { label: 'Source Type', value: data?.eventSources?.configuration?.sourceType || '—' },
-                { label: 'Config Origin', value: data?.eventSources?.configuration?.configOrigin || '—' },
-                { label: 'Configuration Error', value: data?.eventSources?.configuration?.error?.errorMessage || '—' },
-              ]}
+              rows={isGlobalScope
+                ? [
+                    { label: 'View', value: 'Global' },
+                    { label: 'Configured Orgs', value: data?.globalSummary?.eventSourceConfiguredCount ?? 0 },
+                    { label: 'Not Configured Orgs', value: data?.globalSummary?.eventSourceNotConfiguredCount ?? 0 },
+                    { label: 'Running Adapters', value: data?.eventSources?.manager?.adapterCount ?? 0 },
+                    { label: 'Manager Sync Error', value: data?.eventSources?.manager?.lastSyncErrorMessage || '—' },
+                  ]
+                : [
+                    { label: 'State', value: configurationPresentation.label },
+                    { label: 'Configured', value: data?.eventSources?.configuration?.configured ? 'Yes' : 'No' },
+                    { label: 'Source Type', value: data?.eventSources?.configuration?.sourceType || '—' },
+                    { label: 'Config Origin', value: data?.eventSources?.configuration?.configOrigin || '—' },
+                    { label: 'Configuration Error', value: data?.eventSources?.configuration?.error?.errorMessage || '—' },
+                  ]}
             />
           </Card>
-          {data?.eventSources?.configuration?.state === 'not_configured' && (data?.eventSources?.orgAdapters?.length || 0) === 0 ? (
+          {!isGlobalScope && (data?.eventSources?.configuration?.state === 'not_configured' || (data?.eventSources?.orgAdapters?.length || 0) === 0) ? (
             <Alert
               type="info"
               showIcon
@@ -665,14 +756,22 @@ export function SystemStatusRoute({ mode = 'admin' }: { mode?: 'admin' | 'standa
     <div style={{ padding: isStandalone ? spacing[4] : spacing[6] }}>
       <PageHeader
         title="System Status"
-        description={dataUpdatedAt ? `Last updated ${lastUpdatedAge}s ago` : 'Live application health, worker status, traffic, and runtime visibility.'}
+        description={
+          dataUpdatedAt
+            ? `Last updated ${lastUpdatedAge}s ago`
+            : isGlobalAdminMode
+              ? 'Global application health across all organizations.'
+              : 'Live application health, worker status, traffic, and runtime visibility.'
+        }
         titleSuffix={isPortalSession ? <PortalScopeBadge /> : undefined}
         statusChips={[
           { label: overallStatus.label, color: overallStatus.color === 'orange' ? '#faad14' : overallStatus.color === 'green' ? '#52c41a' : overallStatus.color === 'red' ? '#ff4d4f' : undefined },
           { label: lifecycleStatus.label, color: lifecycleStatus.color === 'orange' ? '#faad14' : lifecycleStatus.color === 'green' ? '#52c41a' : lifecycleStatus.color === 'red' ? '#ff4d4f' : lifecycleStatus.color === 'blue' ? '#1677ff' : undefined },
           { label: `${data?.overall?.alertCount?.total ?? 0} alerts`, color: (data?.overall?.alertCount?.total || 0) > 0 ? '#faad14' : undefined },
           { label: data?.processLifecycle?.abruptRestart?.detected ? 'Abrupt restart detected' : 'No abrupt restart' },
-          { label: configurationPresentation.label, color: configurationPresentation.color === 'orange' ? '#faad14' : configurationPresentation.color === 'green' ? '#52c41a' : configurationPresentation.color === 'red' ? '#ff4d4f' : configurationPresentation.color === 'blue' ? '#1677ff' : undefined },
+          isGlobalScope
+            ? { label: `${data?.globalSummary?.organizationCount ?? 0} orgs`, color: '#1677ff' }
+            : { label: configurationPresentation.label, color: configurationPresentation.color === 'orange' ? '#faad14' : configurationPresentation.color === 'green' ? '#52c41a' : configurationPresentation.color === 'red' ? '#ff4d4f' : configurationPresentation.color === 'blue' ? '#1677ff' : undefined },
           { label: workerSummary ? `${workerSummary.healthy}/${workerSummary.total} workers healthy` : 'Workers unknown' },
         ]}
         actions={

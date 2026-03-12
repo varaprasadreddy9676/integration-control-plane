@@ -75,6 +75,7 @@ jest.mock('../../src/worker-heartbeat', () => ({
 
 jest.mock('../../src/data', () => ({
   isMysqlAvailable: jest.fn(),
+  listTenantSummaries: jest.fn(),
 }));
 
 jest.mock('../../src/processor/scheduled-job-worker', () => ({
@@ -84,6 +85,17 @@ jest.mock('../../src/processor/scheduled-job-worker', () => ({
 jest.mock('../../src/processor/delivery-worker-manager', () => ({
   getDeliveryWorkerManager: jest.fn(),
 }));
+
+jest.mock(
+  '../../src/services/process-lifecycle',
+  () => ({
+    paths: {
+      stateFile: '/tmp/process-state.json',
+      crashMarkerDir: '/tmp/crash-markers',
+    },
+  }),
+  { virtual: true }
+);
 
 describe('System Status Route', () => {
   let app;
@@ -261,6 +273,10 @@ describe('System Status Route', () => {
     });
 
     data.isMysqlAvailable.mockReturnValue(true);
+    data.listTenantSummaries.mockResolvedValue([
+      { orgId: 812, name: 'NCX', code: 'NCX-812' },
+      { orgId: 648, name: 'Luma', code: 'LUMA-648' },
+    ]);
 
     scheduledJobWorker.getScheduledJobWorker.mockReturnValue({
       isRunning: true,
@@ -422,6 +438,42 @@ describe('System Status Route', () => {
     expect(res.status).toBe(400);
     expect(res.body).toMatchObject({
       code: 'ORG_ID_REQUIRED',
+    });
+  });
+
+  it('returns a global system status payload for super admin requests without orgId', async () => {
+    const globalApp = express();
+    globalApp.use((req, _res, next) => {
+      req.user = { role: 'SUPER_ADMIN' };
+      next();
+    });
+    const router = require('../../src/routes/system-status');
+    globalApp.use('/api/v1/system-status', router);
+
+    const res = await request(globalApp).get('/api/v1/system-status');
+
+    expect(res.status).toBe(200);
+    expect(res.body.scope).toBe('global');
+    expect(res.body.orgId).toBeNull();
+    expect(res.body.globalSummary).toMatchObject({
+      organizationCount: 2,
+      eventSourceConfiguredCount: 1,
+      eventSourceNotConfiguredCount: 1,
+    });
+    expect(res.body.organizations).toEqual([
+      expect.objectContaining({
+        orgId: 812,
+        name: 'NCX',
+        status: 'warning',
+      }),
+      expect.objectContaining({
+        orgId: 648,
+        name: 'Luma',
+        status: 'warning',
+      }),
+    ]);
+    expect(res.body.eventSources.configuration).toMatchObject({
+      state: 'global',
     });
   });
 
