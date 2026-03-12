@@ -216,7 +216,7 @@ function AlertsList({ data }: { data: SystemStatusResponse }) {
               renderItem={(alert) => (
                 <List.Item>
                   <List.Item.Meta
-                    title={<Space>{statusTag(String(alert.severity || 'unknown'), alert.severity === 'critical' ? 'red' : 'warning')}<Text strong>{alert.type}</Text></Space>}
+                    title={<Space>{statusTag(String(alert.severity || 'unknown'), alert.severity === 'critical' ? 'red' : alert.severity === 'warning' ? 'warning' : alert.severity === 'info' ? 'blue' : 'default')}<Text strong>{alert.type}</Text></Space>}
                     description={alert.message}
                   />
                 </List.Item>
@@ -260,14 +260,14 @@ export function SystemStatusRoute({ mode = 'admin' }: { mode?: 'admin' | 'standa
   const [refreshCountdown, setRefreshCountdown] = useState(30);
   const [manualRefreshPending, setManualRefreshPending] = useState(false);
   const activeTab = (searchParams.get('tab') || 'overview') as TabKey;
-  const allowedViews = (() => {
+  const allowedViews = useMemo(() => {
     try {
       const stored = localStorage.getItem('integration_gateway_user');
       return stored ? (JSON.parse(stored)?.allowedViews ?? []) : [];
     } catch {
       return [] as string[];
     }
-  })();
+  }, []);
   const canViewPortalStatus = !isPortalSession || allowedViews.length === 0 || allowedViews.includes('system_status');
 
   const effectiveOrgId = orgId > 0 ? orgId : Number(searchParams.get('orgId') || 0);
@@ -461,12 +461,12 @@ export function SystemStatusRoute({ mode = 'admin' }: { mode?: 'admin' | 'standa
               ]}
             />
           </Card>
-          {data?.eventSources?.configuration?.state === 'not_configured' || (data?.eventSources?.orgAdapters?.length || 0) === 0 ? (
+          {data?.eventSources?.configuration?.state === 'not_configured' && (data?.eventSources?.orgAdapters?.length || 0) === 0 ? (
             <Alert
               type="info"
               showIcon
               message="No event source configured"
-              description="This org does not currently have a running event source adapter. That is different from a failed adapter." 
+              description="This org does not currently have a running event source adapter. That is different from a failed adapter."
             />
           ) : (
             <EventSourceTable adapters={data?.eventSources?.orgAdapters || []} />

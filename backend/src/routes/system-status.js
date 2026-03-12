@@ -45,14 +45,14 @@ function summarizeWorkers(workers) {
       } else if (worker.alive) {
         acc.healthy += 1;
       } else if (worker.running) {
-        acc.unhealthy += 1;
+        acc.stale += 1;
       } else {
         acc.stopped += 1;
       }
       acc.total += 1;
       return acc;
     },
-    { total: 0, healthy: 0, unhealthy: 0, stopped: 0, disabled: 0 }
+    { total: 0, healthy: 0, stale: 0, stopped: 0, disabled: 0 }
   );
 }
 
@@ -107,7 +107,6 @@ async function readLatestLogFile(prefix) {
       found: true,
       status: ageSeconds > 3600 ? 'stale' : 'fresh',
       fileName: latest.fileName,
-      path: latest.fullPath,
       modifiedAt: latest.stat.mtime.toISOString(),
       ageSeconds,
       sizeBytes: latest.stat.size,
@@ -185,18 +184,18 @@ async function readLatestCrashMarker() {
 
 async function getBacklogMetrics(db, orgId) {
   const [pendingDeliveries, dlq, scheduledIntegrations] = await Promise.all([
-    db.collection('pending_deliveries').aggregate([
-      { $match: { orgId } },
-      { $group: { _id: '$status', count: { $sum: 1 } } },
-    ]).toArray(),
-    db.collection('failed_deliveries').aggregate([
-      { $match: { orgId } },
-      { $group: { _id: '$status', count: { $sum: 1 } } },
-    ]).toArray(),
-    db.collection('scheduled_integrations').aggregate([
-      { $match: { orgId } },
-      { $group: { _id: '$status', count: { $sum: 1 } } },
-    ]).toArray(),
+    db
+      .collection('pending_deliveries')
+      .aggregate([{ $match: { orgId } }, { $group: { _id: '$status', count: { $sum: 1 } } }])
+      .toArray(),
+    db
+      .collection('failed_deliveries')
+      .aggregate([{ $match: { orgId } }, { $group: { _id: '$status', count: { $sum: 1 } } }])
+      .toArray(),
+    db
+      .collection('scheduled_integrations')
+      .aggregate([{ $match: { orgId } }, { $group: { _id: '$status', count: { $sum: 1 } } }])
+      .toArray(),
   ]);
 
   return {
@@ -228,10 +227,13 @@ async function getTrafficMetrics(db, orgId) {
         count: await db.collection('event_audit').countDocuments({ orgId, createdAt: { $gte: start } }),
       }))
     ),
-    db.collection('execution_logs').aggregate([
-      { $match: { orgId, createdAt: { $gte: windows.last60m } } },
-      { $group: { _id: '$direction', count: { $sum: 1 } } },
-    ]).toArray(),
+    db
+      .collection('execution_logs')
+      .aggregate([
+        { $match: { orgId, createdAt: { $gte: windows.last60m } } },
+        { $group: { _id: '$direction', count: { $sum: 1 } } },
+      ])
+      .toArray(),
   ]);
 
   return {
@@ -250,19 +252,22 @@ async function getTrafficMetrics(db, orgId) {
 async function getScheduledJobMetrics(db, orgId) {
   const worker = getScheduledJobWorker();
   const [jobBreakdown, latestLogs] = await Promise.all([
-    db.collection('integration_configs').aggregate([
-      { $match: { orgId, direction: 'SCHEDULED' } },
-      {
-        $group: {
-          _id: null,
-          total: { $sum: 1 },
-          active: { $sum: { $cond: ['$isActive', 1, 0] } },
-          inactive: { $sum: { $cond: ['$isActive', 0, 1] } },
-          cron: { $sum: { $cond: [{ $eq: ['$schedule.type', 'CRON'] }, 1, 0] } },
-          interval: { $sum: { $cond: [{ $eq: ['$schedule.type', 'INTERVAL'] }, 1, 0] } },
+    db
+      .collection('integration_configs')
+      .aggregate([
+        { $match: { orgId, direction: 'SCHEDULED' } },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: 1 },
+            active: { $sum: { $cond: ['$isActive', 1, 0] } },
+            inactive: { $sum: { $cond: ['$isActive', 0, 1] } },
+            cron: { $sum: { $cond: [{ $eq: ['$schedule.type', 'CRON'] }, 1, 0] } },
+            interval: { $sum: { $cond: [{ $eq: ['$schedule.type', 'INTERVAL'] }, 1, 0] } },
+          },
         },
-      },
-    ]).toArray(),
+      ])
+      .toArray(),
     db.collection('scheduled_job_logs').find({ orgId }).sort({ startedAt: -1 }).limit(5).toArray(),
   ]);
 

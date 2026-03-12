@@ -368,7 +368,7 @@ describe('System Status Route', () => {
     expect(res.body.workers.summary).toMatchObject({
       total: 5,
       healthy: 4,
-      unhealthy: 1,
+      stale: 1,
     });
     expect(res.body.backlogs).toMatchObject({
       pendingDeliveries: { PENDING: 4, PROCESSING: 1 },
