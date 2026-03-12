@@ -57,6 +57,90 @@ async function createScheduledIntegration(data) {
       updatedAt: now,
     };
 
+    const dedupeQuery = buildScheduledReminderDedupeQuery(
+      scheduledIntegration,
+      data,
+      integrationConfigObjectId,
+      orgId
+    );
+
+    if (dedupeQuery) {
+      const collection = db.collection('scheduled_integrations');
+      const existing = await collection.findOne(dedupeQuery, {
+        sort: { updatedAt: -1, createdAt: -1 },
+      });
+
+      if (existing?.status === 'SENT') {
+        log('warn', 'Suppressing duplicate scheduled integration already delivered', {
+          existingId: existing._id?.toString?.(),
+          __KEEP_integrationName__: integrationName,
+          orgId,
+          originalEventId: data.originalEventId,
+          bookingNumber: data.originalPayload?.appt?.bookingNumber,
+          messageType: data.payload?.metadata?.messageType,
+        });
+
+        return mapScheduledIntegrationFromMongo(existing);
+      }
+
+      if (existing && ['PENDING', 'OVERDUE'].includes(existing.status)) {
+        const nextStatus = scheduledForDate <= now ? 'OVERDUE' : 'PENDING';
+        const updated = await collection.findOneAndUpdate(
+          { _id: existing._id, status: { $in: ['PENDING', 'OVERDUE'] } },
+          {
+            $set: {
+              originalEventId: data.originalEventId,
+              eventType: data.eventType,
+              scheduledFor: scheduledForDate,
+              status: nextStatus,
+              payload: data.payload,
+              originalPayload: data.originalPayload || data.payload,
+              targetUrl: data.targetUrl,
+              httpMethod: data.httpMethod,
+              cancellationInfo: data.cancellationInfo || null,
+              recurringConfig: data.recurringConfig || null,
+              updatedAt: now,
+            },
+            $unset: {
+              processingStartedAt: '',
+              deliveredAt: '',
+              deliveryLogId: '',
+              errorMessage: '',
+              cancelledAt: '',
+              cancelReason: '',
+            },
+          },
+          {
+            returnDocument: 'after',
+          }
+        );
+
+        const updatedDoc = updated?.value || updated;
+        if (updatedDoc?._id) {
+          log('info', 'Updated existing scheduled integration instead of inserting duplicate', {
+            id: updatedDoc._id.toString(),
+            __KEEP_integrationName__: integrationName,
+            orgId,
+            originalEventId: data.originalEventId,
+            bookingNumber: data.originalPayload?.appt?.bookingNumber,
+            messageType: data.payload?.metadata?.messageType,
+          });
+
+          return mapScheduledIntegrationFromMongo(updatedDoc);
+        }
+      }
+
+      if (existing?.status === 'PROCESSING') {
+        log('warn', 'Suppressing duplicate scheduled integration while existing row is processing', {
+          existingId: existing._id?.toString?.(),
+          __KEEP_integrationName__: integrationName,
+          orgId,
+          originalEventId: data.originalEventId,
+        });
+        return mapScheduledIntegrationFromMongo(existing);
+      }
+    }
+
     const result = await db.collection('scheduled_integrations').insertOne(scheduledIntegration);
     scheduledIntegration._id = result.insertedId;
 
@@ -79,6 +163,50 @@ async function createScheduledIntegration(data) {
     logError(err, { scope: 'createScheduledIntegration' });
     throw err;
   }
+}
+
+function buildScheduledReminderDedupeQuery(scheduledIntegration, sourceData, integrationConfigObjectId, orgId) {
+  if (sourceData?.recurringConfig) {
+    return null;
+  }
+
+  const messageType = sourceData?.payload?.metadata?.messageType;
+  const bookingNumber =
+    sourceData?.originalPayload?.appt?.bookingNumber ||
+    sourceData?.payload?.metadata?.bookingNumber ||
+    sourceData?.payload?.bookingNumber;
+  const appointmentDate =
+    sourceData?.payload?.metadata?.appointmentDate ||
+    sourceData?.originalPayload?.appt?.apptDate ||
+    sourceData?.originalPayload?.appt?.fromDate;
+
+  const baseQuery = {
+    orgId,
+    __KEEP___KEEP_integrationConfig__Id__: integrationConfigObjectId,
+    status: { $in: ['PENDING', 'OVERDUE', 'PROCESSING', 'SENT'] },
+  };
+
+  if (messageType && bookingNumber && appointmentDate) {
+    return {
+      ...baseQuery,
+      'payload.metadata.messageType': messageType,
+      'originalPayload.appt.bookingNumber': bookingNumber,
+      $or: [
+        { 'payload.metadata.appointmentDate': appointmentDate },
+        { 'originalPayload.appt.apptDate': appointmentDate },
+      ],
+    };
+  }
+
+  if (scheduledIntegration.originalEventId) {
+    return {
+      ...baseQuery,
+      originalEventId: scheduledIntegration.originalEventId,
+      eventType: scheduledIntegration.eventType,
+    };
+  }
+
+  return null;
 }
 
 /**
@@ -493,4 +621,5 @@ module.exports = {
   cancelScheduledIntegrationsByMatch,
   updateScheduledIntegration,
   deleteScheduledIntegration,
+  buildScheduledReminderDedupeQuery,
 };

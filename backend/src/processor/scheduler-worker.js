@@ -29,6 +29,35 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function getReminderExpirationDetails(scheduled, integration, now = new Date()) {
+  const name = scheduled?.__KEEP_integrationName__ || integration?.name || '';
+  const messageType = scheduled?.payload?.metadata?.messageType || '';
+  const isReminder = /reminder/i.test(name) || /reminder/i.test(messageType);
+
+  if (!isReminder) {
+    return { expired: false };
+  }
+
+  const scheduledFor = new Date(scheduled.scheduledFor);
+  if (Number.isNaN(scheduledFor.getTime())) {
+    return { expired: false };
+  }
+
+  const overdueMs = now.getTime() - scheduledFor.getTime();
+  const maxOverdueMs = config.scheduler?.maxReminderOverdueMs || 60 * 60 * 1000;
+
+  if (overdueMs <= maxOverdueMs) {
+    return { expired: false };
+  }
+
+  const overdueMinutes = Math.round(overdueMs / 60000);
+  return {
+    expired: true,
+    overdueMinutes,
+    reason: `Expired reminder skipped after being overdue by ${overdueMinutes} minutes`,
+  };
+}
+
 async function resolveMultiActionDelayMs(orgId) {
   const defaultDelay = config.scheduler?.multiActionDelayMs ?? config.worker?.multiActionDelayMs ?? 0;
 
@@ -238,6 +267,59 @@ function startSchedulerWorker() {
               });
             });
             failedCount++;
+            continue;
+          }
+
+          const reminderExpiration = getReminderExpirationDetails(scheduled, integration);
+          if (reminderExpiration.expired) {
+            log('warn', `[SCHEDULER #${pollCount}] Skipping expired overdue reminder`, {
+              correlationId,
+              scheduledId: scheduled.id,
+              integrationId: integration.id,
+              scheduledFor: scheduled.scheduledFor,
+              overdueMinutes: reminderExpiration.overdueMinutes,
+              messageType: scheduled.payload?.metadata?.messageType,
+              bookingNumber: scheduled.originalPayload?.appt?.bookingNumber,
+              appointmentDate:
+                scheduled.payload?.metadata?.appointmentDate || scheduled.originalPayload?.appt?.apptDate,
+            });
+
+            // eslint-disable-next-line no-await-in-loop
+            await data
+              .recordLog(orgId, {
+                __KEEP___KEEP_integrationConfig__Id__: integration.id,
+                __KEEP_integrationName__: integration.name,
+                eventId: scheduled.originalEventId || null,
+                eventType: scheduled.eventType,
+                status: 'SKIPPED',
+                errorCategory: 'SCHEDULED_MESSAGE_EXPIRED',
+                responseStatus: 204,
+                responseTimeMs: 0,
+                attemptCount: scheduled.attemptCount || 1,
+                originalPayload: scheduled.originalPayload,
+                requestPayload: scheduled.payload,
+                errorMessage: reminderExpiration.reason,
+                targetUrl: scheduled.targetUrl,
+                httpMethod: scheduled.httpMethod || 'POST',
+                correlationId,
+                traceId: correlationId,
+                requestHeaders: null,
+              })
+              .catch(() => {});
+
+            // eslint-disable-next-line no-await-in-loop
+            await withTimeout(
+              data.updateScheduledIntegrationStatus(scheduled.id, 'CANCELLED', {
+                errorMessage: reminderExpiration.reason,
+              }),
+              dbTimeout,
+              'updateScheduledIntegrationStatus'
+            ).catch((err) => {
+              log('warn', `Failed to cancel expired reminder: ${err.message}`, {
+                scheduledId: scheduled.id,
+              });
+            });
+
             continue;
           }
 
@@ -1333,4 +1415,5 @@ async function deliverScheduledIntegration(scheduled, integration, pollCount = 0
 
 module.exports = {
   startSchedulerWorker,
+  getReminderExpirationDetails,
 };
