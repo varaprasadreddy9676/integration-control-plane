@@ -1,3 +1,5 @@
+const os = require('os');
+const v8 = require('v8');
 const data = require('../data');
 const { log } = require('../logger');
 const analyticsAggregator = require('./analytics-aggregator');
@@ -41,9 +43,21 @@ class HealthMonitor {
           },
           system: {
             uptime: uptime.uptime,
-            memoryUsage: memoryUsage.percentage,
-            memoryUsed: memoryUsage.used,
-            memoryTotal: memoryUsage.total,
+            memoryUsage: memoryUsage.nodeHeapUsagePercent,
+            memoryUsed: memoryUsage.nodeHeapUsedMB,
+            memoryTotal: memoryUsage.nodeHeapLimitMB,
+            memoryAllocated: memoryUsage.nodeHeapTotalMB,
+            memoryScope: 'node_heap',
+            nodeHeapUsagePercent: memoryUsage.nodeHeapUsagePercent,
+            nodeHeapUsedMB: memoryUsage.nodeHeapUsedMB,
+            nodeHeapTotalMB: memoryUsage.nodeHeapTotalMB,
+            nodeHeapLimitMB: memoryUsage.nodeHeapLimitMB,
+            processRssMB: memoryUsage.processRssMB,
+            externalMemoryMB: memoryUsage.externalMB,
+            hostMemoryUsagePercent: memoryUsage.hostUsagePercent,
+            hostMemoryUsedMB: memoryUsage.hostUsedMB,
+            hostMemoryTotalMB: memoryUsage.hostTotalMB,
+            hostMemoryFreeMB: memoryUsage.hostFreeMB,
             nodeVersion: process.version,
           },
           performance: {
@@ -298,17 +312,35 @@ class HealthMonitor {
   }
 
   getMemoryStats() {
+    const heapStats = v8.getHeapStatistics();
     const usage = process.memoryUsage();
-    const used = Math.round(usage.heapUsed / 1024 / 1024); // MB
-    const total = Math.round(usage.heapTotal / 1024 / 1024); // MB
-    const percentage = Math.round((usage.heapUsed / usage.heapTotal) * 100);
+    const hostTotalMB = Math.round(os.totalmem() / 1024 / 1024);
+    const hostFreeMB = Math.round(os.freemem() / 1024 / 1024);
+    const hostUsedMB = Math.max(0, hostTotalMB - hostFreeMB);
+    const heapUsedMB = Math.round(usage.heapUsed / 1024 / 1024);
+    const heapTotalMB = Math.round(usage.heapTotal / 1024 / 1024);
+    const heapLimitMB = Math.round(heapStats.heap_size_limit / 1024 / 1024);
+    const nodeHeapUsagePercent = heapLimitMB > 0 ? Math.round((heapUsedMB / heapLimitMB) * 100) : 0;
+    const hostUsagePercent = hostTotalMB > 0 ? Math.round((hostUsedMB / hostTotalMB) * 100) : 0;
 
     return {
-      used,
-      total,
-      percentage,
-      external: Math.round(usage.external / 1024 / 1024),
-      rss: Math.round(usage.rss / 1024 / 1024),
+      // Backward-compatible aliases. These now represent Node heap usage against heap limit.
+      used: heapUsedMB,
+      total: heapLimitMB,
+      percentage: nodeHeapUsagePercent,
+
+      nodeHeapUsedMB: heapUsedMB,
+      nodeHeapTotalMB: heapTotalMB,
+      nodeHeapLimitMB: heapLimitMB,
+      nodeHeapUsagePercent,
+
+      processRssMB: Math.round(usage.rss / 1024 / 1024),
+      externalMB: Math.round(usage.external / 1024 / 1024),
+
+      hostTotalMB,
+      hostFreeMB,
+      hostUsedMB,
+      hostUsagePercent,
     };
   }
 
