@@ -91,6 +91,7 @@ export const LogDetailRoute = () => {
   const hasDataFetched = dataFetched !== undefined && dataFetched !== null;
   const hasTransformedPayload = transformedPayload !== undefined && transformedPayload !== null;
   const hasCurlCommand = Boolean(curlCommand);
+  const senderRoutingMetadata = metadata?.senderRouting;
 
   // Headers added by browsers/Postman that are not relevant for reproduction
   const SKIP_HEADERS = new Set([
@@ -680,6 +681,21 @@ export const LogDetailRoute = () => {
                 {data.direction === 'INBOUND' && (
                   <Descriptions.Item label="Request Policy" span={2}>
                     <RequestPolicySummary policy={integration.requestPolicy || null} emptyLabel="No inbound request policy configured" />
+                  </Descriptions.Item>
+                )}
+                {senderRoutingMetadata && (
+                  <Descriptions.Item label="Sender Routing" span={2}>
+                    <Space size={[6, 6]} wrap>
+                      <Tag color="blue">{senderRoutingMetadata.routingDecision || 'resolved'}</Tag>
+                      {senderRoutingMetadata.requestedFrom && <Tag>{`requested: ${senderRoutingMetadata.requestedFrom}`}</Tag>}
+                      {senderRoutingMetadata.senderProfile?.fromEmail && (
+                        <Tag color="green">{`resolved: ${senderRoutingMetadata.senderProfile.fromEmail}`}</Tag>
+                      )}
+                      {senderRoutingMetadata.senderProfile?.provider && (
+                        <Tag>{senderRoutingMetadata.senderProfile.provider}</Tag>
+                      )}
+                      {senderRoutingMetadata.senderProfile?.isDefault && <Tag color="gold">Default profile</Tag>}
+                    </Space>
                   </Descriptions.Item>
                 )}
               </Descriptions>

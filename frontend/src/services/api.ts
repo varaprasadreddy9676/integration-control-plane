@@ -627,6 +627,46 @@ export const testInboundIntegration = async (id: string, payload?: unknown) =>
     body: JSON.stringify(payload || {})
   });
 
+export interface SenderProfile {
+  id: string;
+  orgId: number;
+  key: string;
+  name: string;
+  fromEmail: string;
+  aliases?: string[];
+  channel: 'EMAIL';
+  provider: string;
+  providerConfig: Record<string, any>;
+  isDefault: boolean;
+  isActive: boolean;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export const listSenderProfiles = async (): Promise<SenderProfile[]> => {
+  const response = await request<{ items: SenderProfile[] }>('/sender-profiles');
+  return response.items || [];
+};
+
+export const createSenderProfile = async (payload: Partial<SenderProfile>): Promise<SenderProfile> => {
+  const response = await request<{ item: SenderProfile }>('/sender-profiles', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+  return response.item;
+};
+
+export const updateSenderProfile = async (id: string, payload: Partial<SenderProfile>): Promise<SenderProfile> => {
+  const response = await request<{ item: SenderProfile }>(`/sender-profiles/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload)
+  });
+  return response.item;
+};
+
+export const deleteSenderProfile = async (id: string): Promise<void> =>
+  request(`/sender-profiles/${id}`, { method: 'DELETE' });
+
 export const getAllIntegrations = async (): Promise<any[]> => {
   const [inbound, outbound] = await Promise.all([
     getInboundIntegrations(),
@@ -3797,6 +3837,42 @@ export interface SystemStatusResponse {
       durationMs: number;
       recordsFetched: number;
       correlationId: string | null;
+    }>;
+  };
+  senderProfiles: {
+    summary: {
+      total: number;
+      active: number;
+      inactive: number;
+      defaultCount: number;
+      organizationCount?: number;
+      providers: Record<string, number>;
+    };
+    defaultProfile: {
+      id: string;
+      orgId: number;
+      key: string | null;
+      name: string;
+      fromEmail: string | null;
+      aliases: string[];
+      provider: string;
+      isDefault: boolean;
+      isActive: boolean;
+      createdAt: string | null;
+      updatedAt: string | null;
+    } | null;
+    items: Array<{
+      id: string;
+      orgId: number;
+      key: string | null;
+      name: string;
+      fromEmail: string | null;
+      aliases: string[];
+      provider: string;
+      isDefault: boolean;
+      isActive: boolean;
+      createdAt: string | null;
+      updatedAt: string | null;
     }>;
   };
   eventSources: {

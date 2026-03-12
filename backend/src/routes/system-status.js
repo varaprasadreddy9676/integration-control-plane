@@ -16,6 +16,7 @@ const processLifecycle = require('../services/process-lifecycle');
 const router = express.Router();
 
 const LOG_DIR = path.join(__dirname, '..', '..', 'logs');
+const SENDER_PROFILE_COLLECTION = 'communication_sender_profiles';
 
 function formatStatus(status) {
   if (!status) return 'unknown';
@@ -485,6 +486,78 @@ function buildWorkersPayload() {
   };
 }
 
+function summarizeSenderProfileProviders(items = []) {
+  return items.reduce((acc, item) => {
+    const key = String(item.provider || 'UNKNOWN').toUpperCase();
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {});
+}
+
+function mapSenderProfileStatus(doc) {
+  return {
+    id: doc._id?.toString?.() || String(doc._id || ''),
+    orgId: Number(doc.orgId || 0),
+    key: doc.key || null,
+    name: doc.name || doc.key || doc.fromEmail || 'Unknown',
+    fromEmail: doc.fromEmail || null,
+    aliases: Array.isArray(doc.aliases) ? doc.aliases : [],
+    provider: String(doc.provider || 'UNKNOWN').toUpperCase(),
+    isDefault: doc.isDefault === true,
+    isActive: doc.isActive !== false,
+    createdAt: doc.createdAt ? new Date(doc.createdAt).toISOString() : null,
+    updatedAt: doc.updatedAt ? new Date(doc.updatedAt).toISOString() : null,
+  };
+}
+
+async function getSenderProfileMetrics(db, orgId) {
+  const match = orgId ? { orgId } : {};
+  const projection = {
+    orgId: 1,
+    key: 1,
+    name: 1,
+    fromEmail: 1,
+    aliases: 1,
+    provider: 1,
+    isDefault: 1,
+    isActive: 1,
+    createdAt: 1,
+    updatedAt: 1,
+  };
+
+  const items = await db.collection(SENDER_PROFILE_COLLECTION).find(match, { projection }).sort({ orgId: 1, isDefault: -1, key: 1 }).toArray();
+  const mapped = items.map(mapSenderProfileStatus);
+
+  if (orgId) {
+    const defaultProfile = mapped.find((item) => item.isDefault) || null;
+    return {
+      summary: {
+        total: mapped.length,
+        active: mapped.filter((item) => item.isActive).length,
+        inactive: mapped.filter((item) => !item.isActive).length,
+        defaultCount: mapped.filter((item) => item.isDefault).length,
+        providers: summarizeSenderProfileProviders(mapped),
+      },
+      defaultProfile,
+      items: mapped,
+    };
+  }
+
+  const orgIds = new Set(mapped.map((item) => item.orgId));
+  return {
+    summary: {
+      total: mapped.length,
+      active: mapped.filter((item) => item.isActive).length,
+      inactive: mapped.filter((item) => !item.isActive).length,
+      defaultCount: mapped.filter((item) => item.isDefault).length,
+      organizationCount: orgIds.size,
+      providers: summarizeSenderProfileProviders(mapped),
+    },
+    defaultProfile: null,
+    items: [],
+  };
+}
+
 router.get('/', assertViewAllowed('system_status'), async (req, res) => {
   try {
     const orgId = getOrgId(req);
@@ -519,6 +592,7 @@ router.get('/', assertViewAllowed('system_status'), async (req, res) => {
             getTrafficMetrics(db, orgId),
             getScheduledJobMetrics(db, orgId),
           ]);
+          const senderProfiles = await getSenderProfileMetrics(db, orgId);
 
           const orgAdapters = adapterStatus.adapters.filter((adapter) => Number(adapter.orgId) === orgId);
           const desiredAdapter = (adapterStatus.desiredConfigs || []).find((entry) => Number(entry.orgId) === orgId) || null;
@@ -570,6 +644,7 @@ router.get('/', assertViewAllowed('system_status'), async (req, res) => {
             traffic: trafficMetrics,
             backlogs: backlogMetrics,
             scheduledJobs,
+            senderProfiles,
             eventSources: {
               manager: {
                 adapterCount: adapterStatus.count,
@@ -602,6 +677,7 @@ router.get('/', assertViewAllowed('system_status'), async (req, res) => {
             getScheduledJobMetrics(db, null),
             data.listTenantSummaries(),
           ]);
+          const senderProfiles = await getSenderProfileMetrics(db, null);
 
           const orgHealthRows = await Promise.all(
             tenantSummaries.map(async (org) => ({
@@ -699,6 +775,7 @@ router.get('/', assertViewAllowed('system_status'), async (req, res) => {
             traffic: trafficMetrics,
             backlogs: backlogMetrics,
             scheduledJobs,
+            senderProfiles,
             eventSources: {
               manager: {
                 adapterCount: adapterStatus.count,

@@ -16,6 +16,7 @@ const { generateCorrelationId, sleep, isTestEvent, safeRead } = require('../util
 
 // Move dynamic require to top-level (was inside deliverSingleAction)
 const adapterRegistry = require('../services/communication/adapter-registry');
+const { isSenderRoutingEnabled, resolveSenderRoute } = require('../services/communication/sender-routing');
 
 async function resolveMultiActionDelayMs(orgId) {
   const defaultDelay = config.worker?.multiActionDelayMs || 0;
@@ -360,8 +361,11 @@ async function deliverSingleAction(
   // ============================================
   if (action.kind === 'COMMUNICATION') {
     const communicationStart = Date.now();
+    let senderRoutingMetadata = null;
     try {
       const { channel, provider, ...providerConfig } = action.communicationConfig;
+      let effectiveProvider = provider;
+      let effectivePayload = transformed;
 
       log('info', `${prefix}Delivering COMMUNICATION action via ${channel}:${provider}`, {
         integrationId: integration.id,
@@ -391,12 +395,38 @@ async function deliverSingleAction(
 
       // Send via communication adapter
       // Try provider-specific config first (e.g., "smtp", "gmail"), then fall back to entire config
-      const adapterConfig = providerConfig[providerKey] || providerConfig;
+      let adapterConfig = providerConfig[providerKey] || providerConfig;
+
+      if (isSenderRoutingEnabled(action.communicationConfig)) {
+        const senderRoute = await resolveSenderRoute({
+          orgId,
+          communicationConfig: action.communicationConfig,
+          payload: transformed,
+        });
+        effectiveProvider = senderRoute.provider;
+        effectivePayload = senderRoute.payload;
+        adapterConfig = senderRoute.adapterConfig;
+        senderRoutingMetadata = {
+          enabled: true,
+          requestedFrom: senderRoute.requestedFrom,
+          routingDecision: senderRoute.routingDecision,
+          senderProfile: senderRoute.senderProfile
+            ? {
+                id: senderRoute.senderProfile.id,
+                key: senderRoute.senderProfile.key,
+                name: senderRoute.senderProfile.name,
+                fromEmail: senderRoute.senderProfile.fromEmail,
+                provider: senderRoute.senderProfile.provider,
+                isDefault: senderRoute.senderProfile.isDefault,
+              }
+            : null,
+        };
+      }
 
       const result = await adapterRegistry.send(
         channel,
-        provider,
-        transformed, // Already transformed (should contain: to, subject, html, etc.)
+        effectiveProvider,
+        effectivePayload,
         adapterConfig
       );
 
@@ -411,7 +441,7 @@ async function deliverSingleAction(
               actionName,
               actionIndex,
               channel,
-              provider,
+              provider: effectiveProvider,
               messageId: result.messageId,
             },
           })
@@ -434,14 +464,15 @@ async function deliverSingleAction(
         responseTimeMs: communicationTimeMs,
         attemptCount,
         originalPayload: evt.payload,
-        requestPayload: transformed,
+        requestPayload: effectivePayload,
         responseBody: JSON.stringify(result, null, 2),
-        targetUrl: `${channel}:${provider}`,
+        targetUrl: `${channel}:${effectiveProvider}`,
         httpMethod: 'COMMUNICATION',
         correlationId: traceId,
         traceId: traceId,
         messageId: result.messageId,
-        requestHeaders: { channel, provider },
+        requestHeaders: { channel, provider: effectiveProvider, requestedProvider: provider },
+        metadata: senderRoutingMetadata ? { senderRouting: senderRoutingMetadata } : {},
       });
 
       await data.recordDeliverySuccess(integration.id);
@@ -455,6 +486,7 @@ async function deliverSingleAction(
         actionName,
         messageId: result.messageId,
         responseTimeMs: communicationTimeMs,
+        provider: effectiveProvider,
       });
 
       return { status: 'SUCCESS', logId };
@@ -493,16 +525,17 @@ async function deliverSingleAction(
         responseTimeMs: Date.now() - communicationStart,
         attemptCount,
         originalPayload: evt.payload,
-        requestPayload: transformed,
+        requestPayload: effectivePayload,
         errorMessage,
         errorCode: 'COMMUNICATION_ERROR',
         targetUrl: action.communicationConfig
-          ? `${action.communicationConfig.channel}:${action.communicationConfig.provider}`
+          ? `${action.communicationConfig.channel}:${effectiveProvider}`
           : 'unknown',
         httpMethod: 'COMMUNICATION',
         correlationId: traceId,
         traceId: traceId,
-        requestHeaders: null,
+        requestHeaders: { channel, provider: effectiveProvider, requestedProvider: provider },
+        metadata: senderRoutingMetadata ? { senderRouting: senderRoutingMetadata } : {},
       });
 
       await maybeCreateActionDLQ({

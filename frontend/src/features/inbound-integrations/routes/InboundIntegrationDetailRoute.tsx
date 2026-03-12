@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useNavigateWithParams } from '../../../utils/navigation';
+import { useTenant } from '../../../app/tenant-context';
 import {
   Form,
   Card,
@@ -46,7 +47,8 @@ import {
   createInboundIntegration,
   updateInboundIntegration,
   getUIConfig,
-  testInboundRuntime
+  testInboundRuntime,
+  listSenderProfiles
 } from '../../../services/api';
 import { PageHeader } from '../../../components/common/PageHeader';
 import {
@@ -64,6 +66,7 @@ export const InboundIntegrationDetailRoute = () => {
   const { spacing } = useDesignTokens();
   const colors = cssVar.legacy;
   const { message: messageApi } = App.useApp();
+  const { orgId } = useTenant();
   const isCreate = !id || id === 'new';
 
   const [form] = Form.useForm();
@@ -81,6 +84,7 @@ export const InboundIntegrationDetailRoute = () => {
   const actionType = Form.useWatch('actionType', form); // NEW: HTTP or COMMUNICATION
   const communicationChannel = Form.useWatch(['communicationConfig', 'channel'], form); // EMAIL, SMS, etc.
   const communicationProvider = Form.useWatch(['communicationConfig', 'provider'], form); // SMTP, GMAIL_OAUTH, etc.
+  const senderRoutingEnabled = communicationProvider === 'ROUTED_EMAIL';
 
   const runtimeUrlPreview = useMemo(() => {
     const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api/v1';
@@ -97,6 +101,14 @@ export const InboundIntegrationDetailRoute = () => {
   const smtpUsername = Form.useWatch(['communicationConfig', 'smtp', 'username'], form);
   const smtpPassword = Form.useWatch(['communicationConfig', 'smtp', 'password'], form);
   const smtpFromEmail = Form.useWatch(['communicationConfig', 'smtp', 'fromEmail'], form);
+  const defaultSenderProfileId = Form.useWatch(['communicationConfig', 'senderRouting', 'defaultProfileId'], form);
+
+  const { data: senderProfiles = [] } = useQuery({
+    queryKey: ['senderProfiles', orgId],
+    queryFn: listSenderProfiles,
+    enabled: !!orgId,
+    staleTime: 30_000
+  });
 
   // Automatically disable response transformation when streaming is enabled
   useEffect(() => {
@@ -624,7 +636,14 @@ return {
         },
         communicationConfig: integration.actions?.[0]?.communicationConfig || {
           channel: 'EMAIL',
-          provider: 'SMTP'
+          provider: 'SMTP',
+          senderRouting: {
+            enabled: false,
+            sourceField: 'from',
+            defaultProfileId: undefined,
+            fallbackToDefaultOnMissingFrom: true,
+            fallbackToDefaultOnUnknownFrom: false
+          }
         }
       });
 
@@ -675,11 +694,15 @@ return {
         'actionType',
         ['communicationConfig', 'channel'],
         ['communicationConfig', 'provider'],
-        ['communicationConfig', 'smtp', 'host'],
-        ['communicationConfig', 'smtp', 'port'],
-        ['communicationConfig', 'smtp', 'username'],
-        ['communicationConfig', 'smtp', 'password'],
-        ['communicationConfig', 'smtp', 'fromEmail']
+        ...(communicationProvider === 'ROUTED_EMAIL'
+          ? [['communicationConfig', 'senderRouting', 'defaultProfileId']]
+          : [
+              ['communicationConfig', 'smtp', 'host'],
+              ['communicationConfig', 'smtp', 'port'],
+              ['communicationConfig', 'smtp', 'username'],
+              ['communicationConfig', 'smtp', 'password'],
+              ['communicationConfig', 'smtp', 'fromEmail']
+            ])
       ]);
 
       // Restore original values (remove dummy HTTP values)
@@ -732,12 +755,24 @@ return {
       payload.rateLimits = requestPolicy.rateLimit;
 
       if (values.actionType === 'COMMUNICATION') {
+        const communicationConfig = {
+          ...values.communicationConfig,
+          senderRouting: values.communicationConfig?.provider === 'ROUTED_EMAIL'
+            ? {
+                ...values.communicationConfig?.senderRouting,
+                enabled: true,
+              }
+            : {
+                ...values.communicationConfig?.senderRouting,
+                enabled: false,
+              }
+        };
         // COMMUNICATION integration
         payload.actions = [
           {
-            name: `Send ${values.communicationConfig.channel}`,
+            name: `Send ${communicationConfig.channel}`,
             kind: 'COMMUNICATION',
-            communicationConfig: values.communicationConfig
+            communicationConfig
           }
         ];
         // Response transformation not used for COMMUNICATION
@@ -786,6 +821,9 @@ return {
           // Check if SMTP config is complete
           if (communicationProvider === 'SMTP') {
             return !!(smtpHost && smtpPort && smtpUsername && smtpPassword && smtpFromEmail);
+          }
+          if (communicationProvider === 'ROUTED_EMAIL') {
+            return !!defaultSenderProfileId;
           }
           return true;
         }
@@ -849,7 +887,14 @@ return {
           },
           communicationConfig: {
             channel: 'EMAIL',
-            provider: 'SMTP'
+            provider: 'SMTP',
+            senderRouting: {
+              enabled: false,
+              sourceField: 'from',
+              defaultProfileId: undefined,
+              fallbackToDefaultOnMissingFrom: true,
+              fallbackToDefaultOnUnknownFrom: false
+            }
           }
         }}
       >
@@ -986,6 +1031,7 @@ return {
                         >
                           <Select size="large" placeholder="Select provider">
                             <Select.Option value="SMTP">SMTP (Gmail, Outlook, Custom)</Select.Option>
+                            <Select.Option value="ROUTED_EMAIL">Sender Profiles (Generic Email)</Select.Option>
                             <Select.Option value="GMAIL_OAUTH" disabled>Gmail OAuth 2.0 (Coming Soon)</Select.Option>
                             <Select.Option value="OUTLOOK_OAUTH" disabled>Outlook OAuth 2.0 (Coming Soon)</Select.Option>
                           </Select>
@@ -1031,6 +1077,94 @@ return {
                         message="Email Provider Configuration"
                         description="Configure your SMTP credentials to send emails through the Integration Gateway."
                       />
+
+                      {senderRoutingEnabled && (
+                        <>
+                          <Alert
+                            type="info"
+                            showIcon
+                            message="Sender-profile routing"
+                            description="Use one generic inbound email endpoint. The request body can send a from address, and the gateway will resolve the matching configured sender profile."
+                          />
+
+                          <Form.Item
+                            name={['communicationConfig', 'senderRouting', 'defaultProfileId']}
+                            label="Default Sender Profile"
+                            rules={[{ required: true, message: 'Default sender profile is required' }]}
+                            extra="Used when the request does not send a from address."
+                          >
+                            <Select
+                              size="large"
+                              placeholder="Select default sender profile"
+                              options={senderProfiles.map((profile) => ({
+                                label: `${profile.name} · ${profile.fromEmail}`,
+                                value: profile.id
+                              }))}
+                            />
+                          </Form.Item>
+
+                          <Form.Item
+                            name={['communicationConfig', 'senderRouting', 'sourceField']}
+                            label="Payload Sender Field"
+                            extra="Field name from the request body used to resolve the sender profile."
+                          >
+                            <Input size="large" placeholder="from" />
+                          </Form.Item>
+
+                          <Form.Item
+                            name={['communicationConfig', 'senderRouting', 'fallbackToDefaultOnMissingFrom']}
+                            label="Missing from field"
+                            valuePropName="checked"
+                            extra="If enabled, requests without a from field will use the default sender profile."
+                          >
+                            <Switch checkedChildren="Use default" unCheckedChildren="Reject" />
+                          </Form.Item>
+
+                          <Form.Item
+                            name={['communicationConfig', 'senderRouting', 'fallbackToDefaultOnUnknownFrom']}
+                            label="Unknown from value"
+                            valuePropName="checked"
+                            extra="If disabled, unknown sender addresses are rejected instead of silently falling back."
+                          >
+                            <Switch checkedChildren="Use default" unCheckedChildren="Reject" />
+                          </Form.Item>
+
+                          <Alert
+                            type={senderProfiles.length > 0 ? 'success' : 'warning'}
+                            showIcon
+                            message={senderProfiles.length > 0
+                              ? `${senderProfiles.length} sender profile${senderProfiles.length === 1 ? '' : 's'} available`
+                              : 'No sender profiles configured'}
+                            description={senderProfiles.length > 0
+                              ? 'Manage mailbox-specific credentials centrally and keep the inbound integration generic.'
+                              : 'Create sender profiles first, then return here to enable generic email routing.'}
+                            action={
+                              <Button size="small" onClick={() => navigate('/settings/sender-profiles')}>
+                                Open Sender Profiles
+                              </Button>
+                            }
+                          />
+
+                          <Divider style={{ margin: `${spacing[4]} 0` }} />
+                          <RequestPolicySection form={form} spacing={spacing} />
+
+                          <Divider style={{ margin: `${spacing[4]} 0` }} />
+
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <Button size="large" onClick={() => setActiveTab('basic')}>
+                              Back to Basic Info
+                            </Button>
+                            <Button
+                              type="primary"
+                              size="large"
+                              onClick={() => setActiveTab('auth')}
+                              disabled={!httpComplete}
+                            >
+                              Continue to Authentication
+                            </Button>
+                          </div>
+                        </>
+                      )}
 
                       {communicationProvider === 'SMTP' && (
                         <>

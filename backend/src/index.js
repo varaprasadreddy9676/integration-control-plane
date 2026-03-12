@@ -59,6 +59,7 @@ const lookupsRouter = require('./routes/lookups');
 const dailyReportsRouter = require('./routes/daily-reports');
 const eventsRouter = require('./routes/events');
 const eventSourcesRouter = require('./routes/event-sources');
+const senderProfilesRouter = require('./routes/sender-profiles');
 const executionLogsRouter = require('./routes/execution-logs');
 const dlqRouter = require('./routes/dlq');
 const portalProfilesRouter = require('./routes/portal-profiles');
@@ -238,6 +239,10 @@ async function bootstrap() {
   await portalProfileData.ensureIndexes().catch((err) => {
     log('warn', 'Failed to ensure portal_access_profiles indexes', { error: err.message });
   });
+  const senderProfileData = require('./data/sender-profiles');
+  await senderProfileData.ensureIndexes().catch((err) => {
+    log('warn', 'Failed to ensure communication_sender_profiles indexes', { error: err.message });
+  });
 
   // Pre-warm the system prompt cache from DB (non-blocking)
   const { initSystemPromptCache } = require('./services/ai/prompts/system-context');
@@ -367,6 +372,7 @@ async function bootstrap() {
   app.use(`${config.api.basePrefix}/ai`, auth, aiRouter);
   app.use(`${config.api.basePrefix}/ai-config`, auth, aiConfigRouter);
   app.use(`${config.api.basePrefix}/lookups`, auth, lookupsRouter);
+  app.use(`${config.api.basePrefix}/sender-profiles`, auth, senderProfilesRouter);
   app.use(`${config.api.basePrefix}/daily-reports`, auth, dailyReportsRouter);
   app.use(`${config.api.basePrefix}/execution-logs`, auth, executionLogsRouter);
   app.use(`${config.api.basePrefix}/dlq`, auth, dlqRouter);

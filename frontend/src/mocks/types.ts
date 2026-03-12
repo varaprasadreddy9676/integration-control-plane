@@ -188,6 +188,19 @@ export interface DeliveryLog {
     recordsFetched?: number;
     dataFetched?: unknown;
     transformedPayload?: unknown;
+    senderRouting?: {
+      enabled?: boolean;
+      requestedFrom?: string | null;
+      routingDecision?: string | null;
+      senderProfile?: {
+        id?: string;
+        key?: string | null;
+        name?: string;
+        fromEmail?: string | null;
+        provider?: string;
+        isDefault?: boolean;
+      } | null;
+    };
     httpRequest?: {
       method?: string;
       url?: string;

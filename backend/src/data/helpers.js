@@ -178,6 +178,7 @@ function mapLogFromMongo(doc) {
     responseBody: responseBody || undefined,
     targetUrl,
     httpMethod,
+    metadata: doc.metadata || {},
     // Distributed tracing
     correlationId: doc.correlationId,
     traceId: doc.traceId,

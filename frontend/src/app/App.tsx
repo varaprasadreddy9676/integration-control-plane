@@ -61,6 +61,7 @@ import { OrgDirectoryRoute } from '../features/admin/OrgDirectoryRoute';
 import { AISettingsRoute } from '../features/ai-settings/AISettingsRoute';
 import { EventSourceSettingsRoute } from '../features/settings/EventSourceSettingsRoute';
 import { MysqlPoolSettingsRoute } from '../features/settings/MysqlPoolSettingsRoute';
+import { SenderProfilesRoute } from '../features/settings/SenderProfilesRoute';
 import { AIAssistantRoute } from '../features/ai/AIAssistantRoute';
 import { AIChatDrawer } from '../components/ai/AIChatDrawer';
 import { PermissionsDemoRoute } from '../features/admin/PermissionsDemoRoute';
@@ -906,6 +907,7 @@ export const App = () => {
                   <Route path="/settings" element={<SettingsRoute />} />
                   <Route path="/settings/event-source" element={<EventSourceSettingsRoute />} />
                   <Route path="/settings/mysql-pool" element={<MysqlPoolSettingsRoute />} />
+                  <Route path="/settings/sender-profiles" element={<SenderProfilesRoute />} />
                   <Route path="/admin/users" element={<UserManagementRoute />} />
                   <Route path="/admin/orgs" element={<OrgDirectoryRoute />} />
                   <Route path="/admin/roles" element={<RoleManagementRoute />} />

@@ -20,6 +20,7 @@ const { ObjectId } = require('mongodb');
 const { createExecutionLogger } = require('../utils/execution-logger');
 const adapterRegistry = require('../services/communication/adapter-registry');
 const { validateLookupConfigs } = require('../services/lookup-validator');
+const { isSenderRoutingEnabled, resolveSenderRoute } = require('../services/communication/sender-routing');
 const {
   normalizeRateLimit,
   normalizeRequestPolicy,
@@ -197,6 +198,17 @@ function validateCommunicationAction(action) {
   const cfg = action.communicationConfig || {};
   if (!cfg.channel) return 'communicationConfig.channel is required';
   if (!cfg.provider) return 'communicationConfig.provider is required';
+
+  if (cfg.channel === 'EMAIL' && cfg.provider === 'ROUTED_EMAIL') {
+    const senderRouting = cfg.senderRouting || {};
+    if (senderRouting.enabled !== true) {
+      return 'communicationConfig.senderRouting.enabled must be true for ROUTED_EMAIL';
+    }
+    if (!senderRouting.defaultProfileId && !senderRouting.defaultProfileKey) {
+      return 'communicationConfig.senderRouting.defaultProfileId or defaultProfileKey is required for ROUTED_EMAIL';
+    }
+    return null;
+  }
 
   if (cfg.channel === 'EMAIL' && cfg.provider === 'SMTP') {
     const smtp = cfg.smtp || {};
@@ -703,7 +715,19 @@ router.post('/:id([0-9a-fA-F]{24})/test', async (req, res) => {
 
         // Build provider config based on provider type
         let providerConfig;
-        if (provider === 'SMTP') {
+        let effectiveProvider = provider;
+        let effectivePayload = transformedPayload;
+
+        if (isSenderRoutingEnabled(action.communicationConfig)) {
+          const senderRoute = await resolveSenderRoute({
+            orgId: integration.orgId || req.orgId,
+            communicationConfig: action.communicationConfig,
+            payload: transformedPayload,
+          });
+          effectiveProvider = senderRoute.provider;
+          providerConfig = senderRoute.adapterConfig;
+          effectivePayload = senderRoute.payload;
+        } else if (provider === 'SMTP') {
           providerConfig = smtp; // Use the nested smtp config
         } else {
           providerConfig = action.communicationConfig;
@@ -712,14 +736,14 @@ router.post('/:id([0-9a-fA-F]{24})/test', async (req, res) => {
         log('debug', 'Test endpoint - sending email', {
           id,
           channel,
-          provider,
-          transformedPayload,
-          hasTo: !!transformedPayload?.to,
-          payloadKeys: Object.keys(transformedPayload || {}),
+          provider: effectiveProvider,
+          transformedPayload: effectivePayload,
+          hasTo: !!effectivePayload?.to,
+          payloadKeys: Object.keys(effectivePayload || {}),
         });
 
         // Send via adapter registry
-        const result = await adapterRegistry.send(channel, provider, transformedPayload, providerConfig);
+        const result = await adapterRegistry.send(channel, effectiveProvider, effectivePayload, providerConfig);
 
         const responseTime = Date.now() - startTime;
 
@@ -728,7 +752,7 @@ router.post('/:id([0-9a-fA-F]{24})/test', async (req, res) => {
           status: 200,
           responseTime: `${responseTime}ms`,
           response: result,
-          message: `Test ${channel} sent successfully via ${provider}`,
+          message: `Test ${channel} sent successfully via ${effectiveProvider}`,
           messageId: result.messageId,
         });
       } catch (error) {

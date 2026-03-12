@@ -27,6 +27,7 @@ import {
   DatabaseOutlined,
   InfoCircleOutlined,
   KeyOutlined,
+  MailOutlined,
   ReloadOutlined,
   RollbackOutlined,
   SettingOutlined,
@@ -789,6 +790,14 @@ export const SettingsRoute = () => {
                 style={{ textAlign: 'left', justifyContent: 'flex-start' }}
               >
                 Event Source Configuration
+              </Button>
+              <Button
+                block
+                icon={<MailOutlined />}
+                onClick={() => navigate('/settings/sender-profiles')}
+                style={{ textAlign: 'left', justifyContent: 'flex-start' }}
+              >
+                Sender Profiles
               </Button>
               {isAdmin && (
                 <Button

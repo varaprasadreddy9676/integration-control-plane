@@ -284,6 +284,57 @@ function OrganizationStatusTable({ organizations }: { organizations: SystemStatu
   );
 }
 
+function SenderProfilesTable({
+  items,
+}: {
+  items: SystemStatusResponse['senderProfiles']['items'];
+}) {
+  return (
+    <Table
+      size="small"
+      rowKey={(row) => row.id}
+      pagination={false}
+      dataSource={items}
+      columns={[
+        {
+          title: 'Sender',
+          key: 'sender',
+          render: (_, row) => (
+            <Space direction="vertical" size={0}>
+              <Text strong>{row.name}</Text>
+              <Text type="secondary" style={{ fontSize: 12 }}>{row.fromEmail || '—'}</Text>
+            </Space>
+          ),
+        },
+        {
+          title: 'Provider',
+          dataIndex: 'provider',
+          key: 'provider',
+          render: (value: string) => <Tag color="blue">{value || 'UNKNOWN'}</Tag>,
+        },
+        {
+          title: 'Flags',
+          key: 'flags',
+          render: (_, row) => (
+            <Space size={[4, 4]} wrap>
+              {row.isDefault && <Tag color="green">Default</Tag>}
+              {!row.isActive && <Tag color="red">Inactive</Tag>}
+              {row.key && <Tag>{row.key}</Tag>}
+            </Space>
+          ),
+        },
+        {
+          title: 'Aliases',
+          key: 'aliases',
+          render: (_, row) => row.aliases?.length
+            ? <Space size={[4, 4]} wrap>{row.aliases.map((alias) => <Tag key={alias}>{alias}</Tag>)}</Space>
+            : '—',
+        },
+      ]}
+    />
+  );
+}
+
 function AlertsList({ data }: { data: SystemStatusResponse }) {
   const alertItems = data.alerts || [];
   const checkEntries = Object.entries(data.checks || {});
@@ -625,6 +676,12 @@ export function SystemStatusRoute({ mode = 'admin' }: { mode?: 'admin' | 'standa
                     },
                     { label: isGlobalScope ? 'Configured Event Sources' : 'Event Source Config', value: isGlobalScope ? `${data?.globalSummary?.eventSourceConfiguredCount ?? 0}/${data?.globalSummary?.organizationCount ?? 0}` : configurationPresentation.label },
                     { label: 'Workers Healthy', value: workerSummary ? `${workerSummary.healthy}/${workerSummary.total}` : '—' },
+                    {
+                      label: 'Sender Profiles',
+                      value: isGlobalScope
+                        ? `${data?.senderProfiles?.summary?.total ?? 0} across ${data?.senderProfiles?.summary?.organizationCount ?? 0} orgs`
+                        : `${data?.senderProfiles?.summary?.active ?? 0}/${data?.senderProfiles?.summary?.total ?? 0} active`,
+                    },
                   ]}
                 />
               </Card>
@@ -658,6 +715,7 @@ export function SystemStatusRoute({ mode = 'admin' }: { mode?: 'admin' | 'standa
                     { label: 'Not Configured Orgs', value: data?.globalSummary?.eventSourceNotConfiguredCount ?? 0 },
                     { label: 'Running Adapters', value: data?.eventSources?.manager?.adapterCount ?? 0 },
                     { label: 'Manager Sync Error', value: data?.eventSources?.manager?.lastSyncErrorMessage || '—' },
+                    { label: 'Sender Profiles', value: `${data?.senderProfiles?.summary?.total ?? 0} across ${data?.senderProfiles?.summary?.organizationCount ?? 0} orgs` },
                   ]
                 : [
                     { label: 'State', value: configurationPresentation.label },
@@ -665,8 +723,39 @@ export function SystemStatusRoute({ mode = 'admin' }: { mode?: 'admin' | 'standa
                     { label: 'Source Type', value: data?.eventSources?.configuration?.sourceType || '—' },
                     { label: 'Config Origin', value: data?.eventSources?.configuration?.configOrigin || '—' },
                     { label: 'Configuration Error', value: data?.eventSources?.configuration?.error?.errorMessage || '—' },
+                    { label: 'Sender Profiles', value: data?.senderProfiles?.summary?.total ?? 0 },
+                    { label: 'Default Sender', value: data?.senderProfiles?.defaultProfile?.fromEmail || '—' },
                   ]}
             />
+          </Card>
+          <Card size="small" title="Sender Profiles">
+            {isGlobalScope ? (
+              <KeyValueTable
+                rows={[
+                  { label: 'Total Profiles', value: data?.senderProfiles?.summary?.total ?? 0 },
+                  { label: 'Active Profiles', value: data?.senderProfiles?.summary?.active ?? 0 },
+                  { label: 'Inactive Profiles', value: data?.senderProfiles?.summary?.inactive ?? 0 },
+                  { label: 'Default Profiles', value: data?.senderProfiles?.summary?.defaultCount ?? 0 },
+                  { label: 'Organizations Using Profiles', value: data?.senderProfiles?.summary?.organizationCount ?? 0 },
+                  {
+                    label: 'Providers',
+                    value: Object.keys(data?.senderProfiles?.summary?.providers || {}).length
+                      ? (
+                          <Space size={[4, 4]} wrap>
+                            {Object.entries(data?.senderProfiles?.summary?.providers || {}).map(([provider, count]) => (
+                              <Tag key={provider}>{`${provider}: ${count}`}</Tag>
+                            ))}
+                          </Space>
+                        )
+                      : '—',
+                  },
+                ]}
+              />
+            ) : (data?.senderProfiles?.items?.length || 0) > 0 ? (
+              <SenderProfilesTable items={data?.senderProfiles?.items || []} />
+            ) : (
+              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No sender profiles configured" />
+            )}
           </Card>
           {!isGlobalScope && (data?.eventSources?.configuration?.state === 'not_configured' || (data?.eventSources?.orgAdapters?.length || 0) === 0) ? (
             <Alert
