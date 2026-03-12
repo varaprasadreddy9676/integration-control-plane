@@ -19,7 +19,10 @@ const config = require('../config');
 function generateCurlCommand(integration, options = {}) {
   const baseUrl = options.baseUrl || `http://localhost:${config.port}`;
   const apiPrefix = config.api.basePrefix || '/api/v1';
-  const endpoint = `${baseUrl}${apiPrefix}/integrations/${integration.type}`;
+  const runtimePath = !integration.inboundAuthType || integration.inboundAuthType === 'NONE'
+    ? 'public/integrations'
+    : 'integrations';
+  const endpoint = `${baseUrl}${apiPrefix}/${runtimePath}/${integration.type}`;
   const orgId = integration.orgId || integration.orgUnitRid;
 
   // Build URL with query params

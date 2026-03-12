@@ -182,6 +182,7 @@ export const InboundIntegrationsRoute = ({ hideHeader = false, isActive = true }
     const apiKey = options?.apiKey?.trim();
     const inboundKey = options?.inboundKey?.trim();
     const inferredParams = inferCurlQueryParams(integration);
+    const usesPublicRuntime = !integration.inboundAuthType || integration.inboundAuthType === 'NONE';
 
     const queryEntries: Array<[string, string]> = [['orgId', String(orgId ?? 84)]];
     if (httpMethod === 'GET') {
@@ -191,7 +192,8 @@ export const InboundIntegrationsRoute = ({ hideHeader = false, isActive = true }
       });
     }
     const queryString = new URLSearchParams(queryEntries).toString();
-    const url = `${base}/integrations/${encodeURIComponent(integration.type)}?${queryString}`;
+    const runtimePath = usesPublicRuntime ? 'public/integrations' : 'integrations';
+    const url = `${base}/${runtimePath}/${encodeURIComponent(integration.type)}?${queryString}`;
 
     if (integration.inboundAuthType === 'API_KEY') {
       const headerName = (integration.inboundAuthConfig?.headerName || 'x-api-key').toLowerCase();
@@ -202,7 +204,7 @@ export const InboundIntegrationsRoute = ({ hideHeader = false, isActive = true }
         headers.push(`-H "X-API-Key: ${apiKey || '<API_KEY>'}"`);
         headers.push(`-H "${headerName}: ${inboundKey || '<INBOUND_API_KEY>'}"`);
       }
-    } else {
+    } else if (!usesPublicRuntime) {
       headers.push(`-H "X-API-Key: ${apiKey || '<API_KEY>'}"`);
     }
 
@@ -731,13 +733,17 @@ export const InboundIntegrationsRoute = ({ hideHeader = false, isActive = true }
       >
         <Space direction="vertical" size="small" style={{ width: '100%' }}>
           <Text type="secondary">
-            Provide the gateway API key to include it in the curl command.
+            {(!curlIntegration?.inboundAuthType || curlIntegration?.inboundAuthType === 'NONE')
+              ? 'This endpoint is public; no gateway API key is required.'
+              : 'Provide the gateway API key to include it in the curl command.'}
           </Text>
-          <Input.Password
-            placeholder="Gateway API Key (X-API-Key)"
-            value={curlApiKey}
-            onChange={(e) => setCurlApiKey(e.target.value)}
-          />
+          {(curlIntegration?.inboundAuthType && curlIntegration?.inboundAuthType !== 'NONE') && (
+            <Input.Password
+              placeholder="Gateway API Key (X-API-Key)"
+              value={curlApiKey}
+              onChange={(e) => setCurlApiKey(e.target.value)}
+            />
+          )}
           {curlIntegration?.inboundAuthType === 'API_KEY' && (
             <Input.Password
               placeholder="Inbound API Key (if required by integration)"
