@@ -1,6 +1,17 @@
 const path = require('path');
 const fs = require('fs');
-require('dotenv').config();
+const dotenv = require('dotenv');
+
+const ROOT_ENV_PATH = path.join(__dirname, '..', '..', '.env');
+const BACKEND_ENV_PATH = path.join(__dirname, '..', '.env');
+
+if (fs.existsSync(ROOT_ENV_PATH)) {
+  dotenv.config({ path: ROOT_ENV_PATH });
+}
+
+if (fs.existsSync(BACKEND_ENV_PATH)) {
+  dotenv.config({ path: BACKEND_ENV_PATH, override: true });
+}
 
 const parseBoolean = (value, fallback) => {
   if (value === undefined || value === null || value === '') return fallback;
