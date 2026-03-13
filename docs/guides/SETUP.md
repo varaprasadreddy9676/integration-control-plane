@@ -25,7 +25,7 @@ Complete installation and configuration guide for Integration Gateway.
 
 | Software | Minimum Version | Recommended Version | Purpose |
 |----------|----------------|---------------------|---------|
-| Node.js  | 18.0.0         | 20.x LTS            | Backend runtime |
+| Node.js  | 16.0.0         | 20.x LTS            | Backend/frontend runtime |
 | npm      | 8.0.0          | 10.x                | Package manager |
 | MongoDB  | 4.4            | 6.x                 | Primary database |
 | MySQL    | 5.7            | 8.0                 | Event source (optional) |
@@ -63,7 +63,21 @@ For exact versions, use:
 cat backend/package.json
 ```
 
-#### 2. Create Configuration File
+#### 2. Configure Environment / Config
+
+Preferred setup:
+
+- repository root `.env` for shared backend values
+- optional `backend/.env` for backend-only overrides
+
+Backend env loading order is:
+
+1. repository root `.env`
+2. optional `backend/.env` override
+
+This keeps local, validation, and production behavior consistent regardless of whether the process starts from repo root or from `backend/`.
+
+#### 3. Create Configuration File
 
 ```bash
 cp config.example.json config.json
@@ -120,18 +134,23 @@ Notes:
 - MySQL is optional. Leave `db.*` empty unless you need a shared MySQL source.
 - Per-org MySQL can be configured later via Event Source settings/API.
 
-#### 3. Create Admin User
+#### 4. Create Admin User
 
 ```bash
 node scripts/create-user.js --email admin@example.com --password 'ChangeMe123!' --role ADMIN
 ```
 
-#### 4. Start Backend
+#### 5. Start Backend
 
 **Development mode (with auto-reload):**
 ```bash
 npm run dev
 ```
+
+Notes:
+- `npm run dev` uses `nodemon`
+- only source/config files are watched
+- generated files under `backend/logs/` are ignored so runtime lifecycle markers and rotated logs do not trigger restart loops
 
 **Production mode:**
 ```bash
@@ -145,6 +164,8 @@ pm2 start src/index.js --name integration-gateway
 pm2 save
 pm2 startup
 ```
+
+If you use the repository launcher, `start-backend.sh` remains compatible with the env loading order above.
 
 Verify backend is running:
 ```bash
@@ -189,8 +210,7 @@ Or create `.env` file:
 
 ```bash
 # API Configuration
-VITE_API_BASE_URL_local=http://localhost:3545/api/v1
-VITE_API_BASE_URL_prod=https://api.yourdomain.com/api/v1
+VITE_API_BASE_URL=http://localhost:3545/api/v1
 VITE_API_KEY=your-secret-api-key-change-me
 
 # App Configuration
@@ -205,7 +225,7 @@ VITE_APP_VERSION=2.0.0
 npm run dev
 ```
 
-Frontend runs on `http://localhost:5175`
+Frontend runs on `http://localhost:5174`
 
 **Production build:**
 ```bash
@@ -366,7 +386,7 @@ Full `config.json` reference:
 
     // CORS allowed origins
     "cors": {
-      "origin": ["http://localhost:5175", "https://yourdomain.com"],
+      "origin": ["http://localhost:5174", "https://yourdomain.com"],
       "credentials": true
     }
   },
@@ -445,11 +465,7 @@ MySQL guardrails:
 
 ```bash
 # API Configuration
-# URL for local development
-VITE_API_BASE_URL_local=http://localhost:3545/api/v1
-
-# URL for production
-VITE_API_BASE_URL_prod=https://api.yourdomain.com/api/v1
+VITE_API_BASE_URL=http://localhost:3545/api/v1
 
 # API authentication key (must match backend config.json security.apiKey)
 VITE_API_KEY=your-secret-api-key-change-me

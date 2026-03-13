@@ -35,6 +35,15 @@ The backend needs to know where it is hosted and where the frontend is hosted fo
 |----------|-------------|
 | `FRONTEND_URL` | The public-facing URL of the frontend UI (e.g., `https://gateway.yourdomain.com`). Used for alert emails and embedded portal links. |
 
+### Environment File Resolution
+
+Backend env resolution is deterministic:
+
+1. repository root `.env`
+2. optional `backend/.env` override
+
+Startup behavior no longer depends on whether the service is launched from repo root or from `backend/`.
+
 ## 3. High Availability (HA) Guidelines
 
 ### Load Balancing
@@ -47,6 +56,7 @@ Place a Layer 7 Load Balancer (like AWS ALB, Nginx, or HAProxy) in front of the 
 Configure your orchestrator (Kubernetes, ECS, Docker Swarm) to use the built-in health endpoints:
 - **Backend liveness**: `HTTP GET /` (expect non-5xx)
 - **Backend dependency health**: `HTTP GET /health` (may return non-200 when degraded)
+- **Backend runtime status**: `HTTP GET /api/v1/system-status?orgId=<orgId>`
 - **Frontend**: `HTTP GET /health` (expect 200)
 
 Use `/` for restart/liveness decisions and `/health` for monitoring/alerting.
@@ -81,8 +91,10 @@ Adjust these in your `config.json` for high-throughput environments:
 
 - [ ] **Network Isolation**: MongoDB should be in a private subnet, accessible only by the backend containers.
 - [ ] **TLS/SSL**: All external traffic must go over HTTPS. Enable `"enforceHttps": true` in the security config if the Node.js process itself is directly exposed (otherwise handled by your Load Balancer).
+- [ ] **Inbound Request Policy**: Configure per-integration IP allowlists / browser origins / per-integration rate limits for public inbound routes.
 - [ ] **Rate Limiting**: The app has built-in soft rate limiting, but you should configure hardware/WAF rate limiting at your load balancer/Cloudflare level for DDoS protection.
 - [ ] **Audit Logs**: Ensure you configure a log aggregator (like Datadog, Splunk, or CloudWatch) to ingest the standard out (stdout) logs from the backend containers for audit and compliance.
+- [ ] **Operator Surface Protection**: Restrict `/api/v1/system-status` and `/api/v1/system-logs` to trusted admin/operator access paths.
 
 ## Example: Production Docker Run Command
 
@@ -119,3 +131,13 @@ This covers:
 - `403 Forbidden` caused by broken symlinks or inaccessible symlink targets
 - `404 Not Found` on deep-route refresh when SPA fallback is missing
 - the recommended `Alias` + `FallbackResource` Apache configuration for `/integration-gateway/`
+
+## 8. Operator Endpoints
+
+Useful operator endpoints in production:
+
+- `GET /health`
+- `GET /api/v1/system-status?orgId=<orgId>`
+- `GET /api/v1/system-logs?source=app`
+- `GET /api/v1/system-logs?source=access`
+- `GET /api/v1/system-logs/process-tail?lines=200`

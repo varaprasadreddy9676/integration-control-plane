@@ -73,7 +73,8 @@ frontend/
 - **Bi-directional transformation**: Request and response transformation
 - **Authentication**: Inbound (from client) + Outbound (to external API)
 - **Timeout handling**: Configurable timeouts with retry logic
-- **Rate limiting**: Per-integration and per-organization limits
+- **Request Policy**: IP allowlist, browser origin allowlist, and per-integration rate limiting
+- **Generic Routed Email**: Sender-profile based inbound email routing with default sender fallback
 
 #### SCHEDULED (Time-Driven Batch Jobs) 🆕
 - **Data source support**: SQL (MySQL), MongoDB (internal + external), Internal APIs
@@ -126,10 +127,14 @@ frontend/
 ### 6. Settings
 - **Event Source Settings**: Configure MySQL, Kafka, and HTTP Push per org
 - **MySQL Pool Settings**: Runtime-configurable connection pool limits
+- **Sender Profiles**: Reusable mailbox/provider profiles for generic inbound email routing
 - **Organization Context**: View current organization information
-- **UI Configuration**: Customize available features per organization
+- **Admin Request Policy Tools**: Bulk request-policy / rate-limit operations
 
-### 7. Additional Features
+### 7. System Monitoring
+- **System Status**: Worker health, adapter state, process lifecycle, sender-profile visibility
+- **System Logs**: Application logs, access logs, and process-output tail
+### 8. Additional Features
 - **Integration Versioning**: Full version history with diff view
 - **Lookup Tables**: Import/export via XLSX, reverse lookup, statistics
 - **Integration Templates**: Reusable configs with one-click deploy

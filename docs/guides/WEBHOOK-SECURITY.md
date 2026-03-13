@@ -1,6 +1,6 @@
 # Webhook Security Guide
 
-The platform provides multiple layers of outbound webhook security: HMAC-SHA256 payload signing, SSRF protection, outgoing authentication options, and replay attack prevention. This guide covers each mechanism.
+The platform provides multiple layers of outbound and inbound security: HMAC-SHA256 payload signing, SSRF protection, incoming request-policy controls, outgoing authentication options, and replay attack prevention. This guide covers each mechanism.
 
 ## Table of Contents
 
@@ -8,6 +8,7 @@ The platform provides multiple layers of outbound webhook security: HMAC-SHA256 
 - [Signing Secret Rotation](#signing-secret-rotation)
 - [Verifying Signatures (Receiver-Side)](#verifying-signatures-receiver-side)
 - [Outgoing Authentication Types](#outgoing-authentication-types)
+- [Inbound Request Policy](#inbound-request-policy)
 - [SSRF Protection](#ssrf-protection)
 - [Replay Attack Prevention](#replay-attack-prevention)
 - [API Reference](#api-reference)
@@ -194,6 +195,47 @@ The gateway caches the access token and refreshes it before expiry. No manual to
   }
 }
 ```
+
+---
+
+## Inbound Request Policy
+
+Inbound integrations can enforce a reusable request policy without custom middleware per endpoint.
+
+Current controls:
+
+| Control | Purpose |
+|--------|---------|
+| `allowedIpCidrs` | Restrict server-to-server callers by source IP/CIDR |
+| `allowedBrowserOrigins` | Restrict browser-origin traffic by exact `Origin` |
+| `rateLimit` | Per-integration inbound request throttling |
+
+Important:
+- IP allowlisting is the primary server-to-server restriction.
+- Browser origin restriction is useful for browser-based traffic only.
+- “Domain restriction” should be modeled as exact allowed browser origins, not as a generic security guarantee for backend callers.
+
+Typical inbound policy shape:
+
+```json
+{
+  "requestPolicy": {
+    "allowedIpCidrs": ["203.0.113.10/32", "198.51.100.0/24"],
+    "allowedBrowserOrigins": ["https://app.example.com"],
+    "rateLimit": {
+      "enabled": true,
+      "maxRequests": 60,
+      "windowSeconds": 60
+    }
+  }
+}
+```
+
+Behavior:
+- blocked IPs are rejected before provider processing
+- blocked origins are rejected before provider processing
+- policy denials are written to app/system logs for operator visibility
+- the same policy model is reusable across inbound integrations
 
 ---
 

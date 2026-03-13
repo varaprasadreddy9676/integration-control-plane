@@ -48,9 +48,13 @@ While there are other webhook services (like Svix) or API Gateways (like Kong), 
   - Runtime trigger endpoints (`GET/POST/PUT /api/v1/integrations/:type`).
   - Public runtime trigger endpoints (`GET/POST/PUT /api/v1/public/integrations/:type`) with per-integration inbound auth.
   - Inbound auth checks (`NONE`, `API_KEY`, `BEARER`, `BASIC`).
+  - Request policy controls:
+    - source IP allowlist (`allowedIpCidrs`)
+    - browser origin allowlist (`allowedBrowserOrigins`)
+    - per-integration rate limiting
   - Outbound auth support in delivery path (`NONE`, `API_KEY`, `BASIC`, `BEARER`, `OAUTH1`, `OAUTH2`, `CUSTOM`, `CUSTOM_HEADERS`).
   - Optional streamed upstream response forwarding.
-  - Per-integration rate limit checks.
+  - Generic inbound email routing via sender profiles (`ROUTED_EMAIL`) with request-body `from` resolution and default sender fallback.
 
 ### Scheduling
 
@@ -77,6 +81,8 @@ While there are other webhook services (like Svix) or API Gateways (like Kong), 
 ### Operations and Observability
 
 - Delivery logs, execution logs, system logs, event audit, DLQ endpoints.
+- System logs support rotated application logs, rotated access logs, and raw process log tail (`/api/v1/system-logs/process-tail`).
+- System status supports org-scoped and global admin modes with worker, adapter, process lifecycle, and sender profile visibility.
 - Alert center and analytics/dashboard routes.
 - Audit logs and user activity tracking.
 - Daily report configuration/test/status endpoints.
@@ -130,7 +136,7 @@ docker-compose.dev.yml      # Dev stack with hot reload
 ## Runtime Requirements
 
 - Docker + Docker Compose (for containerized run), or:
-  - Node.js 18+ for local development
+  - Node.js 16+ for local development (modern LTS still recommended)
   - MongoDB 6+ (required)
 - Optional, only if your use case needs them:
   - MySQL (org-specific event source or scheduled SQL source)
@@ -207,6 +213,13 @@ Minimum required:
 - `API_KEY=<your api key>`
 - `JWT_SECRET=<your jwt secret>`
 
+Backend env loading order is explicit:
+
+1. repository root `.env`
+2. optional `backend/.env` override
+
+So the backend behaves the same whether you start it from repo root or from `backend/`.
+
 If you prefer file config:
 
 ```bash
@@ -218,6 +231,8 @@ Start:
 ```bash
 npm run dev
 ```
+
+`npm run dev` uses `nodemon` with source/config watching only. Generated files under `backend/logs/` are ignored so runtime lifecycle markers and rotated logs do not trigger restart loops.
 
 ### Frontend
 
@@ -252,12 +267,14 @@ The frontend has 21 feature modules:
 | `dashboard` | KPI cards, delivery trends, latency, errors, inbound, scheduled, outbound tabs |
 | `integrations` | Outbound integration management, detail view, editor, HMAC signing |
 | `inbound-integrations` | Inbound integration configuration and detail pages |
+| `system-status` | Runtime health, workers, adapters, lifecycle, and sender profile visibility |
 | `scheduled` | Scheduled integration (DELAYED/RECURRING) management |
 | `scheduled-jobs` | CRON/interval batch job config with visual cron builder |
 | `logs` | Delivery log viewer with advanced filtering and cURL export |
 | `events` | Event management, event detail, bulk import |
 | `dlq` | Dead letter queue management, bulk retry |
 | `lookups` | Lookup table CRUD, import/export via XLSX, statistics |
+| `settings` | Event sources, sender profiles, admin request-policy/rate-limit tools |
 | `templates` | Reusable integration template library |
 | `versions` | Integration version history with diff view |
 | `bulk` | Bulk operations (import, export, batch updates) |

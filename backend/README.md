@@ -12,7 +12,7 @@ Express API and worker service for the Integration Gateway control plane.
 
 ## Prerequisites
 
-- Node.js 18+
+- Node.js 16+ (modern LTS recommended)
 - MongoDB 6+ (required)
 - Optional: MySQL and Kafka (only if used by org event-source configs)
 
@@ -24,6 +24,13 @@ npm install
 cp config.example.json config.json
 npm run dev
 ```
+
+Env loading order is:
+
+1. repository root `.env`
+2. optional `backend/.env` override
+
+So startup behavior is consistent whether the backend is launched from repo root or from `backend/`.
 
 Health check:
 

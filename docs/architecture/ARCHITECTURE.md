@@ -46,6 +46,7 @@ Integration Gateway is a bi-directional integration platform for multi-tenant Sa
 │  │  Middleware Stack                                          │ │
 │  │  • Authentication (API Key + JWT)                          │ │
 │  │  • Rate Limiting (Global + Per-Integration for inbound)    │ │
+│  │  • Request Policy (IP allowlist + browser origins)         │ │
 │  │  • Organization Context                                    │ │
 │  │  • Request Logging & Correlation                           │ │
 │  │  • Error Handling                                          │ │
@@ -57,8 +58,11 @@ Integration Gateway is a bi-directional integration platform for multi-tenant Sa
 │  │  • /outbound-integrations - Webhook configuration          │ │
 │  │  • /inbound-integrations - Proxy configuration             │ │
 │  │  • /integrations/:type - Runtime proxy endpoint            │ │
+│  │  • /public/integrations/:type - Public inbound runtime     │ │
 │  │  • /logs - Delivery logs                                   │ │
 │  │  • /execution-logs - Execution traces                      │ │
+│  │  • /system-logs - App/access/process log visibility        │ │
+│  │  • /system-status - Runtime status & worker health         │ │
 │  │  • /dlq - Dead letter queue                                │ │
 │  │  • /scheduled-integrations - Scheduled deliveries          │ │
 │  │  • /scheduled-jobs - Scheduled batch jobs (CRUD)           │ │
@@ -125,17 +129,19 @@ Integration Gateway is a bi-directional integration platform for multi-tenant Sa
 
 **Feature Modules**:
 - **Integrations**: CRUD operations for outbound/inbound integrations
+- **Inbound Request Policy**: IP allowlist, browser origins, per-integration rate limit controls
 - **Logs**: Delivery log viewer with advanced filtering
+- **System Status**: Global or org-scoped runtime health, workers, adapters, lifecycle
 - **DLQ**: Failed delivery management and retry operations
 - **Scheduled**: View and manage scheduled deliveries
 - **Lookups**: Lookup table management with import/export
 - **Dashboard**: System health, KPIs, and analytics charts
 - **Admin**: Organization and user management
-- **Settings**: UI configuration and preferences
+- **Settings**: Event sources, sender profiles, and platform controls
 
 #### 2. API Layer (Backend)
 
-**Technology**: Express.js 4.21 + Node.js 18+
+**Technology**: Express.js 4.21 + Node.js
 
 **Middleware Stack** (high-level):
 ```javascript
@@ -155,6 +161,8 @@ Integration Gateway is a bi-directional integration platform for multi-tenant Sa
 - `/scheduled-jobs` - Scheduled batch jobs CRUD, execution, logs, test datasource
 - `/integrations/:type` - Runtime proxy execution (method must match configured integration method)
 - `/public/integrations/:type` - Public runtime endpoint with per-integration inbound auth
+- `/system-logs` - Rotated app/access log reading and process tail
+- `/system-status` - Runtime health, process lifecycle, worker status, adapter health
 - `/logs` - Delivery logs (list, detail, export)
 - `/execution-logs` - Step-by-step execution traces
 - `/dlq` - Dead letter queue management
@@ -190,6 +198,23 @@ Integration Gateway is a bi-directional integration platform for multi-tenant Sa
 - Supported types: NONE, API_KEY, BEARER, BASIC, OAUTH1, OAUTH2, CUSTOM, CUSTOM_HEADERS
 - OAuth2 client credentials flow with token caching
 - HMAC-SHA256 webhook signing
+
+**Request Policy Service** (`request-policy.js`)
+- Per-integration source IP allowlist enforcement
+- Browser origin allowlist enforcement for browser-origin traffic
+- Shared per-integration rate-limit controls
+- Reusable evaluation for authenticated and public inbound routes
+
+**Sender Routing Service** (`communication/sender-routing.js`)
+- Reusable sender profiles per org
+- Default sender profile enforcement
+- Request-body `from` resolution for generic inbound email integrations
+- Provider-aware routing (`ROUTED_EMAIL`)
+
+**Process Lifecycle Service** (`process-lifecycle.js`)
+- Tracks running / draining / stopped process state
+- Writes abrupt restart markers for post-mortem visibility
+- Feeds lifecycle details into system status
 
 **Scheduling Service** (`scheduling/`)
 - DELAYED: One-time scheduled delivery

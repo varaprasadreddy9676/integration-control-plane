@@ -268,8 +268,10 @@ GET /api/v1/config/checkpoint?type=eventSource&orgId=...
 
 **No events processing despite source being active**
 - Check that the org's event source is enabled (not just saved)
-- Check system logs for adapter-level errors: `GET /api/v1/system-logs?level=error`
-- Verify the delivery worker is running: `GET /health`
+- Check system logs for adapter-level errors: `GET /api/v1/system-logs?source=app&level=error`
+- Verify runtime status with:
+  - `GET /api/v1/system-status?orgId=<orgId>`
+  - confirm worker health and event-source adapter state there
 
 **Events processing but integrations not triggering**
 - The event's `eventType` must match an active integration's `eventType` field exactly (case-sensitive)

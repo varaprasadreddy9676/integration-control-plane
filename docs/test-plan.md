@@ -424,7 +424,7 @@
 │ Follow existing patterns: jest.mock('../../src/mongodb', ...), supertest for HTTP, beforeEach(() => jest.clearAllMocks()).                                           │
 │                                                                                                                                                                      │
 │ 1. routes-health.test.js                                                                                                                                             │
-│ - GET /health → 200 with { status: 'ok' }                                                                                                                            │
+│ - GET /health → status reflects worker/runtime health and may be non-200 when core workers are unavailable                                                          │
 │ - Tests app boots and responds                                                                                                                                       │
 │                                                                                                                                                                      │
 │ 2. routes-auth.test.js (replace/extend existing thin auth test)                                                                                                      │

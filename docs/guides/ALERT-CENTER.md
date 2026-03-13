@@ -202,7 +202,8 @@ GET    /api/v1/alert-center/export/csv     Export as CSV
 **No alerts appearing in Alert Center**
 - Confirm `enabled: true` in the failure report config
 - Check that `minFailures` threshold is not too high — if set to 100, no alert fires unless there are 100+ failures in the window
-- Verify the background failure report worker is running: `GET /health` → check `failureReportWorker`
+- Verify runtime status with `GET /api/v1/system-status?orgId=<orgId>`
+- Confirm worker health there instead of relying only on `/health`
 
 **Alerts show `FAILED` status**
 - The gateway could not reach the `communicationServiceUrl`

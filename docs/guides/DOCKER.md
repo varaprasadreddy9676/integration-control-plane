@@ -69,7 +69,7 @@ docker compose -f docker-compose.dev.yml up -d --build
 
 3. Open dev URLs.
 
-- Frontend (Vite): `http://localhost:5175`
+- Frontend (Vite): `http://localhost:5174`
 - API: `http://localhost:3545/api/v1`
 - Node inspect port: `localhost:9229`
 

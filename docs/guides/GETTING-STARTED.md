@@ -77,7 +77,7 @@ cp .env.example .env
 npm run dev
 ```
 
-Frontend dev server default: `http://localhost:5175`
+Frontend dev server default: `http://localhost:5174`
 
 Ensure `frontend/.env` contains:
 
