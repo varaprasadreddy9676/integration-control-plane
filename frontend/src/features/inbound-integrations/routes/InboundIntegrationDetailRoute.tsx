@@ -35,6 +35,7 @@ import {
   EyeOutlined,
   InfoCircleOutlined,
   CaretRightOutlined,
+  SafetyOutlined,
   MailOutlined,
   MessageOutlined,
   WhatsAppOutlined
@@ -843,6 +844,8 @@ return {
           return true;
         }
         return !!(formTargetUrl && formHttpMethod);
+      case 'policy':
+        return true; // Policy is optional
       case 'auth':
         return true; // Auth is optional (can be NONE)
       case 'request-transform':
@@ -1161,9 +1164,6 @@ return {
                           />
 
                           <Divider style={{ margin: `${spacing[4]} 0` }} />
-                          <RequestPolicySection form={form} spacing={spacing} />
-
-                          <Divider style={{ margin: `${spacing[4]} 0` }} />
 
                           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                             <Button size="large" onClick={() => setActiveTab('basic')}>
@@ -1172,10 +1172,10 @@ return {
                             <Button
                               type="primary"
                               size="large"
-                              onClick={() => setActiveTab('auth')}
+                              onClick={() => setActiveTab('policy')}
                               disabled={!httpComplete}
                             >
-                              Continue to Authentication
+                              Continue to Request Policy
                             </Button>
                           </div>
                         </>
@@ -1252,9 +1252,6 @@ return {
                           />
 
                           <Divider style={{ margin: `${spacing[4]} 0` }} />
-                          <RequestPolicySection form={form} spacing={spacing} />
-
-                          <Divider style={{ margin: `${spacing[4]} 0` }} />
 
                           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                             <Button size="large" onClick={() => setActiveTab('basic')}>
@@ -1263,10 +1260,10 @@ return {
                             <Button
                               type="primary"
                               size="large"
-                              onClick={() => setActiveTab('auth')}
+                              onClick={() => setActiveTab('policy')}
                               disabled={!httpComplete}
                             >
-                              Continue to Authentication
+                              Continue to Request Policy
                             </Button>
                           </div>
                         </>
@@ -1283,9 +1280,6 @@ return {
                       />
 
                       <Divider style={{ margin: `${spacing[4]} 0` }} />
-                      <RequestPolicySection form={form} spacing={spacing} />
-
-                      <Divider style={{ margin: `${spacing[4]} 0` }} />
 
                       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                         <Button size="large" onClick={() => setActiveTab('basic')}>
@@ -1294,14 +1288,49 @@ return {
                         <Button
                           type="primary"
                           size="large"
-                          onClick={() => setActiveTab('auth')}
+                          onClick={() => setActiveTab('policy')}
                           disabled={!httpComplete}
                         >
-                          Continue to Authentication
+                          Continue to Request Policy
                         </Button>
                       </div>
                     </>
                   )}
+                </Card>
+              )
+            },
+            {
+              key: 'policy',
+              label: (
+                <Space size={6}>
+                  <SafetyOutlined />
+                  Request Policy
+                  {isTabComplete('policy') && (
+                    <CheckCircleOutlined style={{ color: colors.success[600], fontSize: 14 }} />
+                  )}
+                </Space>
+              ),
+              disabled: !basicComplete || !httpComplete,
+              children: (
+                <Card style={{ marginTop: spacing[2] }} size="small">
+                  <Space direction="vertical" size="large" style={{ width: '100%' }}>
+                    <RequestPolicySection form={form} spacing={spacing} />
+
+                    <Divider style={{ margin: `${spacing[4]} 0` }} />
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <Button size="large" onClick={() => setActiveTab('http')}>
+                        Back to {actionType === 'COMMUNICATION' ? 'Provider Config' : 'Target API'}
+                      </Button>
+                      <Button
+                        type="primary"
+                        size="large"
+                        onClick={() => setActiveTab('auth')}
+                      >
+                        Continue to Authentication
+                      </Button>
+                    </div>
+                  </Space>
                 </Card>
               )
             },
