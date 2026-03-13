@@ -14,6 +14,7 @@ import { useDesignTokens, withAlpha, spacingToNumber, cssVar } from '../../../de
 import { generateCurlCommand } from '../../../utils/curl';
 import { usePaginatedTable } from '../../../hooks/usePaginatedTable';
 import { useAuth } from '../../../app/auth-context';
+import { useTenant } from '../../../app/tenant-context';
 import dayjs from 'dayjs';
 
 const { RangePicker } = DatePicker;
@@ -88,6 +89,7 @@ const deriveFlowFilterFromParams = (direction: string | null, triggerType: strin
 export const LogsRoute = () => {
   const { colors, spacing, token, borderRadius, shadows } = useDesignTokens();
   const { user } = useAuth();
+  const { orgId } = useTenant();
   const isPortalSession = !!(user as any)?.isPortalSession;
   const { message: msgApi, modal } = App.useApp();
   const screens = Grid.useBreakpoint();
@@ -258,7 +260,7 @@ export const LogsRoute = () => {
   const { currentPage, pageSize, getPaginationConfig } = usePaginatedTable({
     defaultPageSize: 15,
     pageSizeOptions: ['10', '15', '25', '50', '100'],
-    resetDeps: [statusFilter, integrationFilter, eventTypeFilter, flowFilter, errorCategoryFilter, hourFilter, dayOfWeekFilter, search, dateRange],
+    resetDeps: [orgId, statusFilter, integrationFilter, eventTypeFilter, flowFilter, errorCategoryFilter, hourFilter, dayOfWeekFilter, search, dateRange],
     syncWithUrl: true // Enable URL params for bookmarkable pages
   });
 
@@ -295,7 +297,7 @@ export const LogsRoute = () => {
   }, [dateRange]);
 
   const { data: logsResponse, refetch: refetchLogs, isFetching: logsFetching, dataUpdatedAt: logsUpdatedAt } = useQuery<PaginatedResponse<DeliveryLog>>({
-    queryKey: ['logs', statusFilter, integrationFilter, eventTypeFilter, flowFilter, errorCategoryFilter, hourFilter, dayOfWeekFilter, search, resolvedDateRange, currentPage, pageSize],
+    queryKey: ['logs', orgId, statusFilter, integrationFilter, eventTypeFilter, flowFilter, errorCategoryFilter, hourFilter, dayOfWeekFilter, search, resolvedDateRange, currentPage, pageSize],
     queryFn: () => getLogs({
       status: statusFilter === 'PENDING_OR_RETRYING' ? undefined : statusFilter, // Don't send special filter to backend
       integrationId: integrationFilter,
@@ -318,10 +320,10 @@ export const LogsRoute = () => {
   const pagination = logsResponse?.pagination;
   const isInitialLogsLoading = logsFetching && !logsResponse;
 
-  const { data: integrations = [] } = useQuery({ queryKey: ['integrations'], queryFn: getIntegrations });
-  const { data: eventTypes = [] } = useQuery<string[]>({ queryKey: ['event-types'], queryFn: getEventTypes });
+  const { data: integrations = [] } = useQuery({ queryKey: ['integrations', orgId], queryFn: getIntegrations });
+  const { data: eventTypes = [] } = useQuery<string[]>({ queryKey: ['event-types', orgId], queryFn: getEventTypes });
   const { data: stats, refetch: refetchStats, dataUpdatedAt: statsUpdatedAt } = useQuery({
-    queryKey: ['log-stats', integrationFilter, eventTypeFilter, flowFilter, errorCategoryFilter, hourFilter, dayOfWeekFilter, search, resolvedDateRange],
+    queryKey: ['log-stats', orgId, integrationFilter, eventTypeFilter, flowFilter, errorCategoryFilter, hourFilter, dayOfWeekFilter, search, resolvedDateRange],
     queryFn: () => getLogStatsSummary({
       integrationId: integrationFilter,
       eventType: eventTypeFilter,
