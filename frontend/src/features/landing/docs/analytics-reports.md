@@ -1,153 +1,172 @@
 # Analytics & Reports
 
-The gateway collects detailed metrics on every delivery, inbound request, and scheduled job. All metrics are computed from the actual execution log data — no separate analytics pipeline needed.
+The platform computes analytics directly from execution logs, event audit data, scheduled job history, and alert activity. The dashboard and logs views now share the same filter model, so drill-downs stay consistent instead of showing mismatched counts.
 
 ---
 
-## Dashboard Summary (24-Hour View)
+## Dashboard Summary
 
-The dashboard shows a real-time overview of the last 24 hours:
+The dashboard is split into scoped views:
+
+- `All`
+- `Outbound`
+- `Inbound`
+- `Scheduled`
+
+Each scope shows:
 
 | Metric | Description |
 |--------|-------------|
-| `totalDeliveries24h` | Total execution log entries in the last 24 hours |
-| `successRate24h` | Percentage of successful deliveries (1 decimal precision) |
-| `failedCount24h` | Count of `FAILED`, `ABANDONED`, and `SKIPPED` statuses |
-| `avgResponseTimeMs24h` | Average response time across all deliveries |
-| Integration Health | Top 5 integrations with `GREEN` / `RED` status |
-| Recent Failures | Last 5 failed executions |
+| `totalDeliveries24h` | Total matching executions in the last 24 hours |
+| `successRate24h` | Success percentage for the current scope |
+| `failedCount24h` | Count of `FAILED` and `ABANDONED` executions |
+| `avgResponseTimeMs24h` | Average response time for matching executions |
+| Integration Health | Per-integration health status with last activity |
+| Recent Failures | Recent failed or abandoned executions |
+
+`SKIPPED` executions are tracked separately and are **not counted as failures**.
+
+---
+
+## Drill-Down Behaviour
+
+All dashboard drill-downs now open the delivery logs page with matching filters applied:
+
+- status
+- integration
+- event type
+- direction / flow
+- trigger type
+- error category
+- hour
+- day of week
+- date range
+
+The logs page also shows the active filters as removable chips, so the drill-down state is visible and editable.
 
 ---
 
 ## Execution Statistics
 
-Queryable stats over any date range, filterable by direction and integration:
+Queryable over any date range and filterable by:
+
+- integration
+- event type
+- direction
+- trigger type
+- status
+- error category
+- hour / weekday
 
 ### Status Breakdown
-Count by status: `SUCCESS`, `FAILED`, `PENDING`, `RETRYING`, `ABANDONED`
+
+Common execution statuses:
+
+- `SUCCESS`
+- `FAILED`
+- `ABANDONED`
+- `PENDING`
+- `RETRYING`
+- `SKIPPED`
 
 ### Direction Breakdown
-Count by direction: `OUTBOUND`, `INBOUND`, `SCHEDULED`, `COMMUNICATION`
+
+- `OUTBOUND`
+- `INBOUND`
+- `COMMUNICATION`
+- `SCHEDULE`
+- `SCHEDULED`
+
+Scheduled trigger aliases are normalized in the analytics and logs views, so scheduled drill-downs are consistent even when historical data uses both labels.
 
 ### Performance
-- `avg` — Average `durationMs` across all executions
+
+- `avg` — Average response time
 - `min` / `max` — Fastest and slowest execution
+- `p50` / `p95` / `p99` — Percentiles where available
 
 ### Top Errors
-Top 10 error codes from failed executions, sorted by frequency:
-- `SERVER_ERROR`, `TIMEOUT`, `TRANSFORMATION_ERROR`, `NETWORK_ERROR`, etc.
+
+Grouped by category and message, for example:
+
+- `SERVER_ERROR`
+- `TIMEOUT`
+- `TRANSFORMATION_ERROR`
+- `NETWORK_ERROR`
+- `AUTH`
 
 ---
 
 ## Event Audit Statistics
 
-Deeper metrics on the event pipeline, configurable lookback window (default 24 hours):
+The event audit pipeline provides upstream visibility separate from execution logs.
 
 ### Delivery Outcomes
+
 | Field | Description |
 |-------|-------------|
-| `totalReceived` | Total events received |
-| `delivered` | Count with status `DELIVERED` |
-| `skipped` | Count with status `SKIPPED` |
-| `failed` | Count with status `FAILED` |
-| `stuck` | Count with status `STUCK` |
+| `totalReceived` | Total source events received |
+| `delivered` | Events with at least one successful downstream delivery |
+| `skipped` | Events intentionally skipped |
+| `failed` | Events that failed processing |
+| `stuck` | Events still incomplete past the expected window |
 
 ### Skip & Duplicate Breakdown
-- `skipReasons` — Map of skip category → count (e.g. `{ "DUPLICATE": 45, "NO_MATCH": 12 }`)
-- `duplicateTypes` — Map of duplicate type → count
+
+- `skipReasons` — grouped skip categories such as `DUPLICATE` or `NO_MATCH`
+- `duplicateTypes` — duplicate classifications where enabled
 
 ### Traffic Breakdown
-- `bySource` — Event count grouped by source system (e.g. `{ "mysql": 100, "webhook": 75 }`)
-- `byEventType` — Event count grouped by type (e.g. `{ "appointment.created": 60 }`)
+
+- `bySource` — source system counts such as `mysql`, `kafka`, `webhook`
+- `byEventType` — event counts grouped by event type
 
 ### Processing Percentiles
 
 | Metric | Description |
 |--------|-------------|
 | `avgProcessingTimeMs` | Mean processing time |
-| `p50ProcessingTimeMs` | Median (50th percentile) |
+| `p50ProcessingTimeMs` | Median |
 | `p95ProcessingTimeMs` | 95th percentile |
 | `p99ProcessingTimeMs` | 99th percentile |
 
-**How percentiles are calculated:** Sort all processing times, take `array[length × 0.5 / 0.95 / 0.99]`.
-
-### Delivery Quality Metrics
-- `avgIntegrationsMatched` — Average integrations matched per event
-- `avgDeliveredCount` — Average successful deliveries per event
-- `avgFailedCount` — Average failed deliveries per event
-- `successRate` — `avgDeliveredCount / avgIntegrationsMatched` (0–1 decimal)
-
 ---
 
-## Log Stats Summary
+## Logs Stats Summary
 
-Lightweight counters queryable from the logs page:
+The delivery logs page uses the same filters for both the table and summary cards.
 
 | Field | Description |
 |-------|-------------|
 | `total` | Total logs matching current filters |
-| `success` | Count with status `SUCCESS` |
-| `failed` | Count with status `FAILED` or `ABANDONED` |
-| `pending` | Count with status `PENDING` or `RETRYING` |
+| `success` | Matching rows with `SUCCESS` |
+| `failed` | Matching rows with `FAILED` or `ABANDONED` |
+| `pending` | Matching rows with `PENDING` or `RETRYING` |
+| `skipped` | Matching rows with `SKIPPED` |
 
-**Supported filters:** integration ID, event type, direction, trigger type, date range.
-
----
-
-## Daily Email Reports
-
-The gateway can automatically send daily (or interval-based) failure reports via email:
-
-- Configurable interval (default: 60 minutes)
-- Configurable lookback window (default: 60 minutes)
-- Minimum failure threshold before a report is sent (default: 1)
-- Maximum items per report (default: 25)
-- All report runs logged in `alert_center_logs` with status, recipients, and failure count
-
-See [Email Notifications](./email-notifications) for setup details.
+This keeps drill-downs and summary metrics aligned.
 
 ---
 
-## Rate Limit Monitoring (Admin)
+## Reports and Alerts
 
-Admins can view rate limit status across all integrations:
+The platform supports scheduled failure reporting and alert summaries:
 
-| Field | Description |
-|-------|-------------|
-| `current` | Current request count in the active window |
-| `limit` | Configured max requests |
-| `remaining` | Requests remaining in window |
-| `resetAt` | Timestamp when the window resets |
+- configurable lookback windows
+- minimum failure thresholds
+- capped item counts per report
+- email / webhook / Slack alert delivery
 
----
-
-## Admin Audit Analytics
-
-The admin audit log includes trend analysis:
-
-- **Top 5 actions** by frequency
-- **Top 5 admins** by activity
-- **Action breakdown** — top 10 action types with counts
-- **Daily counts** — trend over configurable number of days (1–365, default 7)
-
-Query filters: action type, admin role, admin ID, date range, full-text search.
+See [Email Notifications](./email-notifications) and [Alert Center](./alert-center) for the operational side.
 
 ---
 
-## Data Retention
+## Operational Monitoring
 
-| Data | Retention |
-|------|-----------|
-| Event audit logs | 90 days (configurable) |
-| Execution logs | TTL index (minimum 7 days if configured) |
-| Admin audit logs | Queryable, exported up to 5,000 records |
+Analytics is complemented by:
 
----
+- `System Status` for worker, adapter, and process health
+- `System Logs` for application, access, and process output
+- `Alert Center` for dispatched failure notifications
 
-## Pagination Defaults
-
-| Context | Default Limit | Max Limit |
-|---------|--------------|-----------|
-| Execution logs | 50 | 1,000 |
-| Admin views | 50 | 200 |
-| CSV export | — | 5,000 |
+Use analytics for trends and logs/system status for runtime diagnosis.

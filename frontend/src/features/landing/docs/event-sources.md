@@ -1,8 +1,8 @@
 # Event Sources
 
-By default, events enter the system via the REST API (`POST /api/v1/events`). Event sources let each org connect an **external data system** — MySQL or Kafka — as the trigger for their integrations, so you don't need to change your existing application to push events.
+Event sources let each org connect an external system as the trigger for integrations. They are optional, org-scoped, and monitored through the platform runtime.
 
-Event sources are **optional and per-org**.
+By default, events can still enter via the gateway APIs. Event sources are for systems that need polling or stream consumption instead of pushing directly.
 
 ---
 
@@ -10,30 +10,17 @@ Event sources are **optional and per-org**.
 
 | Type | Mechanism | Use case |
 |------|-----------|----------|
-| `mysql` | Polls a `notification_queue` table on an interval | HIS / ERP systems with MySQL backends |
+| `mysql` | Polls a `notification_queue` table | HIS / ERP systems backed by MySQL |
 | `kafka` | Consumes messages from a Kafka topic | High-throughput event streaming |
-| `http_push` | Receives HTTP POST to a dedicated endpoint | Third-party systems that push events *(Phase 2)* |
+| `http_push` | Receives HTTP POST to a dedicated inbound route | External systems that push events |
 
 ---
 
 ## MySQL Event Source
 
-The MySQL adapter polls a `notification_queue` table and advances a checkpoint after each batch — no events are missed or processed twice.
+The MySQL adapter polls a queue table and advances a checkpoint after successful processing.
 
-### Required table schema
-
-```sql
-CREATE TABLE notification_queue (
-  id         BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  event_type VARCHAR(100) NOT NULL,
-  entity_id  VARCHAR(100),
-  payload    JSON NOT NULL,
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-CREATE INDEX idx_notification_queue_id ON notification_queue (id);
-```
-
-### Configuration
+Typical configuration:
 
 ```json
 {
@@ -51,7 +38,7 @@ CREATE INDEX idx_notification_queue_id ON notification_queue (id);
 }
 ```
 
-**Server-enforced limits:**
+Server-enforced limits:
 
 | Setting | Min | Max | Default |
 |---------|-----|-----|---------|
@@ -59,19 +46,13 @@ CREATE INDEX idx_notification_queue_id ON notification_queue (id);
 | `batchSize` | 1 | 100 | 10 |
 | `connectionLimit` | 1 | 5 | 3 |
 
-The gateway only needs `SELECT` on the table:
-
-```sql
-GRANT SELECT ON your_app_db.notification_queue TO 'gateway_readonly'@'%';
-```
-
 ---
 
 ## Kafka Event Source
 
-The Kafka adapter joins a consumer group with manual offset commits — offsets are committed only after successful delivery.
+The Kafka adapter consumes messages and tracks its runtime state independently per org.
 
-### Configuration
+Typical configuration:
 
 ```json
 {
@@ -86,51 +67,78 @@ The Kafka adapter joins a consumer group with manual offset commits — offsets 
 }
 ```
 
-Use a **unique `groupId` per org** so each org independently tracks its own offset.
-
-### Expected message format
-
-```json
-{
-  "eventType": "appointment.created",
-  "entityId": "123",
-  "payload": { "appointmentId": "APT-001" }
-}
-```
-
-### SASL authentication
-
-```json
-{
-  "sasl": { "mechanism": "plain", "username": "gateway-user", "password": "..." },
-  "ssl": true
-}
-```
+Kafka runtime visibility now includes reconnect and backoff information in system status when the adapter is configured and running.
 
 ---
 
-## Checkpoint Tracking
+## Checkpoints and Recovery
 
-The gateway tracks its position in each source using a checkpoint stored in MongoDB:
+Checkpoint tracking remains source-specific:
 
 | Source | Checkpoint |
 |--------|-----------|
-| MySQL | Last processed `id` from `notification_queue` |
-| Kafka | Consumer group offset per partition |
+| MySQL | Last processed row ID |
+| Kafka | Consumer group offsets per partition |
 
-On restart, the adapter resumes from the last checkpoint — no events are missed or duplicated. Set `fromBeginning: true` in Kafka config to replay from the earliest available offset.
+On restart:
+
+- MySQL resumes from the last stored row checkpoint
+- Kafka resumes from committed offsets
+
+This prevents replaying already-processed source data during normal restart paths.
+
+---
+
+## Runtime Health and Visibility
+
+Event sources are now visible in **System Status**.
+
+For each org, the platform can show:
+
+- whether any source is configured
+- configuration state:
+  - `not_configured`
+  - `configured`
+  - `running`
+  - `error`
+- runtime connection state:
+  - `connected`
+  - `reconnecting`
+  - `stale`
+  - `not_applicable`
+- last poll / last connect / last error details
+
+Important:
+- an unconfigured source is shown as **not configured**, not as **down**
+- HTTP push is shown as **not applicable** for persistent connection health
+
+---
+
+## Troubleshooting
+
+Use:
+
+- `System Status` for adapter and worker health
+- `System Logs` for MySQL poll logs, Kafka connection logs, and worker output
+- delivery logs and event audit for downstream event visibility
+
+This is the fastest way to separate:
+
+- source ingestion problem
+- event matching problem
+- delivery problem
 
 ---
 
 ## API Reference
 
-```
-GET    /api/v1/event-sources              List event sources
-GET    /api/v1/event-sources/:id          Get source details + status
-POST   /api/v1/event-sources              Create event source
-PUT    /api/v1/event-sources/:id          Update configuration
-DELETE /api/v1/event-sources/:id          Delete event source
-POST   /api/v1/event-sources/test         Test connectivity without saving
+```http
+GET    /api/v1/event-sources
+GET    /api/v1/event-sources/:id
+POST   /api/v1/event-sources
+PUT    /api/v1/event-sources/:id
+DELETE /api/v1/event-sources/:id
+POST   /api/v1/event-sources/test
 ```
 
-Always use **Test Connection** before saving — it opens a connection, runs `SELECT 1`, and confirms the table/topic is accessible.
+Always test connectivity before saving a new source configuration.
