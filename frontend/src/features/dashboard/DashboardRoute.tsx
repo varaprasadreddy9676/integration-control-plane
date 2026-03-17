@@ -6,6 +6,7 @@ import {
   CheckCircleOutlined,
   WarningOutlined,
   FieldTimeOutlined,
+  MinusCircleOutlined,
   FileImageOutlined,
   FilePdfOutlined,
   MailOutlined
@@ -424,6 +425,8 @@ export const DashboardRoute = () => {
     const secondSuccessful = calcAvg(secondHalf, 'successful');
     const firstFailed = calcAvg(firstHalf, 'failed');
     const secondFailed = calcAvg(secondHalf, 'failed');
+    const firstSkipped = calcAvg(firstHalf, 'skipped');
+    const secondSkipped = calcAvg(secondHalf, 'skipped');
     const firstSuccessRate = firstTotal > 0 ? (firstSuccessful / firstTotal) * 100 : 0;
     const secondSuccessRate = secondTotal > 0 ? (secondSuccessful / secondTotal) * 100 : 0;
 
@@ -436,7 +439,8 @@ export const DashboardRoute = () => {
     return {
       totalChange: calcChange(firstTotal, secondTotal),
       successRateChange: secondSuccessRate - firstSuccessRate, // Absolute change for percentage
-      failedChange: calcChange(firstFailed, secondFailed)
+      failedChange: calcChange(firstFailed, secondFailed),
+      skippedChange: calcChange(firstSkipped, secondSkipped)
     };
   }, [timeseriesDaily]);
 
@@ -444,7 +448,7 @@ export const DashboardRoute = () => {
     {
       label: `Total Deliveries (${timeLabel})`,
       value: hasSummaryData ? formatNumber(analytics?.summary?.total || 0) : '—',
-      delta: hasSummaryData ? `${analytics?.summary?.successful || 0} successful, ${analytics?.summary?.failed || 0} failed` : noDataHint,
+      delta: hasSummaryData ? `${analytics?.summary?.successful || 0} successful, ${analytics?.summary?.failed || 0} failed, ${analytics?.summary?.skipped || 0} skipped` : noDataHint,
       icon: <ThunderboltOutlined />,
       tone: themeColors.primary.default,
       trend: trends?.totalChange,
@@ -466,6 +470,21 @@ export const DashboardRoute = () => {
       trendLabel: trends ? `${trends.successRateChange > 0 ? '+' : ''}${trends.successRateChange.toFixed(1)}% vs previous period` : undefined,
       onClick: () => {
         const params = new URLSearchParams({ status: 'SUCCESS', days: days.toString() });
+        if (integrationId) params.set('integrationId', integrationId);
+        if (direction !== 'ALL') params.set('direction', direction);
+        navigate(`/logs?${params.toString()}`);
+      }
+    },
+    {
+      label: `Skipped (${timeLabel})`,
+      value: hasSummaryData ? formatNumber(analytics?.summary?.skipped || 0) : '—',
+      delta: hasSummaryData ? 'Condition-based or policy-based skips' : noDataHint,
+      icon: <MinusCircleOutlined />,
+      tone: themeColors.warning.text,
+      trend: trends?.skippedChange,
+      trendLabel: trends ? `${trends.skippedChange > 0 ? '+' : ''}${trends.skippedChange.toFixed(1)}% vs previous period` : undefined,
+      onClick: () => {
+        const params = new URLSearchParams({ status: 'SKIPPED', days: days.toString() });
         if (integrationId) params.set('integrationId', integrationId);
         if (direction !== 'ALL') params.set('direction', direction);
         navigate(`/logs?${params.toString()}`);
@@ -509,12 +528,14 @@ export const DashboardRoute = () => {
       const total = Number(point.total || 0);
       const successful = Number(point.successful || 0);
       const failed = Number(point.failed || 0);
+      const skipped = Number(point.skipped || 0);
       const successRate = total > 0 ? (successful / total) * 100 : 0;
 
       return {
         date: new Date(point.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
         Successful: successful,
         Failed: failed,
+        Skipped: skipped,
         'Success Rate': Number(successRate.toFixed(1)),
         Total: total
       };
@@ -598,17 +619,22 @@ export const DashboardRoute = () => {
         const displayName = integration.__KEEP_integrationName__ || integration.integrationName || integration.__KEEP___KEEP_integrationConfig__Id__ || 'Unknown';
         const successful = integration.successful || 0;
         const failed = integration.failed || 0;
-        const total = integration.total || successful + failed;
+        const skipped = integration.skipped || 0;
+        const total = integration.total || successful + failed + skipped;
         const successRate = total > 0 ? (successful / total) * 100 : 0;
         const failureRate = total > 0 ? (failed / total) * 100 : 0;
+        const skippedRate = total > 0 ? (skipped / total) * 100 : 0;
         return {
           name: displayName,
           nameShort: displayName,
           successRate: Number(successRate.toFixed(1)),
           failureRate: Number(failureRate.toFixed(1)),
+          skippedRate: Number(skippedRate.toFixed(1)),
           successCount: successful,
           failedCount: failed,
+          skippedCount: skipped,
           total,
+          skipped,
           integrationId: integration.__KEEP___KEEP_integrationConfig__Id__,
         };
       })
@@ -637,26 +663,28 @@ export const DashboardRoute = () => {
     const series = timeseriesHourly?.data || [];
     if (!Array.isArray(series) || series.length === 0) return [];
 
-    const buckets = new Map<number, { successful: number; failed: number; total: number }>();
+    const buckets = new Map<number, { successful: number; failed: number; skipped: number; total: number }>();
     series.forEach((point: any) => {
       const timestamp = point.timestamp ? new Date(point.timestamp) : null;
       if (!timestamp || Number.isNaN(timestamp.getTime())) return;
       const hour = timestamp.getHours();
-      const current = buckets.get(hour) || { successful: 0, failed: 0, total: 0 };
+      const current = buckets.get(hour) || { successful: 0, failed: 0, skipped: 0, total: 0 };
       buckets.set(hour, {
         successful: current.successful + Number(point.successful || 0),
         failed: current.failed + Number(point.failed || 0),
+        skipped: current.skipped + Number(point.skipped || 0),
         total: current.total + Number(point.total || 0)
       });
     });
 
     return Array.from({ length: 24 }).map((_, hour) => {
-      const data = buckets.get(hour) || { successful: 0, failed: 0, total: 0 };
+      const data = buckets.get(hour) || { successful: 0, failed: 0, skipped: 0, total: 0 };
       const successRate = data.total > 0 ? (data.successful / data.total) * 100 : 0;
       return {
         hour: `${hour}:00`,
         Successful: data.successful,
         Failed: data.failed,
+        Skipped: data.skipped,
         'Success Rate': Number(successRate.toFixed(1)),
         Total: data.total
       };
@@ -716,7 +744,7 @@ export const DashboardRoute = () => {
     };
   }, [performanceAnalytics]);
 
-  const overviewMetrics = metrics.slice(0, 4);
+  const overviewMetrics = metrics;
   const detailsTabs = [
     { key: 'overview', label: 'Overview' },
     { key: 'errors', label: 'Errors' },
@@ -850,7 +878,7 @@ export const DashboardRoute = () => {
     });
   };
 
-  const resolveDrilldownStatus = (data: any): 'SUCCESS' | 'FAILED' | undefined => {
+  const resolveDrilldownStatus = (data: any): 'SUCCESS' | 'FAILED' | 'SKIPPED' | undefined => {
     const seriesKey = String(
       data?.__clickedDataKey ||
       data?.__clickedSeriesName ||
@@ -861,10 +889,12 @@ export const DashboardRoute = () => {
 
     if (seriesKey.includes('fail')) return 'FAILED';
     if (seriesKey.includes('success')) return 'SUCCESS';
+    if (seriesKey.includes('skip')) return 'SKIPPED';
 
     const payload = data?.payload || data;
     if (payload?.failed > 0 || payload?.Failed > 0) return 'FAILED';
     if (payload?.successful > 0 || payload?.Successful > 0) return 'SUCCESS';
+    if (payload?.skipped > 0 || payload?.Skipped > 0) return 'SKIPPED';
     return undefined;
   };
 

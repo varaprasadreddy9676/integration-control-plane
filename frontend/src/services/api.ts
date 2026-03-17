@@ -860,7 +860,7 @@ export const getLogStatsSummary = async (filters?: {
   dayOfWeek?: string;
   timezoneOffset?: string;
   dateRange?: [string, string] | null;
-}): Promise<{ total: number; failed: number; pending: number; success: number; refreshedAt?: string }> => {
+}): Promise<{ total: number; failed: number; skipped: number; pending: number; success: number; refreshedAt?: string }> => {
   const params = new URLSearchParams();
   if (filters?.integrationId) params.set('integrationId', filters.integrationId);
   if (filters?.search) params.set('search', filters.search);

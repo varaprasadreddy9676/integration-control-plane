@@ -227,6 +227,11 @@ async function aggregateOverviewCollection(db, collection, match, fields) {
               ],
             },
           },
+          skipped: {
+            $sum: {
+              $cond: [{ $in: [`$${fields.statusField}`, ['SKIPPED', 'skipped']] }, 1, 0],
+            },
+          },
           responseTimeSum: {
             $sum: {
               $cond: [{ $gt: [`$${fields.responseTimeField}`, 0] }, `$${fields.responseTimeField}`, 0],
@@ -266,6 +271,11 @@ async function aggregateOverviewCollection(db, collection, match, fields) {
                 1,
                 0,
               ],
+            },
+          },
+          skipped: {
+            $sum: {
+              $cond: [{ $in: [`$${fields.statusField}`, ['SKIPPED', 'skipped']] }, 1, 0],
             },
           },
           responseTimeSum: {
@@ -352,6 +362,11 @@ async function aggregateTimeseriesCollection(db, collection, match, fields, inte
                 1,
                 0,
               ],
+            },
+          },
+          skipped: {
+            $sum: {
+              $cond: [{ $in: [`$${fields.statusField}`, ['SKIPPED', 'skipped']] }, 1, 0],
             },
           },
           responseTimeSum: {
@@ -510,6 +525,7 @@ router.get(
           total: item.total || 0,
           successful: item.successful || 0,
           failed: item.failed || 0,
+          skipped: item.skipped || 0,
           avgResponseTime:
             item.responseTimeCount > 0 ? Math.round((item.responseTimeSum || 0) / item.responseTimeCount) : 0,
         };
@@ -525,6 +541,7 @@ router.get(
             total: 0,
             successful: 0,
             failed: 0,
+            skipped: 0,
             responseTimeSum: 0,
             responseTimeCount: 0,
             lastSeen: null,
@@ -535,6 +552,7 @@ router.get(
         integrationMap[id].total += item.total || 0;
         integrationMap[id].successful += item.successful || 0;
         integrationMap[id].failed += item.failed || 0;
+        integrationMap[id].skipped += item.skipped || 0;
         integrationMap[id].responseTimeSum += item.responseTimeSum || 0;
         integrationMap[id].responseTimeCount += item.responseTimeCount || 0;
         if (!integrationMap[id].lastSeen || new Date(item.lastSeen) > new Date(integrationMap[id].lastSeen)) {
@@ -549,6 +567,7 @@ router.get(
           total: perf.total,
           successful: perf.successful,
           failed: perf.failed,
+          skipped: perf.skipped,
           avgResponseTime: perf.responseTimeCount > 0 ? Math.round(perf.responseTimeSum / perf.responseTimeCount) : 0,
           successRate: perf.total > 0 ? Math.round((perf.successful / perf.total) * 10000) / 100 : 0,
           lastSeen: perf.lastSeen || null,
@@ -568,6 +587,7 @@ router.get(
 
       const successful = statusCounts.SUCCESS || 0;
       const failed = (statusCounts.FAILED || 0) + (statusCounts.ABANDONED || 0);
+      const skipped = statusCounts.SKIPPED || 0;
       const retrying = statusCounts.RETRYING || 0;
       const pending = statusCounts.PENDING || 0;
       const successRate = total > 0 ? Math.round((successful / total) * 10000) / 100 : 0;
@@ -582,6 +602,7 @@ router.get(
           total,
           successful,
           failed,
+          skipped,
           retrying,
           pending,
           successRate,
@@ -639,6 +660,7 @@ router.get(
             total: 0,
             successful: 0,
             failed: 0,
+            skipped: 0,
             responseTimeSum: 0,
             responseTimeCount: 0,
           });
@@ -647,6 +669,7 @@ router.get(
         entry.total += row.total || 0;
         entry.successful += row.successful || 0;
         entry.failed += row.failed || 0;
+        entry.skipped += row.skipped || 0;
         entry.responseTimeSum += row.responseTimeSum || 0;
         entry.responseTimeCount += row.responseTimeCount || 0;
       }
@@ -657,6 +680,7 @@ router.get(
           total: row.total,
           successful: row.successful,
           failed: row.failed,
+          skipped: row.skipped,
           avgResponseTime: row.responseTimeCount > 0 ? Math.round(row.responseTimeSum / row.responseTimeCount) : 0,
           successRate: row.total > 0 ? Math.round((row.successful / row.total) * 10000) / 100 : 0,
         }))

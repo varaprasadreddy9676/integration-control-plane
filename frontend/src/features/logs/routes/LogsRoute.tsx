@@ -889,6 +889,7 @@ export const LogsRoute = () => {
               { title: 'Total', value: stats.total, tone: cssVar.text.secondary, filterValue: null },
               { title: 'Success', value: stats.success, tone: colors.success[600], filterValue: 'SUCCESS' },
               { title: 'Failed', value: stats.failed, tone: colors.error[600], filterValue: 'FAILED' },
+              { title: 'Skipped', value: stats.skipped, tone: colors.warning[700], filterValue: 'SKIPPED' },
               { title: 'Pending', value: stats.pending, tone: colors.warning[600], filterValue: 'PENDING_OR_RETRYING' }
             ].map((item) => {
               const isActive = item.filterValue === null

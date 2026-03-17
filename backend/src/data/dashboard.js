@@ -35,6 +35,9 @@ async function getDashboardSummary(orgId) {
               failed: {
                 $sum: { $cond: [{ $in: ['$status', ['FAILED', 'ABANDONED']] }, 1, 0] },
               },
+              skipped: {
+                $sum: { $cond: [{ $eq: ['$status', 'SKIPPED'] }, 1, 0] },
+              },
               avgResponseTime: { $avg: '$responseTimeMs' },
             },
           },
@@ -45,6 +48,7 @@ async function getDashboardSummary(orgId) {
         total: 0,
         successful: 0,
         failed: 0,
+        skipped: 0,
         avgResponseTime: 0,
       };
 
@@ -72,6 +76,7 @@ async function getDashboardSummary(orgId) {
         totalDeliveries24h: result.total,
         successRate24h: result.total > 0 ? Number(((result.successful / result.total) * 100).toFixed(1)) : 100,
         failedCount24h: result.failed,
+        skippedCount24h: result.skipped,
         avgResponseTimeMs24h: Math.round(result.avgResponseTime || 0),
         integrationHealth,
         recentFailures: recentFailures.map(mapLogFromMongo),

@@ -87,11 +87,13 @@ export const DashboardDeliveriesTab = ({
   const performanceChartBars = performanceChartMetric === 'count'
     ? [
       { dataKey: 'successCount', name: 'Success', color: themeColors.success.text, stackId: 'a' },
-      { dataKey: 'failedCount', name: 'Failed', color: themeColors.error.text, stackId: 'a' }
+      { dataKey: 'failedCount', name: 'Failed', color: themeColors.error.text, stackId: 'a' },
+      { dataKey: 'skippedCount', name: 'Skipped', color: themeColors.warning.text, stackId: 'a' }
     ]
     : [
       { dataKey: 'successRate', name: 'Success %', color: themeColors.success.text, stackId: 'a' },
-      { dataKey: 'failureRate', name: 'Failure %', color: themeColors.error.text, stackId: 'a' }
+      { dataKey: 'failureRate', name: 'Failure %', color: themeColors.error.text, stackId: 'a' },
+      { dataKey: 'skippedRate', name: 'Skipped %', color: themeColors.warning.text, stackId: 'a' }
     ];
   const formatMetric = (value: any) => (performanceChartMetric === 'percent' ? `${value}%` : `${value}`);
 
@@ -233,6 +235,33 @@ export const DashboardDeliveriesTab = ({
                           borderColor: themeColors.error.border,
                           background: themeColors.error.bg,
                           color: themeColors.error.text,
+                          fontWeight: 700,
+                          margin: 0
+                        }}
+                      >
+                        {formatNumber(count)}
+                      </Tag>
+                    ) : (
+                      <Typography.Text type="secondary" style={{ fontSize: 13 }}>—</Typography.Text>
+                    )
+                },
+                {
+                  title: 'Skipped',
+                  dataIndex: 'skipped',
+                  key: 'skipped',
+                  align: 'right',
+                  width: 120,
+                  sorter: (a: any, b: any) => a.skipped - b.skipped,
+                  render: (count: number) =>
+                    count > 0 ? (
+                      <Tag
+                        style={{
+                          borderRadius: borderRadius.full,
+                          fontSize: 12,
+                          padding: `${spacing['1']} ${spacing[2]}`,
+                          borderColor: themeColors.warning.border,
+                          background: themeColors.warning.bg,
+                          color: themeColors.warning.text,
                           fontWeight: 700,
                           margin: 0
                         }}

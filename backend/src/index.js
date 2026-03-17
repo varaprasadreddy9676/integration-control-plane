@@ -70,9 +70,9 @@ const processLifecycle = require('./services/process-lifecycle');
 
 let server = null;
 let memoryMonitor = null;
-let stopDeliveryWorker = async () => {};
-let stopSchedulerWorker = () => {};
-let stopFailureEmailReportScheduler = () => {};
+let stopDeliveryWorker = async () => { };
+let stopSchedulerWorker = () => { };
+let stopFailureEmailReportScheduler = () => { };
 let shutdownState = {
   draining: false,
   reason: null,
@@ -246,7 +246,7 @@ async function bootstrap() {
 
   // Pre-warm the system prompt cache from DB (non-blocking)
   const { initSystemPromptCache } = require('./services/ai/prompts/system-context');
-  initSystemPromptCache().catch(() => {}); // silent — falls back to hardcoded default
+  initSystemPromptCache().catch(() => { }); // silent — falls back to hardcoded default
 
   const app = express();
   app.disable('x-powered-by');
@@ -387,7 +387,7 @@ async function bootstrap() {
   app.use(errorHandler);
 
   server = app.listen(config.port, async () => {
-    log('info', `Event Gateway API listening on port ${config.port}`);
+    log('info', `Integration Gateway API listening on port ${config.port}`);
 
     // Initialize memory monitor for production stability
     memoryMonitor = new MemoryMonitor({

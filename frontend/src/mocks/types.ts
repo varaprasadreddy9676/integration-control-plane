@@ -259,6 +259,7 @@ export interface DashboardSummary {
   totalDeliveries24h: number;
   successRate24h: number;
   failedCount24h: number;
+  skippedCount24h?: number;
   avgResponseTimeMs24h: number;
   integrationHealth: Array<{
     id: string;

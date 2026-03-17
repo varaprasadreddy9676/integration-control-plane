@@ -6,6 +6,7 @@ Use this index to find the right guide quickly.
 
 - `docs/architecture/ARCHITECTURE.md` - System overview and component design
 - `docs/architecture/SCHEDULED_JOBS.md` - Scheduled job architecture
+- `docs/architecture/REPO_MAP.md` - Contributor-oriented repo map for inbound runtime, transformation, and lookups
 
 ## Setup and Operations
 

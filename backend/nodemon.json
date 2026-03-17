@@ -1,0 +1,13 @@
+{
+  "watch": [
+    "src",
+    "config.json",
+    ".env"
+  ],
+  "ext": "js,mjs,cjs,json",
+  "ignore": [
+    "logs/**",
+    "node_modules/**"
+  ],
+  "exec": "node --max-old-space-size=2048 src/index.js"
+}

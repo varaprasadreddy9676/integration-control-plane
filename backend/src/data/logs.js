@@ -265,7 +265,7 @@ async function listLogs(orgId, filters = {}) {
  * This does NOT use listLogs() to avoid the row limit cap
  * @param {number} orgId - Parent entity ID
  * @param {object} filters - Filtering options (__KEEP___KEEP_integrationConfig__Id__, eventType, dateRange)
- * @returns {Promise<object>} Statistics summary with total, success, failed, pending counts
+ * @returns {Promise<object>} Statistics summary with total, success, failed, skipped, pending counts
  */
 async function getLogStatsSummary(orgId, filters = {}) {
   if (useMongo()) {
@@ -283,6 +283,7 @@ async function getLogStatsSummary(orgId, filters = {}) {
               total: { $sum: 1 },
               success: { $sum: { $cond: [{ $eq: ['$status', 'SUCCESS'] }, 1, 0] } },
               failed: { $sum: { $cond: [{ $in: ['$status', ['FAILED', 'ABANDONED']] }, 1, 0] } },
+              skipped: { $sum: { $cond: [{ $eq: ['$status', 'SKIPPED'] }, 1, 0] } },
               pending: {
                 $sum: {
                   $cond: [{ $or: [{ $eq: ['$status', 'PENDING'] }, { $eq: ['$status', 'RETRYING'] }] }, 1, 0],
@@ -293,11 +294,12 @@ async function getLogStatsSummary(orgId, filters = {}) {
         ])
         .toArray();
 
-      const result = stats[0] || { total: 0, success: 0, failed: 0, pending: 0 };
+      const result = stats[0] || { total: 0, success: 0, failed: 0, skipped: 0, pending: 0 };
       return {
         total: result.total,
         success: result.success,
         failed: result.failed,
+        skipped: result.skipped,
         pending: result.pending,
         refreshedAt: new Date().toISOString(),
       };

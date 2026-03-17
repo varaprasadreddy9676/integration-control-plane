@@ -70,7 +70,8 @@ export const DashboardOverviewTab = ({
               data={deliveryTrendData}
               bars={[
                 { dataKey: 'Successful', name: 'Successful', color: themeColors.success.text, stackId: 'a' },
-                { dataKey: 'Failed', name: 'Failed', color: themeColors.error.text, stackId: 'a' }
+                { dataKey: 'Failed', name: 'Failed', color: themeColors.error.text, stackId: 'a' },
+                { dataKey: 'Skipped', name: 'Skipped', color: themeColors.warning.text, stackId: 'a' }
               ]}
               lines={[]}
               xAxisKey="date"
@@ -122,7 +123,8 @@ export const DashboardOverviewTab = ({
               data={hourlyPatternData}
               bars={[
                 { dataKey: 'Successful', name: 'Successful', color: themeColors.success.text, stackId: 'a' },
-                { dataKey: 'Failed', name: 'Failed', color: themeColors.error.text, stackId: 'a' }
+                { dataKey: 'Failed', name: 'Failed', color: themeColors.error.text, stackId: 'a' },
+                { dataKey: 'Skipped', name: 'Skipped', color: themeColors.warning.text, stackId: 'a' }
               ]}
               xAxisKey="hour"
               height={280}
