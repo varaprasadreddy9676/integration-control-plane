@@ -42,8 +42,13 @@ While there are other webhook services (like Svix) or API Gateways (like Kong), 
 - Outbound integrations (`/api/v1/outbound-integrations`)
   - CRUD, duplicate, bulk update/delete, test delivery, cURL generation.
   - Script and simple transformation modes.
-  - Delivery mode support: `IMMEDIATE`, `DELAYED`, `RECURRING`.
+  - Delivery mode support: `IMMEDIATE`, `DELAYED`, `RECURRING`, `WAIT_FOR_CONDITION` (`WAIT_FOR_EVENT` alias supported).
+  - Generic `subjectExtraction` in `PATHS` or `SCRIPT` mode for rule-driven matching.
+  - Scheduled lifecycle rules with explicit `matchKeys` for follow-up events.
+  - Hold/release condition rules with explicit `matchKeys` for approval/gating flows.
+  - Preview endpoints for extracted subject, scheduled-row impact, and held-row impact.
   - Signing secret rotation/removal endpoints.
+  - Target URL validation supports both HTTP and HTTPS, with optional HTTPS-only enforcement and separate private-network blocking.
 - Inbound/runtime integrations (`/api/v1/integrations`)
   - Runtime trigger endpoints (`GET/POST/PUT /api/v1/integrations/:type`).
   - Public runtime trigger endpoints (`GET/POST/PUT /api/v1/public/integrations/:type`) with per-integration inbound auth.
@@ -59,6 +64,8 @@ While there are other webhook services (like Svix) or API Gateways (like Kong), 
 ### Scheduling
 
 - Scheduled integrations (`/api/v1/scheduled-integrations`) for delayed/recurring webhook execution.
+- Scheduled integrations now persist generic lifecycle metadata (`subject`, `subjectExtraction`, `lifecycleRules`) so cancellation and reschedule behavior is config-driven instead of event-shape specific.
+- Held outbound deliveries (`held_outbound_deliveries` collection) support approval-style flows where the transformed payload is stored first and released or discarded by later events.
 - Scheduled jobs (`/api/v1/scheduled-jobs`)
   - Cron and interval scheduling.
   - Manual execute endpoint.
@@ -257,6 +264,29 @@ Default local values in `frontend/.env`:
 - Kafka is optional and only needed for orgs configured with Kafka source.
 - Global event source default (`eventSource.type`) is optional.
   - Leave empty for fully dynamic per-org source setup.
+
+## Outbound Lifecycle And Gated Delivery
+
+The outbound engine now supports two generic rule-driven models beyond plain immediate delivery:
+
+1. **Lifecycle invalidation for delayed/recurring rows**
+   - integrations define `resourceType`
+   - `subjectExtraction` derives a flat subject object from the event payload
+   - `lifecycleRules` declare which later events cancel or reschedule matching pending rows
+
+2. **Condition-based hold/release**
+   - integrations using `deliveryMode: WAIT_FOR_CONDITION` transform the payload immediately
+   - the transformed payload is stored in `held_outbound_deliveries`
+   - `conditionConfig.releaseRules` and `conditionConfig.discardRules` decide when a later event releases or discards that held payload
+
+Typical scenarios:
+- appointment reminders cancelled by cancellation events
+- appointment reminders replaced by reschedule events
+- GRN or order created events held until approval/payment success
+
+See:
+- `docs/guides/OUTBOUND-LIFECYCLE.md`
+- `frontend/src/features/landing/docs/outbound-lifecycle.md`
 
 ## Current UI Areas
 

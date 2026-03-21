@@ -3,6 +3,12 @@ const { log, logError } = require('../logger');
 const mongodb = require('../mongodb');
 const { toIso } = require('../utils/time');
 const { parsePositiveInt } = require('../utils/org-context');
+const {
+  normalizeLifecycleRules,
+  normalizeSubjectExtraction,
+  deriveCancelOnEvents,
+} = require('../services/lifecycle-config');
+const { normalizeConditionConfig, normalizeDeliveryMode } = require('../services/condition-config');
 
 const useMongo = () => mongodb.isConnected();
 
@@ -58,6 +64,11 @@ async function getCollection(name) {
 function mapIntegrationFromMongo(doc) {
   const orgId = doc.orgId;
   const orgUnitRid = doc.orgUnitRid || orgId;
+  const lifecycleRules = normalizeLifecycleRules(doc.lifecycleRules);
+  const subjectExtraction = normalizeSubjectExtraction(doc.subjectExtraction, doc.subjectMapping);
+  const derivedCancelOnEvents = lifecycleRules.length > 0 ? deriveCancelOnEvents(lifecycleRules) : [];
+  const normalizedDeliveryMode = normalizeDeliveryMode(doc.deliveryMode || 'IMMEDIATE');
+  const conditionConfig = normalizeConditionConfig(doc.conditionConfig);
   return {
     id: doc._id.toString(),
     name: doc.name,
@@ -90,6 +101,11 @@ function mapIntegrationFromMongo(doc) {
     transformMode: doc.transformationMode || 'SIMPLE',
     transformConfig: doc.transformation || null,
     actions: doc.actions, // Multi-action integrations support
+    resourceType: doc.resourceType || null,
+    subjectExtraction,
+    lifecycleRules,
+    conditionConfig,
+    cancelOnEvents: doc.cancelOnEvents || derivedCancelOnEvents,
     isInherited: !!doc.isInherited,
     sourceEntityName: doc.sourceEntityName,
     version: doc.version,
@@ -105,7 +121,7 @@ function mapIntegrationFromMongo(doc) {
     enableSigning: doc.enableSigning !== false, // Default to true
     signatureVersion: doc.signatureVersion || 'v1',
     // Scheduling configuration (MVP for delayed/recurring integrations)
-    deliveryMode: doc.deliveryMode || 'IMMEDIATE', // IMMEDIATE | DELAYED | RECURRING
+    deliveryMode: normalizedDeliveryMode, // IMMEDIATE | DELAYED | RECURRING | WAIT_FOR_CONDITION
     schedulingConfig: doc.schedulingConfig || null, // { script, timezone, description }
     createdAt: doc.createdAt?.toISOString() || new Date().toISOString(),
     updatedAt: doc.updatedAt?.toISOString() || new Date().toISOString(),
@@ -134,6 +150,11 @@ function mapScheduledIntegrationFromMongo(doc) {
     targetUrl: doc.targetUrl,
     httpMethod: doc.httpMethod,
     cancellationInfo: doc.cancellationInfo || null,
+    subject: doc.subject || null,
+    subjectExtraction: normalizeSubjectExtraction(doc.subjectExtraction, doc.subjectMapping),
+    lifecycleRules: normalizeLifecycleRules(doc.lifecycleRules),
+    conditionConfig: normalizeConditionConfig(doc.conditionConfig),
+    cancelOnEvents: doc.cancelOnEvents || [],
     recurringConfig: doc.recurringConfig || null,
     createdAt: doc.createdAt?.toISOString() || new Date().toISOString(),
     updatedAt: doc.updatedAt?.toISOString() || new Date().toISOString(),

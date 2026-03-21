@@ -12,6 +12,7 @@ const { log } = require('../logger');
 const { generateEventKey } = require('../utils/event-utils');
 const { isEventProcessed, markEventProcessed } = require('./event-deduplication');
 const { processEvent } = require('./event-processor');
+const { normalizeEventSubject } = require('./event-normalizer');
 
 /**
  * Create a bound event handler for a specific source type.
@@ -157,10 +158,156 @@ function createEventHandler(sourceType) {
         return;
       }
 
+      // --- Lifecycle invalidation ---
+      // Runs unconditionally before the integration check so scheduled-integration
+      // cleanup happens even when no outbound delivery config exists for this event type.
+      const invalidationProfiles = await data.listInvalidationProfiles(orgId, event.event_type);
+      let cancelledCount = 0;
+
+      for (const profile of invalidationProfiles) {
+        try {
+          // eslint-disable-next-line no-await-in-loop
+          const subject = await normalizeEventSubject(event.event_type, event.payload, {
+            subjectType: profile.subjectType,
+            subjectExtraction: profile.subjectExtraction,
+          });
+
+          if (!subject?.data) {
+            continue;
+          }
+
+          // eslint-disable-next-line no-await-in-loop
+          cancelledCount += await data.cancelScheduledIntegrationsByMatch(orgId, {
+            eventType: event.event_type,
+            integrationConfigId: profile.integrationId,
+            subject,
+            lifecycleRule: profile.lifecycleRule,
+            subjectExtraction: profile.subjectExtraction,
+          });
+        } catch (error) {
+          log('warn', 'Lifecycle invalidation profile failed', {
+            eventType: event.event_type,
+            orgId,
+            integrationId: profile.integrationId,
+            error: error.message,
+          });
+        }
+      }
+
+      if (invalidationProfiles.length > 0) {
+        log('info', 'Lifecycle invalidation: auto-cancelled scheduled integrations', {
+          eventType: event.event_type,
+          cancelledCount,
+          orgId,
+          profileCount: invalidationProfiles.length,
+        });
+      }
+
+      // --- Condition-based hold/release/discard ---
+      const conditionProfiles = await data.listConditionProfiles(orgId, event.event_type);
+      const conditionStats = {
+        releasedCount: 0,
+        discardedCount: 0,
+        failedCount: 0,
+        profileCount: conditionProfiles.length,
+      };
+
+      for (const profile of conditionProfiles) {
+        try {
+          // eslint-disable-next-line no-await-in-loop
+          const subject = await normalizeEventSubject(event.event_type, event.payload, {
+            subjectType: profile.subjectType,
+            subjectExtraction: profile.subjectExtraction,
+          });
+
+          if (!subject?.data) {
+            continue;
+          }
+
+          if (profile.action === 'RELEASE_HELD') {
+            // eslint-disable-next-line no-await-in-loop
+            const result = await data.releaseHeldDeliveriesByMatch(orgId, {
+              eventType: event.event_type,
+              integrationConfigId: profile.integrationId,
+              integration: profile.integration,
+              subject,
+              conditionRule: profile.conditionRule,
+              conditionConfig: profile.integration?.conditionConfig,
+              subjectExtraction: profile.subjectExtraction,
+            });
+            conditionStats.releasedCount += result.releasedCount;
+            conditionStats.failedCount += result.failedCount;
+          } else if (profile.action === 'DISCARD_HELD') {
+            // eslint-disable-next-line no-await-in-loop
+            conditionStats.discardedCount += await data.discardHeldDeliveriesByMatch(orgId, {
+              eventType: event.event_type,
+              integrationConfigId: profile.integrationId,
+              subject,
+              conditionRule: profile.conditionRule,
+              conditionConfig: profile.integration?.conditionConfig,
+              subjectExtraction: profile.subjectExtraction,
+            });
+          }
+        } catch (error) {
+          conditionStats.failedCount += 1;
+          log('warn', 'Condition profile failed', {
+            eventType: event.event_type,
+            orgId,
+            integrationId: profile.integrationId,
+            error: error.message,
+          });
+        }
+      }
+
       // --- Integration matching check ---
-      const integrations = await data.listIntegrationsForDelivery(orgId, event.event_type);
+      const integrations = await data.listIntegrationsForProcessing(orgId, event.event_type);
 
       if (!integrations.length) {
+        const conditionHandled =
+          conditionStats.releasedCount > 0 || conditionStats.discardedCount > 0 || conditionStats.failedCount > 0;
+
+        if (conditionHandled) {
+          const finalStatus =
+            conditionStats.releasedCount > 0
+              ? 'DELIVERED'
+              : conditionStats.failedCount > 0 && conditionStats.discardedCount === 0
+                ? 'FAILED'
+                : 'SKIPPED';
+
+          if (config.eventAudit?.enabled) {
+            await data.updateEventAudit(stableEventId, {
+              status: finalStatus,
+              deliveryStatus: {
+                integrationsMatched: 0,
+                deliveredCount: conditionStats.releasedCount,
+                failedCount: conditionStats.failedCount,
+                deliveryLogIds: [],
+              },
+              processingCompletedAt: new Date(),
+              processingTimeMs: Date.now() - startTime,
+              skipReason:
+                finalStatus === 'SKIPPED'
+                  ? `Condition rules discarded ${conditionStats.discardedCount} held delivery(s)`
+                  : `Condition rules released ${conditionStats.releasedCount} held delivery(s)`,
+              timeline: {
+                ts: new Date(),
+                stage: finalStatus,
+                details: `Condition rules handled held deliveries (released=${conditionStats.releasedCount}, discarded=${conditionStats.discardedCount}, failed=${conditionStats.failedCount})`,
+              },
+            });
+          }
+
+          await data.markEventComplete(
+            event.id,
+            finalStatus,
+            `Condition rules handled held deliveries (released=${conditionStats.releasedCount}, discarded=${conditionStats.discardedCount}, failed=${conditionStats.failedCount})`
+          );
+          markEventProcessed(eventKey);
+          await data.saveProcessedEvent(eventKey, event.id, event.event_type, orgId, stableEventId);
+          await ctx.ack();
+          return;
+        }
+
         log('info', 'No matching integrations', { eventId: stableEventId, eventType: event.event_type, orgId });
 
         if (config.eventAudit?.enabled) {
@@ -186,6 +333,7 @@ function createEventHandler(sourceType) {
       const processResult = await processEvent(event, 0);
       const deliveryResults = processResult?.deliveryResults || [];
       const scheduledCount = processResult?.scheduledCount || 0;
+      const heldCount = processResult?.heldCount || 0;
       const deliveryLogIds = deliveryResults.flatMap((r) => {
         if (r.logIds && Array.isArray(r.logIds)) return r.logIds;
         return r.logId ? [r.logId] : [];
@@ -193,7 +341,7 @@ function createEventHandler(sourceType) {
       const deliveredCount = deliveryResults.filter((r) => r.status === 'SUCCESS').length;
       const failedCount = deliveryResults.filter((r) => ['FAILED', 'ABANDONED', 'RETRYING'].includes(r.status)).length;
       const skippedCount = deliveryResults.filter((r) => r.status === 'SKIPPED').length;
-      const hasSuccess = deliveredCount > 0 || scheduledCount > 0;
+      const hasSuccess = deliveredCount > 0 || scheduledCount > 0 || heldCount > 0;
       const hasFailure = failedCount > 0;
 
       const finalStatus = hasSuccess ? 'DELIVERED' : hasFailure ? 'FAILED' : skippedCount > 0 ? 'SKIPPED' : 'FAILED';

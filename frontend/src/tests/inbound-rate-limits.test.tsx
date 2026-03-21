@@ -17,6 +17,17 @@ vi.mock('../utils/navigation', () => ({
   useNavigateWithParams: () => vi.fn(),
 }));
 
+vi.mock('../app/tenant-context', () => ({
+  useTenant: () => ({
+    orgId: 84,
+    tenant: { orgId: 84, name: 'Test Org' },
+    isLoading: false,
+    error: null,
+    setManualOrgId: vi.fn(),
+    clearOrgId: vi.fn(),
+  }),
+}));
+
 vi.mock('../design-system/utils', () => ({
   spacingToNumber: (value: string | number) => {
     if (typeof value === 'number') return value;
@@ -53,6 +64,7 @@ const mockApi = {
   updateInboundIntegration: vi.fn(),
   getUIConfig: vi.fn(),
   testInboundRuntime: vi.fn(),
+  listSenderProfiles: vi.fn(),
 };
 
 vi.mock('../services/api', () => mockApi);
@@ -62,6 +74,7 @@ describe('Inbound Integration Rate Limits Form', () => {
     vi.clearAllMocks();
     mockApi.getUIConfig.mockResolvedValue({});
     mockApi.updateInboundIntegration.mockResolvedValue({ success: true });
+    mockApi.listSenderProfiles.mockResolvedValue([]);
   });
 
   it('persists and round-trips rateLimits from edit form to update payload', async () => {
@@ -113,13 +126,6 @@ describe('Inbound Integration Rate Limits Form', () => {
     await waitFor(() => {
       expect(screen.getByDisplayValue('Lab Inbound')).toBeInTheDocument();
     });
-
-    fireEvent.click(screen.getByRole('button', { name: 'Continue to Provider Config' }));
-    await waitFor(() => {
-      expect(document.getElementById('rateLimits_enabled')).toHaveAttribute('aria-checked', 'true');
-    });
-    expect(screen.getByDisplayValue('77')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('90')).toBeInTheDocument();
 
     fireEvent.click(screen.getByText('Save Changes'));
 

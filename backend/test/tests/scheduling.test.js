@@ -480,6 +480,11 @@ describeRealDb('E2E: Scheduling Workflow', () => {
     it('should cancel scheduled webhooks by patient and datetime match', async () => {
       // Create two scheduled webhooks for the same patient/appointment
       const appointmentTime = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+      const { normalizeEventSubject } = require('../../src/processor/event-normalizer');
+      const subject = normalizeEventSubject('APPOINTMENT_CANCELLATION', {
+        patientId: 12345,
+        appointmentDateTime: appointmentTime,
+      });
 
       await data.createScheduledWebhook({
         webhookConfigId: 'wh_123',
@@ -491,10 +496,8 @@ describeRealDb('E2E: Scheduling Workflow', () => {
         payload: {},
         targetUrl: 'https://example.com/webhook1',
         httpMethod: 'POST',
-        cancellationInfo: {
-          patientRid: 12345,
-          scheduledDateTime: appointmentTime
-        }
+        subject,
+        cancelOnEvents: ['APPOINTMENT_CANCELLATION']
       });
 
       await data.createScheduledWebhook({
@@ -507,17 +510,16 @@ describeRealDb('E2E: Scheduling Workflow', () => {
         payload: {},
         targetUrl: 'https://example.com/webhook2',
         httpMethod: 'POST',
-        cancellationInfo: {
-          patientRid: 12345,
-          scheduledDateTime: appointmentTime
-        }
+        subject,
+        cancelOnEvents: ['APPOINTMENT_CANCELLATION']
       });
 
       // Cancel webhooks matching criteria
       const cancelledCount = await data.cancelScheduledWebhooksByMatch(1, {
-        patientRid: 12345,
+        eventType: 'APPOINTMENT_CANCELLATION',
+        subjectType: 'APPOINTMENT',
+        patientId: 12345,
         scheduledDateTime: appointmentTime,
-        reason: 'Appointment rescheduled'
       });
 
       expect(cancelledCount).toBe(2);
@@ -531,7 +533,7 @@ describeRealDb('E2E: Scheduling Workflow', () => {
         .toArray();
 
       expect(cancelledWebhooks).toHaveLength(2);
-      expect(cancelledWebhooks[0].cancelReason).toContain('Appointment rescheduled');
+      expect(cancelledWebhooks[0].cancelReason).toContain('APPOINTMENT_CANCELLATION');
       expect(cancelledWebhooks[0].cancelledAt).toBeDefined();
     });
 
@@ -547,7 +549,11 @@ describeRealDb('E2E: Scheduling Workflow', () => {
         payload: {},
         targetUrl: 'https://example.com/webhook',
         httpMethod: 'POST',
-        cancellationInfo: { patientRid: 99999 }
+        subject: {
+          subjectType: 'APPOINTMENT',
+          patientId: '99999',
+        },
+        cancelOnEvents: ['APPOINTMENT_CANCELLATION']
       });
 
       // Manually mark as delivered
@@ -558,43 +564,44 @@ describeRealDb('E2E: Scheduling Workflow', () => {
 
       // Try to cancel
       const cancelledCount = await data.cancelScheduledWebhooksByMatch(1, {
-        patientRid: 99999
+        eventType: 'APPOINTMENT_CANCELLATION',
+        subjectType: 'APPOINTMENT',
+        patientId: 99999
       });
 
       expect(cancelledCount).toBe(0); // Should not cancel DELIVERED webhooks
     });
 
-    it('should extract cancellation info from event payload', () => {
+    it('should normalize lifecycle subject from event payload', () => {
       const eventPayload = {
         patientRid: 12345,
         scheduledDateTime: '2024-12-15T10:00:00Z',
         doctorId: 'D123'
       };
 
-      const cancellationInfo = scheduler.extractCancellationInfo(
-        eventPayload,
-        'APPOINTMENT_RESCHEDULED'
+      const { normalizeEventSubject } = require('../../src/processor/event-normalizer');
+      const subject = normalizeEventSubject(
+        'APPOINTMENT_RESCHEDULED',
+        eventPayload
       );
 
-      expect(cancellationInfo).toBeDefined();
-      expect(cancellationInfo.patientRid).toBe(12345);
-      expect(cancellationInfo.scheduledDateTime).toBe('2024-12-15T10:00:00Z');
+      expect(subject).toBeDefined();
+      expect(subject.patientId).toBe('12345');
+      expect(subject.startAt).toBe(new Date('2024-12-15T10:00:00Z').getTime());
     });
 
-    it('should handle alternate field names for cancellation info', () => {
+    it('should handle alternate field names for normalized lifecycle subject', () => {
       const eventPayload = {
-        patient_rid: 54321, // Alternate field name
-        appointment_date_time: '2024-12-20T14:00:00Z' // Alternate field name
+        patientId: 54321,
+        appointmentDateTime: '2024-12-20T14:00:00Z'
       };
 
-      const cancellationInfo = scheduler.extractCancellationInfo(
-        eventPayload,
-        'APPOINTMENT_CANCELLED'
-      );
+      const { normalizeEventSubject } = require('../../src/processor/event-normalizer');
+      const subject = normalizeEventSubject('APPOINTMENT_CANCELLATION', eventPayload);
 
-      expect(cancellationInfo).toBeDefined();
-      expect(cancellationInfo.patientRid).toBe(54321);
-      expect(cancellationInfo.scheduledDateTime).toBe('2024-12-20T14:00:00Z');
+      expect(subject).toBeDefined();
+      expect(subject.patientId).toBe('54321');
+      expect(subject.startAt).toBe(new Date('2024-12-20T14:00:00Z').getTime());
     });
   });
 

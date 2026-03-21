@@ -1,6 +1,6 @@
 # Outbound Event Delivery
 
-Outbound delivery is the core of the gateway. When an event is received, the system finds all matching active integrations and delivers the payload to each configured HTTP endpoint.
+Outbound delivery is the core of the gateway. When an event is received, the system finds all matching active integrations and either delivers, schedules, or holds the payload based on the configured delivery mode.
 
 ---
 
@@ -9,17 +9,36 @@ Outbound delivery is the core of the gateway. When an event is received, the sys
 1. **Event arrives** in the queue with an `orgId`, `eventType`, and `payload`.
 2. **Matching integrations** are fetched — all `OUTBOUND` configs that match the event type and are active.
 3. **Payload transformation** is applied (field mapping or custom JS script).
-4. **Authentication headers** are attached based on the configured auth type.
-5. **HTTP request** is sent to the `targetUrl` with the configured `httpMethod`.
-6. **Response is logged** with full request/response body, status, and timing.
-7. On failure, **retry logic** kicks in with exponential backoff.
-8. If retries are exhausted, the event is written to the **Dead Letter Queue (DLQ)**.
+4. Depending on `deliveryMode`, the system either:
+   - sends immediately,
+   - creates scheduled rows,
+   - or stores a held payload for later release.
+5. **Authentication headers** are attached based on the configured auth type.
+6. **HTTP request** is sent to the `targetUrl` with the configured `httpMethod`.
+7. **Response is logged** with full request/response body, status, and timing.
+8. On failure, **retry logic** kicks in with exponential backoff.
+9. If retries are exhausted, the event is written to the **Dead Letter Queue (DLQ)**.
 
 ---
 
 ## HTTP Methods Supported
 
 `POST` (default), `PUT`, `PATCH`, `GET`
+
+---
+
+## Delivery Modes
+
+| Mode | Behavior |
+|------|----------|
+| `IMMEDIATE` | Transform and deliver now |
+| `DELAYED` | Transform now, schedule one future delivery |
+| `RECURRING` | Transform now, schedule a recurring series |
+| `WAIT_FOR_CONDITION` | Transform now, hold the payload until a release/discard event arrives |
+
+`WAIT_FOR_EVENT` is accepted as a legacy alias and is normalized internally to `WAIT_FOR_CONDITION`.
+
+Lifecycle and hold/release details are documented in [Outbound Lifecycle & Gated Delivery](/docs/outbound-lifecycle).
 
 ---
 
@@ -122,6 +141,22 @@ Each integration can have a rate limit configured:
 - `windowSeconds` — time window size (default: 60 seconds)
 
 If the limit is hit, the delivery is paused and retried. The downstream is not hammered.
+
+---
+
+## Target URL Validation
+
+Outbound targets are validated both at save time and at delivery time.
+
+Current rules:
+
+| Rule | Behavior |
+|------|----------|
+| Scheme | Only `http://` and `https://` are allowed |
+| HTTPS-only mode | Optional, controlled by system config `security.enforceHttps` |
+| Private network blocking | Optional, controlled by `security.blockPrivateNetworks` |
+
+This means local HTTP services are supported when your deployment allows them, while SSRF-related private-network restrictions remain a separate control.
 
 ---
 

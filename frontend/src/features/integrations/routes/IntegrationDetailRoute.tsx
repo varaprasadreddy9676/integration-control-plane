@@ -46,6 +46,8 @@ import { useSchedulingScripts } from './integrationDetail/hooks/useSchedulingScr
 import { validateScheduling } from './integrationDetail/utils/validateScheduling';
 import { getFormInitialValues } from './integrationDetail/utils/formDefaults';
 import { getSectionCompletion } from './integrationDetail/utils/sectionCompletion';
+import { buildSubjectExtractionFromForm, subjectExtractionToFormFields } from './integrationDetail/utils/lifecycle';
+import { buildConditionConfigFromForm, conditionConfigToFormFields } from './integrationDetail/utils/condition';
 
 // Helper component for action transformation preview
 export const IntegrationDetailRoute = () => {
@@ -291,8 +293,13 @@ export const IntegrationDetailRoute = () => {
           : action.transformation
       }));
 
+      const subjectExtractionFields = subjectExtractionToFormFields(existingIntegration.subjectExtraction);
+      const conditionFields = conditionConfigToFormFields(existingIntegration.conditionConfig);
+
       form.setFieldsValue({
         ...existingIntegration,
+        ...subjectExtractionFields,
+        ...conditionFields,
         outgoingAuthConfig,
         auth: {},
         transformationMode: existingIntegration.transformationMode,
@@ -337,7 +344,10 @@ export const IntegrationDetailRoute = () => {
     const currentScript = form.getFieldValue(['schedulingConfig', 'script']);
 
     // Only set default if script is empty or undefined
-    if (formState.deliveryModeValue && formState.deliveryModeValue !== 'IMMEDIATE' && !currentScript) {
+    if (
+      (formState.deliveryModeValue === 'DELAYED' || formState.deliveryModeValue === 'RECURRING') &&
+      !currentScript
+    ) {
       const defaultScript = formState.deliveryModeValue === 'DELAYED'
         ? `// Example: Send 24 hours before appointment
 const appointmentTime = parseDate(event.appointmentDateTime);
@@ -504,6 +514,12 @@ const firstTime = addHours(now(), 1);
         isActive: values.isActive,
         timeoutMs: values.timeoutMs,
         retryCount: values.retryCount,
+        deliveryMode: values.deliveryMode,
+        schedulingConfig: values.schedulingConfig,
+        resourceType: values.resourceType || null,
+        subjectExtraction: buildSubjectExtractionFromForm(values),
+        lifecycleRules: values.lifecycleRules || [],
+        conditionConfig: buildConditionConfigFromForm(values),
         transformationMode: transformationTab,
         updatedAt: new Date().toISOString()
       } as IntegrationConfig;
@@ -569,6 +585,7 @@ const firstTime = addHours(now(), 1);
     } else {
       panels.push('transformation');
     }
+    panels.splice(panels.indexOf('delivery') + 1, 0, 'lifecycle');
     setActivePanels(panels);
   };
 
@@ -601,6 +618,7 @@ const firstTime = addHours(now(), 1);
     } else {
       allPanels.push('transformation');
     }
+    allPanels.splice(allPanels.indexOf('delivery') + 1, 0, 'lifecycle');
     setActivePanels(allPanels);
   };
 
@@ -892,6 +910,7 @@ const firstTime = addHours(now(), 1);
                 formatScriptForDisplay,
                 selectedAuthType: formState.selectedAuthType,
                 deliveryModeValue: formState.deliveryModeValue,
+                samplePayload: sampleInput,
                 schedulingScriptValidation,
                 isValidatingScript,
                 onValidateScript: handleValidateSchedulingScript,

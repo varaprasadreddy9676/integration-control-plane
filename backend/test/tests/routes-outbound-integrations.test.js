@@ -322,6 +322,108 @@ describe('Outbound Integrations Routes', () => {
       expect(applyTransform.mock.calls[1][0].transformationMode).toBe('SCRIPT');
     });
   });
+
+  describe('POST /api/v1/outbound-integrations/preview-subject', () => {
+    it('returns extracted generic subject keys from path-based config', async () => {
+      const res = await request(app)
+        .post('/api/v1/outbound-integrations/preview-subject')
+        .send({
+          eventType: 'APPOINTMENT_CANCELLATION',
+          resourceType: 'APPOINTMENT',
+          subjectExtraction: {
+            mode: 'PATHS',
+            paths: {
+              appointment_id: 'appt.apptRID',
+              booking_ref: 'appt.bookingNumber',
+            },
+          },
+          samplePayload: {
+            appt: {
+              apptRID: 4153193,
+              bookingNumber: 'LF-21032026-12',
+            },
+          },
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.subject.data).toEqual({
+        appointment_id: 4153193,
+        booking_ref: 'LF-21032026-12',
+      });
+      expect(res.body.extractedKeys).toEqual(['appointment_id', 'booking_ref']);
+    });
+  });
+
+  describe('POST /api/v1/outbound-integrations/preview-cancellation', () => {
+    it('returns preview warnings when the integration has not been saved yet', async () => {
+      const res = await request(app)
+        .post('/api/v1/outbound-integrations/preview-cancellation')
+        .send({
+          eventType: 'APPOINTMENT_CANCELLATION',
+          resourceType: 'APPOINTMENT',
+          subjectExtraction: {
+            mode: 'PATHS',
+            paths: {
+              appointment_id: 'appt.apptRID',
+            },
+          },
+          lifecycleRules: [
+            {
+              eventTypes: ['APPOINTMENT_CANCELLATION'],
+              action: 'CANCEL_PENDING',
+              matchKeys: ['appointment_id'],
+            },
+          ],
+          samplePayload: {
+            appt: {
+              apptRID: 4153193,
+            },
+          },
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.wouldCancel).toEqual([]);
+      expect(res.body.warnings).toContain('Save the integration before previewing scheduled-row impact');
+    });
+  });
+
+  describe('POST /api/v1/outbound-integrations/preview-condition', () => {
+    it('returns preview warnings when the integration has not been saved yet', async () => {
+      const res = await request(app)
+        .post('/api/v1/outbound-integrations/preview-condition')
+        .send({
+          eventType: 'GRN_APPROVED',
+          resourceType: 'GRN',
+          subjectExtraction: {
+            mode: 'PATHS',
+            paths: {
+              grn_id: 'grn.id',
+            },
+          },
+          conditionConfig: {
+            payloadStrategy: 'ORIGINAL_EVENT',
+            releaseRules: [
+              {
+                eventTypes: ['GRN_APPROVED'],
+                action: 'RELEASE_HELD',
+                matchKeys: ['grn_id'],
+              },
+            ],
+            discardRules: [],
+          },
+          samplePayload: {
+            grn: {
+              id: 'GRN-1',
+            },
+          },
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.action).toBe('RELEASE_HELD');
+      expect(res.body.wouldAffect).toEqual([]);
+      expect(res.body.warnings).toContain('Save the integration before previewing held delivery impact');
+    });
+  });
 });
 
 describe('Outbound Integrations - Auth Required', () => {

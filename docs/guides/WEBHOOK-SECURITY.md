@@ -254,7 +254,7 @@ The gateway validates all target URLs before saving integrations and before each
 | Zero address | 0.0.0.0/8 |
 | Localhost hostname | `localhost` |
 
-**HTTPS enforcement** is enabled by default. HTTP target URLs are rejected unless explicitly overridden in `config.json` under `security.enforceHttps: false` (not recommended for production).
+Only `http://` and `https://` target URLs are allowed. HTTPS is recommended, and strict HTTPS-only behavior can be enabled through `security.enforceHttps: true`. Private-network blocking remains a separate control through `security.blockPrivateNetworks`.
 
 Validation runs at:
 1. Integration create/update (prevents saving bad URLs)

@@ -138,6 +138,7 @@ const uiConfig = require('./ui-config');
 const dashboard = require('./dashboard');
 const delivery = require('./delivery');
 const scheduledIntegrations = require('./scheduled-integrations');
+const heldOutboundDeliveries = require('./held-outbound-deliveries');
 const eventAudit = require('./event-audit');
 const templateCrud = require('./template-crud');
 const lookups = require('./lookups');
@@ -193,6 +194,10 @@ async function listWebhooksForDelivery(orgId, eventType) {
   return list.map(mapLegacyWebhook);
 }
 
+async function listIntegrationsForProcessing(orgId, eventType) {
+  return integrations.listIntegrationsForProcessing(orgId, eventType);
+}
+
 async function getWebhook(id) {
   const integration = await integrations.getIntegration(id);
   return mapLegacyWebhook(integration);
@@ -241,6 +246,20 @@ async function updateScheduledWebhookStatus(id, status, details = {}) {
   return scheduledIntegrations.updateScheduledIntegrationStatus(id, status, details);
 }
 
+async function cancelScheduledWebhooksByMatch(orgId, matchCriteria = {}) {
+  return scheduledIntegrations.cancelScheduledIntegrationsByMatch(orgId, {
+    eventType: matchCriteria.eventType || null,
+    integrationConfigId: matchCriteria.integrationConfigId || null,
+    subject: matchCriteria.subject || null,
+    lifecycleRule: matchCriteria.lifecycleRule || null,
+    subjectExtraction: matchCriteria.subjectExtraction || null,
+  });
+}
+
+async function findScheduledIntegrationsByMatch(orgId, matchCriteria = {}) {
+  return scheduledIntegrations.findScheduledIntegrationsByMatch(orgId, matchCriteria);
+}
+
 // ─── Exports ──────────────────────────────────────────────────────────────────
 
 module.exports = {
@@ -255,6 +274,7 @@ module.exports = {
   addWebhook,
   listWebhooks,
   listWebhooksForDelivery,
+  listIntegrationsForProcessing,
   getWebhook,
   updateWebhook,
   deleteWebhook,
@@ -263,6 +283,8 @@ module.exports = {
   listScheduledWebhooks,
   getPendingScheduledWebhooks,
   updateScheduledWebhookStatus,
+  cancelScheduledWebhooksByMatch,
+  findScheduledIntegrationsByMatch,
 
   // Integrations
   ...integrations,
@@ -284,6 +306,9 @@ module.exports = {
 
   // Scheduled integrations
   ...scheduledIntegrations,
+
+  // Held outbound deliveries
+  ...heldOutboundDeliveries,
 
   // Event audit + idempotency
   ...eventAudit,

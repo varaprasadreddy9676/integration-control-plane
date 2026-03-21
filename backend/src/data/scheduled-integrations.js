@@ -8,6 +8,13 @@ const {
   fallbackDisabledError,
   mapScheduledIntegrationFromMongo,
 } = require('./helpers');
+const {
+  findLifecycleRule,
+  INVALIDATING_ACTIONS,
+  normalizeLifecycleRules,
+  normalizeSubjectExtraction,
+} = require('../services/lifecycle-config');
+const { matchSubjects, normalizeEventSubject } = require('../processor/event-normalizer');
 
 /**
  * Create a scheduled integration
@@ -49,20 +56,19 @@ async function createScheduledIntegration(data) {
       originalPayload: data.originalPayload || data.payload, // CRITICAL: Store original payload for recurring integrations
       targetUrl: data.targetUrl,
       httpMethod: data.httpMethod,
-      // Cancellation matching metadata
-      cancellationInfo: data.cancellationInfo || null, // { patientRid, scheduledDateTime, ... }
+      // Snapshot lifecycle data so already-scheduled rows remain matchable even if
+      // the integration config changes later.
+      subject: data.subject || null,
+      subjectExtraction: normalizeSubjectExtraction(data.subjectExtraction) || null,
+      lifecycleRules: normalizeLifecycleRules(data.lifecycleRules),
+      cancelOnEvents: data.cancelOnEvents || [],
       // Recurring integration metadata
       recurringConfig: data.recurringConfig || null, // { interval, count, endDate, occurrenceNumber }
       createdAt: now,
       updatedAt: now,
     };
 
-    const dedupeQuery = buildScheduledReminderDedupeQuery(
-      scheduledIntegration,
-      data,
-      integrationConfigObjectId,
-      orgId
-    );
+    const dedupeQuery = buildScheduledReminderDedupeQuery(scheduledIntegration, data, integrationConfigObjectId, orgId);
 
     if (dedupeQuery) {
       const collection = db.collection('scheduled_integrations');
@@ -97,7 +103,10 @@ async function createScheduledIntegration(data) {
               originalPayload: data.originalPayload || data.payload,
               targetUrl: data.targetUrl,
               httpMethod: data.httpMethod,
-              cancellationInfo: data.cancellationInfo || null,
+              subject: data.subject || null,
+              subjectExtraction: normalizeSubjectExtraction(data.subjectExtraction) || null,
+              lifecycleRules: normalizeLifecycleRules(data.lifecycleRules),
+              cancelOnEvents: data.cancelOnEvents || [],
               recurringConfig: data.recurringConfig || null,
               updatedAt: now,
             },
@@ -327,6 +336,8 @@ async function getPendingScheduledIntegrations(limit = 10) {
         httpMethod: doc.httpMethod,
         recurringConfig: doc.recurringConfig,
         cancellationInfo: doc.cancellationInfo,
+        subject: doc.subject || null,
+        cancelOnEvents: doc.cancelOnEvents || [],
         createdAt: doc.createdAt?.toISOString(),
         attemptCount: doc.attemptCount || 0,
       });
@@ -467,55 +478,183 @@ async function resetStuckProcessingIntegrations(timeoutMinutes = 10) {
   }
 }
 
+function normalizeScheduledLifecycleRule(scheduled, criteria) {
+  const rowRule = findLifecycleRule(scheduled.lifecycleRules, criteria.eventType);
+  if (rowRule) {
+    return rowRule;
+  }
+
+  const fallbackRule = criteria.lifecycleRule || null;
+  const rowCancelOnEvents = Array.isArray(scheduled.cancelOnEvents) ? scheduled.cancelOnEvents : [];
+
+  if (!criteria.eventType) {
+    return fallbackRule;
+  }
+
+  if (rowCancelOnEvents.length === 0 || rowCancelOnEvents.includes(criteria.eventType)) {
+    return fallbackRule;
+  }
+
+  return null;
+}
+
+async function resolveScheduledSubject(scheduled, criteria) {
+  if (scheduled.subject?.data) {
+    return scheduled.subject;
+  }
+
+  const subjectExtraction =
+    normalizeSubjectExtraction(scheduled.subjectExtraction, scheduled.subjectMapping) ||
+    normalizeSubjectExtraction(criteria.subjectExtraction);
+
+  if (!subjectExtraction || !scheduled.originalPayload) {
+    return null;
+  }
+
+  return normalizeEventSubject(scheduled.eventType || criteria.eventType || '', scheduled.originalPayload, {
+    subjectType: scheduled.subject?.subjectType || criteria.subject?.subjectType || null,
+    subjectExtraction,
+  });
+}
+
+async function findScheduledIntegrationsByMatch(orgId, criteria) {
+  const normalizedOrgId = normalizeOrgId(orgId);
+  if (!normalizedOrgId) return [];
+  if (!useMongo()) return [];
+
+  try {
+    const db = await mongodb.getDbSafe();
+    const integrationConfigObjectId = criteria.integrationConfigId
+      ? mongodb.toObjectId(criteria.integrationConfigId) || criteria.integrationConfigId
+      : null;
+
+    const query = {
+      ...scheduledOrgQuery(normalizedOrgId),
+      status: { $in: ['PENDING', 'OVERDUE'] },
+    };
+
+    if (integrationConfigObjectId) {
+      query.__KEEP___KEEP_integrationConfig__Id__ = integrationConfigObjectId;
+    }
+
+    const candidates = await db
+      .collection('scheduled_integrations')
+      .find(query, {
+        projection: {
+          _id: 1,
+          __KEEP_integrationName__: 1,
+          scheduledFor: 1,
+          status: 1,
+          eventType: 1,
+          subject: 1,
+          subjectExtraction: 1,
+          lifecycleRules: 1,
+          cancelOnEvents: 1,
+          originalPayload: 1,
+        },
+      })
+      .toArray();
+
+    const matches = [];
+
+    for (const scheduled of candidates) {
+      const lifecycleRule = normalizeScheduledLifecycleRule(scheduled, criteria);
+      if (!lifecycleRule || !INVALIDATING_ACTIONS.includes(lifecycleRule.action)) {
+        continue;
+      }
+
+      const matchKeys = Array.isArray(lifecycleRule.matchKeys) ? lifecycleRule.matchKeys : [];
+      if (matchKeys.length === 0) {
+        continue;
+      }
+
+      // eslint-disable-next-line no-await-in-loop
+      const candidateSubject = await resolveScheduledSubject(scheduled, criteria);
+      if (!candidateSubject?.data) {
+        continue;
+      }
+
+      if (
+        criteria.subject?.subjectType &&
+        candidateSubject.subjectType &&
+        criteria.subject.subjectType !== candidateSubject.subjectType
+      ) {
+        continue;
+      }
+
+      const match = matchSubjects(criteria.subject, candidateSubject, matchKeys);
+      if (!match) {
+        continue;
+      }
+
+      matches.push({
+        id: scheduled._id,
+        scheduledId: scheduled._id.toString(),
+        integrationName: scheduled.__KEEP_integrationName__ || null,
+        scheduledFor: scheduled.scheduledFor,
+        status: scheduled.status,
+        matchedOn: match.matchedOn,
+      });
+    }
+
+    return matches;
+  } catch (err) {
+    logError(err, { scope: 'findScheduledIntegrationsByMatch' });
+    return [];
+  }
+}
+
 /**
- * Cancel scheduled integration(s) by cancellation info
- * @param {number} orgId - Organization ID
- * @param {Object} matchCriteria - Match criteria (patientRid, scheduledDateTime range)
- * @returns {Promise<number>} Number of cancelled integrations
+ * Cancel scheduled integrations that match a normalized lifecycle subject.
+ *
+ * @param {number} orgId
+ * @param {{ eventType: string, integrationConfigId?: string, subject: Object, lifecycleRule?: Object, subjectExtraction?: Object }} criteria
+ * @returns {Promise<number>} Number of cancelled rows
  */
-async function cancelScheduledIntegrationsByMatch(orgId, matchCriteria) {
+async function cancelScheduledIntegrationsByMatch(orgId, criteria) {
   const normalizedOrgId = normalizeOrgId(orgId);
   if (!normalizedOrgId) return 0;
+  if (!useMongo()) return 0;
 
-  if (!useMongo()) {
+  if (!criteria?.subject?.data) {
+    log('warn', 'cancelScheduledIntegrationsByMatch: no usable subject keys, skipping', {
+      orgId: normalizedOrgId,
+      eventType: criteria?.eventType,
+    });
     return 0;
   }
 
   try {
     const db = await mongodb.getDbSafe();
-    const query = {
-      ...scheduledOrgQuery(normalizedOrgId),
-      status: 'PENDING', // Only cancel pending integrations
-    };
+    const matches = await findScheduledIntegrationsByMatch(normalizedOrgId, criteria);
 
-    // Match by patientRid
-    if (matchCriteria.patientRid) {
-      query['cancellationInfo.patientRid'] = matchCriteria.patientRid;
+    if (matches.length === 0) {
+      return 0;
     }
 
-    // Match by scheduled datetime with tolerance (±1 hour)
-    if (matchCriteria.scheduledDateTime) {
-      const targetTime = new Date(matchCriteria.scheduledDateTime);
-      const tolerance = 60 * 60 * 1000; // 1 hour in ms
-      query['cancellationInfo.scheduledDateTime'] = {
-        $gte: new Date(targetTime.getTime() - tolerance).toISOString(),
-        $lte: new Date(targetTime.getTime() + tolerance).toISOString(),
-      };
-    }
-
-    const result = await db.collection('scheduled_integrations').updateMany(query, {
-      $set: {
-        status: 'CANCELLED',
-        cancelledAt: new Date(),
-        cancelReason: matchCriteria.reason || 'Auto-cancelled by matching event',
-        updatedAt: new Date(),
+    const result = await db.collection('scheduled_integrations').updateMany(
+      {
+        ...scheduledOrgQuery(normalizedOrgId),
+        _id: { $in: matches.map((match) => match.id) },
+        status: { $in: ['PENDING', 'OVERDUE'] },
       },
-    });
+      {
+        $set: {
+          status: 'CANCELLED',
+          cancelledAt: new Date(),
+          cancelReason: `Auto-cancelled by ${criteria.eventType}`,
+          updatedAt: new Date(),
+        },
+      }
+    );
 
-    log('info', 'Scheduled integrations cancelled by match', {
+    log('info', 'Scheduled integrations cancelled by subject match', {
       orgId: normalizedOrgId,
-      matchCriteria,
+      eventType: criteria.eventType,
+      subjectType: criteria.subject.subjectType,
       cancelledCount: result.modifiedCount,
+      matchedRows: matches.length,
+      matchedOn: Array.from(new Set(matches.map((match) => match.matchedOn))),
     });
 
     return result.modifiedCount;
@@ -618,6 +757,7 @@ module.exports = {
   getPendingScheduledIntegrations,
   updateScheduledIntegrationStatus,
   resetStuckProcessingIntegrations,
+  findScheduledIntegrationsByMatch,
   cancelScheduledIntegrationsByMatch,
   updateScheduledIntegration,
   deleteScheduledIntegration,

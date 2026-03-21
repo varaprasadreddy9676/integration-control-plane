@@ -1,9 +1,11 @@
 'use strict';
 
 const mockScheduledCollection = {
+  find: jest.fn(),
   findOne: jest.fn(),
   findOneAndUpdate: jest.fn(),
   insertOne: jest.fn(),
+  updateMany: jest.fn(),
 };
 
 const mockDb = {
@@ -31,9 +33,13 @@ const scheduledIntegrations = require('../../src/data/scheduled-integrations');
 describe('scheduled-integrations data layer', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockScheduledCollection.find.mockReturnValue({
+      toArray: jest.fn().mockResolvedValue([]),
+    });
     mockScheduledCollection.findOne.mockResolvedValue(null);
     mockScheduledCollection.findOneAndUpdate.mockResolvedValue({ value: null });
     mockScheduledCollection.insertOne.mockResolvedValue({ insertedId: 'scheduled-1' });
+    mockScheduledCollection.updateMany.mockResolvedValue({ modifiedCount: 0 });
   });
 
   it('suppresses duplicate reminder creation when an identical reminder was already sent', async () => {
@@ -237,6 +243,254 @@ describe('scheduled-integrations data layer', () => {
         id: 'existing-3',
         status: 'PENDING',
       })
+    );
+  });
+
+  it('stores normalized subject metadata and cancelOnEvents on newly scheduled rows', async () => {
+    await scheduledIntegrations.createScheduledIntegration({
+      __KEEP___KEEP_integrationConfig__Id__: 'cfg-2',
+      __KEEP_integrationName__: 'Generic Reminder',
+      orgId: 648,
+      originalEventId: 903900,
+      eventType: 'APPOINTMENT_CONFIRMATION',
+      scheduledFor: new Date('2026-03-21T08:30:00.000Z').toISOString(),
+      payload: {},
+      originalPayload: {
+        appt: {
+          bookingNumber: 'LF-21032026-12',
+        },
+      },
+      targetUrl: 'https://example.com/reminders',
+      httpMethod: 'POST',
+      subject: {
+        subjectType: 'APPOINTMENT',
+        eventType: 'APPOINTMENT_CONFIRMATION',
+        action: 'create',
+        data: {
+          appointment_id: 4153193,
+          patient_ref: 59499673,
+          booking_ref: 'LF-21032026-12',
+        },
+      },
+      subjectExtraction: {
+        mode: 'PATHS',
+        paths: {
+          appointment_id: 'appt.apptRID',
+          patient_ref: 'appt.patientRID',
+          booking_ref: 'appt.bookingNumber',
+        },
+      },
+      lifecycleRules: [
+        {
+          eventTypes: ['APPOINTMENT_CANCELLATION', 'APPOINTMENT_RESCHEDULED'],
+          action: 'CANCEL_PENDING',
+          matchKeys: ['appointment_id', 'booking_ref'],
+        },
+      ],
+      cancelOnEvents: ['APPOINTMENT_CANCELLATION', 'APPOINTMENT_RESCHEDULED'],
+    });
+
+    expect(mockScheduledCollection.insertOne).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subject: expect.objectContaining({
+          subjectType: 'APPOINTMENT',
+          data: expect.objectContaining({
+            booking_ref: 'LF-21032026-12',
+          }),
+        }),
+        subjectExtraction: expect.objectContaining({
+          mode: 'PATHS',
+        }),
+        lifecycleRules: [
+          expect.objectContaining({
+            action: 'CANCEL_PENDING',
+            matchKeys: ['appointment_id', 'booking_ref'],
+          }),
+        ],
+        cancelOnEvents: ['APPOINTMENT_CANCELLATION', 'APPOINTMENT_RESCHEDULED'],
+      })
+    );
+  });
+
+  it('claims scheduled rows with subject metadata for recurring propagation', async () => {
+    mockScheduledCollection.findOneAndUpdate
+      .mockResolvedValueOnce({
+        value: {
+          _id: 'pending-1',
+          __KEEP___KEEP_integrationConfig__Id__: 'oid:cfg-9',
+          __KEEP_integrationName__: 'Recurring Reminder',
+          orgId: 648,
+          originalEventId: 910001,
+          eventType: 'APPOINTMENT_CONFIRMATION',
+          scheduledFor: new Date('2026-03-21T08:30:00.000Z'),
+          status: 'PROCESSING',
+          payload: {},
+          originalPayload: {},
+          targetUrl: 'https://example.com/reminders',
+          httpMethod: 'POST',
+          subject: {
+            subjectType: 'APPOINTMENT',
+            data: {
+              appointment_id: '4153193',
+              booking_ref: 'LF-21032026-12',
+            },
+          },
+          lifecycleRules: [
+            {
+              eventTypes: ['APPOINTMENT_CANCELLATION'],
+              action: 'CANCEL_PENDING',
+              matchKeys: ['appointment_id'],
+            },
+          ],
+          cancelOnEvents: ['APPOINTMENT_CANCELLATION'],
+          recurringConfig: { interval: 3600000, occurrenceNumber: 1 },
+          createdAt: new Date('2026-03-20T10:00:00.000Z'),
+        },
+      })
+      .mockResolvedValueOnce({ value: null });
+
+    const rows = await scheduledIntegrations.getPendingScheduledIntegrations(1);
+
+    expect(rows).toEqual([
+      expect.objectContaining({
+        id: 'pending-1',
+        subject: expect.objectContaining({
+          data: expect.objectContaining({
+            appointment_id: '4153193',
+            booking_ref: 'LF-21032026-12',
+          }),
+        }),
+        cancelOnEvents: ['APPOINTMENT_CANCELLATION'],
+      }),
+    ]);
+  });
+
+  it('matches new-system rows by generic extracted subject keys', async () => {
+    mockScheduledCollection.find.mockReturnValue({
+      toArray: jest.fn().mockResolvedValue([
+        {
+          _id: 'scheduled-2',
+          __KEEP_integrationName__: 'Generic Reminder',
+          status: 'PENDING',
+          scheduledFor: new Date('2026-03-20T10:00:00.000Z'),
+          eventType: 'APPOINTMENT_CONFIRMATION',
+          subject: {
+            subjectType: 'APPOINTMENT',
+            data: {
+              appointment_id: '4153193',
+              booking_ref: 'LF-21032026-12',
+            },
+          },
+          lifecycleRules: [
+            {
+              eventTypes: ['APPOINTMENT_CANCELLATION'],
+              action: 'CANCEL_PENDING',
+              matchKeys: ['appointment_id', 'booking_ref'],
+            },
+          ],
+          cancelOnEvents: ['APPOINTMENT_CANCELLATION'],
+        },
+      ]),
+    });
+    mockScheduledCollection.updateMany.mockResolvedValue({ modifiedCount: 1 });
+
+    const cancelledCount = await scheduledIntegrations.cancelScheduledIntegrationsByMatch(648, {
+      eventType: 'APPOINTMENT_CANCELLATION',
+      integrationConfigId: 'cfg-2',
+      subject: {
+        subjectType: 'APPOINTMENT',
+        data: {
+          appointment_id: '4153193',
+          booking_ref: 'LF-21032026-12',
+        },
+      },
+      lifecycleRule: {
+        eventTypes: ['APPOINTMENT_CANCELLATION'],
+        action: 'CANCEL_PENDING',
+        matchKeys: ['appointment_id', 'booking_ref'],
+      },
+    });
+
+    expect(cancelledCount).toBe(1);
+    expect(mockScheduledCollection.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orgId: 648,
+        __KEEP___KEEP_integrationConfig__Id__: 'oid:cfg-2',
+        status: { $in: ['PENDING', 'OVERDUE'] },
+      }),
+      expect.any(Object)
+    );
+    expect(mockScheduledCollection.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orgId: 648,
+        _id: { $in: ['scheduled-2'] },
+        status: { $in: ['PENDING', 'OVERDUE'] },
+      }),
+      expect.any(Object)
+    );
+  });
+
+  it('rebuilds legacy row subjects from original payload using stored subjectExtraction', async () => {
+    mockScheduledCollection.find.mockReturnValue({
+      toArray: jest.fn().mockResolvedValue([
+        {
+          _id: 'scheduled-legacy',
+          __KEEP_integrationName__: 'Legacy Reminder',
+          status: 'OVERDUE',
+          scheduledFor: new Date('2026-03-20T10:00:00.000Z'),
+          eventType: 'APPOINTMENT_CONFIRMATION',
+          subject: null,
+          originalPayload: {
+            appt: {
+              apptRID: 4153193,
+              bookingNumber: 'LF-21032026-12',
+            },
+          },
+          subjectExtraction: {
+            mode: 'PATHS',
+            paths: {
+              appointment_id: 'appt.apptRID',
+              booking_ref: 'appt.bookingNumber',
+            },
+          },
+          lifecycleRules: [],
+          cancelOnEvents: ['APPOINTMENT_CANCELLATION'],
+        },
+      ]),
+    });
+    mockScheduledCollection.updateMany.mockResolvedValue({ modifiedCount: 1 });
+
+    const cancelledCount = await scheduledIntegrations.cancelScheduledIntegrationsByMatch(648, {
+      eventType: 'APPOINTMENT_CANCELLATION',
+      integrationConfigId: 'cfg-legacy',
+      subject: {
+        subjectType: 'APPOINTMENT',
+        data: {
+          appointment_id: '4153193',
+          booking_ref: 'LF-21032026-12',
+        },
+      },
+      lifecycleRule: {
+        eventTypes: ['APPOINTMENT_CANCELLATION'],
+        action: 'CANCEL_PENDING',
+        matchKeys: ['appointment_id', 'booking_ref'],
+      },
+      subjectExtraction: {
+        mode: 'PATHS',
+        paths: {
+          appointment_id: 'appt.apptRID',
+          booking_ref: 'appt.bookingNumber',
+        },
+      },
+    });
+
+    expect(cancelledCount).toBe(1);
+    expect(mockScheduledCollection.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        _id: { $in: ['scheduled-legacy'] },
+        orgId: 648,
+      }),
+      expect.any(Object)
     );
   });
 });

@@ -18,6 +18,7 @@ const footerLinks = {
   ],
   docs: [
     { label: 'Outbound Event Delivery', href: '/docs/outbound-delivery' },
+    { label: 'Outbound Lifecycle & Gated Delivery', href: '/docs/outbound-lifecycle' },
     { label: 'Inbound API Proxy',        href: '/docs/inbound-proxy' },
     { label: 'Scheduled Automation',     href: '/docs/scheduled-automation' },
     { label: 'Data Transformation',      href: '/docs/data-transformation' },

@@ -1,7 +1,7 @@
 import type { TabsProps } from 'antd';
 import type { ReactNode } from 'react';
 import { Form, Space, Card, Alert, Divider, Typography, Tag } from 'antd';
-import { ApiOutlined, LockOutlined, ThunderboltOutlined, ClockCircleOutlined, CodeOutlined, CheckCircleOutlined, EyeOutlined } from '@ant-design/icons';
+import { ApiOutlined, LockOutlined, ThunderboltOutlined, ClockCircleOutlined, CodeOutlined, CheckCircleOutlined, EyeOutlined, RadarChartOutlined } from '@ant-design/icons';
 
 const { Text } = Typography;
 import { ConfigurationPanelContent } from './ConfigurationPanel';
@@ -9,6 +9,7 @@ import { AuthenticationPanelContent } from './AuthenticationPanel';
 import { MultiActionHeader } from './MultiActionHeader';
 import { MultiActionList } from './MultiActionList';
 import { DeliveryPanel } from './DeliveryPanel';
+import { LifecyclePanelContent } from './LifecyclePanel';
 import { TransformationPanelContent } from './TransformationPanel';
 import { cssVar } from '../../../../../design-system/utils';
 
@@ -34,7 +35,8 @@ export interface IntegrationSectionsContentProps {
   multiActionValidationErrors: string[];
   formatScriptForDisplay: (script?: string) => string;
   selectedAuthType?: string;
-  deliveryModeValue?: 'IMMEDIATE' | 'DELAYED' | 'RECURRING';
+  deliveryModeValue?: 'IMMEDIATE' | 'DELAYED' | 'RECURRING' | 'WAIT_FOR_CONDITION' | 'WAIT_FOR_EVENT';
+  samplePayload: string;
   schedulingScriptValidation: { status: 'idle' | 'success' | 'error'; message?: string };
   isValidatingScript: boolean;
   onValidateScript: () => void;
@@ -80,6 +82,7 @@ export const buildIntegrationSectionItems = ({
   formatScriptForDisplay,
   selectedAuthType,
   deliveryModeValue,
+  samplePayload,
   schedulingScriptValidation,
   isValidatingScript,
   onValidateScript,
@@ -125,6 +128,8 @@ export const buildIntegrationSectionItems = ({
         return true; // Auth is optional
       case 'delivery':
         return true; // Always has a delivery mode
+      case 'lifecycle':
+        return true; // Optional but always available
       case 'transformation':
         return true; // Transformation is optional
       case 'multiAction':
@@ -258,6 +263,33 @@ export const buildIntegrationSectionItems = ({
           currentEventType={selectedEventType}
           isLoading={isLoading}
           integrationId={integrationId}
+        />
+      )
+    },
+    {
+      key: 'lifecycle',
+      label: (
+        <Space size={6}>
+          <RadarChartOutlined />
+          Lifecycle
+          {isTabComplete('delivery') && (
+            <CheckCircleOutlined style={{ color: colors.success[600], fontSize: 14 }} />
+          )}
+        </Space>
+      ),
+      disabled: !configComplete,
+      children: wrapContent(
+        <LifecyclePanelContent
+          form={form}
+          eventTypes={eventTypes}
+          samplePayload={samplePayload}
+          currentEventType={selectedEventType}
+          integrationId={integrationId}
+          deliveryModeValue={deliveryModeValue}
+          spacing={spacing}
+          token={token}
+          colors={colors}
+          isLoading={isLoading}
         />
       )
     }
@@ -407,7 +439,8 @@ export const buildIntegrationSectionItems = ({
                 <Tag color={
                   deliveryModeValue === 'IMMEDIATE' ? 'green' :
                   deliveryModeValue === 'DELAYED' ? 'orange' :
-                  deliveryModeValue === 'RECURRING' ? 'purple' : 'default'
+                  deliveryModeValue === 'RECURRING' ? 'purple' :
+                  deliveryModeValue === 'WAIT_FOR_CONDITION' || deliveryModeValue === 'WAIT_FOR_EVENT' ? 'cyan' : 'default'
                 }>
                   {deliveryModeValue || 'IMMEDIATE'}
                 </Tag>

@@ -1,8 +1,36 @@
 export type IntegrationScope = 'ENTITY_ONLY' | 'INCLUDE_CHILDREN';
 export type TransformationMode = 'SIMPLE' | 'SCRIPT';
 export type OutgoingAuthType = 'NONE' | 'API_KEY' | 'BASIC' | 'BEARER' | 'OAUTH2' | 'CUSTOM' | 'CUSTOM_HEADERS';
-export type DeliveryMode = 'IMMEDIATE' | 'DELAYED' | 'RECURRING';
+export type DeliveryMode = 'IMMEDIATE' | 'DELAYED' | 'RECURRING' | 'WAIT_FOR_CONDITION' | 'WAIT_FOR_EVENT';
 export type ScheduledIntegrationStatus = 'PENDING' | 'SENT' | 'FAILED' | 'CANCELLED' | 'OVERDUE';
+export type SubjectExtractionMode = 'PATHS' | 'SCRIPT';
+export type LifecycleAction = 'CANCEL_PENDING' | 'RESCHEDULE_PENDING' | 'REPLACE_EXISTING' | 'IGNORE';
+export type ConditionAction = 'RELEASE_HELD' | 'DISCARD_HELD';
+
+export interface SubjectExtraction {
+  mode: SubjectExtractionMode;
+  paths?: Record<string, string | string[]>;
+  script?: string;
+}
+
+export interface LifecycleRule {
+  eventTypes: string[];
+  action: LifecycleAction;
+  matchKeys: string[];
+}
+
+export interface ConditionRule {
+  eventTypes: string[];
+  action: ConditionAction;
+  matchKeys: string[];
+}
+
+export interface ConditionConfig {
+  payloadStrategy?: 'ORIGINAL_EVENT';
+  expiresAfterMs?: number | null;
+  releaseRules?: ConditionRule[];
+  discardRules?: ConditionRule[];
+}
 
 export interface SchedulingConfig {
   script: string;
@@ -32,6 +60,15 @@ export interface ScheduledIntegration {
     patientRid?: number;
     scheduledDateTime?: string;
   };
+  subject?: {
+    subjectType?: string | null;
+    action?: string | null;
+    eventType?: string | null;
+    data?: Record<string, unknown> | null;
+  } | null;
+  subjectExtraction?: SubjectExtraction | null;
+  lifecycleRules?: LifecycleRule[];
+  conditionConfig?: ConditionConfig | null;
   recurringConfig?: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
@@ -109,6 +146,11 @@ export interface IntegrationConfig {
   // Delivery scheduling (opt-in scheduling feature)
   deliveryMode?: DeliveryMode;
   schedulingConfig?: SchedulingConfig;
+  resourceType?: string | null;
+  subjectExtraction?: SubjectExtraction | null;
+  lifecycleRules?: LifecycleRule[];
+  conditionConfig?: ConditionConfig | null;
+  cancelOnEvents?: string[];
   // Lookup configurations
   lookups?: LookupConfig[];
   updatedAt: string;

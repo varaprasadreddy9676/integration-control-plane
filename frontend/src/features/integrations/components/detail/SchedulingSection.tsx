@@ -59,7 +59,7 @@ const MonacoEditorInput = ({ value, onChange, placeholder, height = '300px', onS
 };
 
 interface SchedulingSectionProps {
-  deliveryModeValue?: 'IMMEDIATE' | 'DELAYED' | 'RECURRING';
+  deliveryModeValue?: 'IMMEDIATE' | 'DELAYED' | 'RECURRING' | 'WAIT_FOR_CONDITION' | 'WAIT_FOR_EVENT';
   schedulingScriptValidation: { status: 'idle' | 'success' | 'error'; message?: string };
   isValidatingScript: boolean;
   onValidateScript: () => void;
@@ -126,7 +126,7 @@ export const SchedulingSection = ({
       return;
     }
 
-    if (!deliveryModeValue || deliveryModeValue === 'IMMEDIATE') {
+    if (!deliveryModeValue || deliveryModeValue === 'IMMEDIATE' || deliveryModeValue === 'WAIT_FOR_CONDITION' || deliveryModeValue === 'WAIT_FOR_EVENT') {
       message.warning('AI scheduling is only available for DELAYED or RECURRING modes');
       return;
     }
@@ -168,12 +168,14 @@ export const SchedulingSection = ({
 
   const deliveryModeLabel = deliveryModeValue === 'IMMEDIATE'
     ? 'Immediate'
+    : deliveryModeValue === 'WAIT_FOR_CONDITION' || deliveryModeValue === 'WAIT_FOR_EVENT'
+    ? 'Wait For Condition'
     : deliveryModeValue === 'DELAYED'
     ? 'Delayed (One-Time)'
     : 'Recurring';
 
   const scriptStatus = () => {
-    if (deliveryModeValue === 'IMMEDIATE') {
+    if (deliveryModeValue === 'IMMEDIATE' || deliveryModeValue === 'WAIT_FOR_CONDITION' || deliveryModeValue === 'WAIT_FOR_EVENT') {
       return { label: 'Not required', color: 'default' as const };
     }
     if (isValidatingScript) {
@@ -189,7 +191,7 @@ export const SchedulingSection = ({
   };
 
   const nextRunLabel = () => {
-    if (deliveryModeValue === 'IMMEDIATE') return '—';
+    if (deliveryModeValue === 'IMMEDIATE' || deliveryModeValue === 'WAIT_FOR_CONDITION' || deliveryModeValue === 'WAIT_FOR_EVENT') return '—';
     if (previewState.loading) return 'Calculating...';
     if (previewState.error) return 'Preview error';
     if (deliveryModeValue === 'DELAYED') {
@@ -205,7 +207,7 @@ export const SchedulingSection = ({
   const nextRunText = nextRunLabel();
 
   useEffect(() => {
-    if (deliveryModeValue === 'IMMEDIATE' || !currentScript || currentScript.trim().length === 0) {
+    if (deliveryModeValue === 'IMMEDIATE' || deliveryModeValue === 'WAIT_FOR_CONDITION' || deliveryModeValue === 'WAIT_FOR_EVENT' || !currentScript || currentScript.trim().length === 0) {
       setPreviewState({ preview: null, error: null, loading: false });
     }
   }, [deliveryModeValue, currentScript]);
@@ -218,7 +220,7 @@ export const SchedulingSection = ({
           label={
             <Space size={4}>
               Delivery Mode
-              {deliveryModeValue && deliveryModeValue !== 'IMMEDIATE' && (
+              {deliveryModeValue && deliveryModeValue !== 'IMMEDIATE' && deliveryModeValue !== 'WAIT_FOR_CONDITION' && deliveryModeValue !== 'WAIT_FOR_EVENT' && (
                 <HelpPopover
                   title="Scheduling Requirements"
                   content={<SchedulingScriptHelp mode={deliveryModeValue} />}
@@ -229,7 +231,7 @@ export const SchedulingSection = ({
           initialValue="IMMEDIATE"
           tooltip="When to deliver events"
         >
-          <Select size="large" placeholder="Select delivery mode" optionLabelProp="label">
+            <Select size="large" placeholder="Select delivery mode" optionLabelProp="label">
             <Select.Option value="IMMEDIATE" label="Immediate">
               <Space>
                 <ThunderboltOutlined style={{ color: colors.success[600] }} />
@@ -259,6 +261,17 @@ export const SchedulingSection = ({
                   <div style={{ fontWeight: 500 }}>Recurring</div>
                   <Typography.Text type="secondary" style={{ fontSize: 12 }}>
                     Schedule integration to repeat at multiple times
+                  </Typography.Text>
+                </div>
+              </Space>
+            </Select.Option>
+            <Select.Option value="WAIT_FOR_CONDITION" label="Wait For Condition">
+              <Space>
+                <RocketOutlined style={{ color: colors.primary[600] }} />
+                <div>
+                  <div style={{ fontWeight: 500 }}>Wait For Condition</div>
+                  <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                    Hold this event now and release it only when a follow-up event matches
                   </Typography.Text>
                 </div>
               </Space>
@@ -367,8 +380,8 @@ export const SchedulingSection = ({
                     title="Script Syntax"
                     content={<ScriptSyntaxHelp />}
                   />
-                  {(deliveryModeValue === 'DELAYED' || deliveryModeValue === 'RECURRING') && (
-                    <>
+          {(deliveryModeValue === 'DELAYED' || deliveryModeValue === 'RECURRING') && (
+            <>
                       {isAIAvailable && (
                         <Button
                           type="link"
@@ -445,6 +458,14 @@ export const SchedulingSection = ({
                 onPreviewChange={setPreviewState}
               />
             </Col>
+          )}
+          {(deliveryModeValue === 'WAIT_FOR_CONDITION' || deliveryModeValue === 'WAIT_FOR_EVENT') && (
+            <Alert
+              type="info"
+              showIcon
+              message="This integration will hold the transformed payload until a matching follow-up event arrives."
+              description="Configure the follow-up release and discard rules in the Lifecycle tab. Scheduling scripts are not used for this mode."
+            />
           )}
 
           <Col xs={24}>

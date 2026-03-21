@@ -489,6 +489,7 @@ async function applyResponseTransform(integration, response, context = {}) {
 }
 
 module.exports = {
+  getGlobalUtilities,
   validateScript,
   applyTransform,
   applyResponseTransform,

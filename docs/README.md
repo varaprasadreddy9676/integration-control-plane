@@ -32,6 +32,7 @@ Use this index to find the right guide quickly.
 - `docs/guides/DLQ-GUIDE.md` - Dead Letter Queue lifecycle, auto-retry, manual operations
 - `docs/guides/EVENT-SOURCES.md` - MySQL, Kafka, and HTTP Push event source configuration
 - `docs/guides/LOOKUP-TABLES.md` - Lookup table creation, XLSX import/export, script usage
+- `docs/guides/OUTBOUND-LIFECYCLE.md` - Generic subject extraction, delayed lifecycle rules, and WAIT_FOR_CONDITION hold/release flows
 - `docs/guides/VERSIONING.md` - Semantic versioning, diff view, rollback, templates
 - `docs/guides/WEBHOOK-SECURITY.md` - HMAC signing, request policy, SSRF protection, auth types
 

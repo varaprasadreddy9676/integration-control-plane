@@ -398,6 +398,7 @@ describeReal('REAL Workers Integration Tests', () => {
       // Step 2: Execute scheduling script
       console.log('  ➤ Executing scheduling script...');
       const scheduler = require('../../src/services/scheduler');
+      const { normalizeEventSubject } = require('../../src/processor/event-normalizer');
       const webhook = await data.getWebhook(webhookId);
       const eventPayload = {
         patientRid: 12345,
@@ -417,10 +418,7 @@ describeReal('REAL Workers Integration Tests', () => {
 
       // Step 3: Create scheduled webhook entry
       console.log('  ➤ Creating scheduled webhook entry...');
-      const cancellationInfo = scheduler.extractCancellationInfo(
-        eventPayload,
-        'TEST_WORKER_APPOINTMENT_CREATED'
-      );
+      const subject = normalizeEventSubject('APPOINTMENT_CONFIRMATION', eventPayload);
 
       const scheduledWebhook = await data.createScheduledWebhook({
         webhookConfigId: webhookId,
@@ -432,7 +430,8 @@ describeReal('REAL Workers Integration Tests', () => {
         payload: eventPayload,
         targetUrl: webhook.targetUrl,
         httpMethod: webhook.httpMethod,
-        cancellationInfo
+        subject,
+        cancelOnEvents: ['APPOINTMENT_CANCELLATION']
       });
 
       expect(scheduledWebhook.id).toBeDefined();
@@ -575,6 +574,11 @@ describeReal('REAL Workers Integration Tests', () => {
       console.log('\n📝 TEST: Scheduled webhook cancellation');
 
       const appointmentTime = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString();
+      const { normalizeEventSubject } = require('../../src/processor/event-normalizer');
+      const subject = normalizeEventSubject('APPOINTMENT_CANCELLATION', {
+        appointmentDateTime: appointmentTime,
+        patientId: 12345,
+      });
 
       // Create scheduled webhooks
       console.log('  ➤ Creating scheduled webhooks...');
@@ -588,10 +592,8 @@ describeReal('REAL Workers Integration Tests', () => {
         payload: {},
         targetUrl: 'https://webhook.site/test',
         httpMethod: 'POST',
-        cancellationInfo: {
-          patientRid: 12345,
-          scheduledDateTime: appointmentTime
-        }
+        subject,
+        cancelOnEvents: ['APPOINTMENT_CANCELLATION']
       });
 
       const scheduled2 = await data.createScheduledWebhook({
@@ -604,10 +606,8 @@ describeReal('REAL Workers Integration Tests', () => {
         payload: {},
         targetUrl: 'https://webhook.site/test',
         httpMethod: 'POST',
-        cancellationInfo: {
-          patientRid: 12345,
-          scheduledDateTime: appointmentTime
-        }
+        subject,
+        cancelOnEvents: ['APPOINTMENT_CANCELLATION']
       });
 
       console.log('  ✓ Created 2 scheduled webhooks');
@@ -615,7 +615,9 @@ describeReal('REAL Workers Integration Tests', () => {
       // Cancel webhooks
       console.log('  ➤ Cancelling webhooks...');
       const cancelledCount = await data.cancelScheduledWebhooksByMatch(1, {
-        patientRid: 12345,
+        eventType: 'APPOINTMENT_CANCELLATION',
+        subjectType: 'APPOINTMENT',
+        patientId: 12345,
         scheduledDateTime: appointmentTime,
         reason: 'Appointment rescheduled by test'
       });

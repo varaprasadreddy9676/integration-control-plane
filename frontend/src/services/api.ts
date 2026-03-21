@@ -1,4 +1,15 @@
-import type { AlertCenterLog, DashboardSummary, DeliveryLog, ScheduledIntegration, TenantInfo, IntegrationConfig, EventAuditRecord } from '../mocks/types';
+import type {
+  AlertCenterLog,
+  DashboardSummary,
+  DeliveryLog,
+  ScheduledIntegration,
+  TenantInfo,
+  IntegrationConfig,
+  EventAuditRecord,
+  SubjectExtraction,
+  LifecycleRule,
+  ConditionConfig,
+} from '../mocks/types';
 import { getAuthToken, clearAuthStorage } from '../utils/auth-storage';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000/api/v1';
@@ -478,6 +489,12 @@ const serializeIntegrationInput = (input: IntegrationConfig) => ({
   retryCount: input.retryCount,
   transformationMode: input.transformationMode,
   transformation: input.transformation,
+  deliveryMode: input.deliveryMode,
+  schedulingConfig: input.schedulingConfig,
+  resourceType: input.resourceType,
+  subjectExtraction: input.subjectExtraction,
+  lifecycleRules: input.lifecycleRules,
+  conditionConfig: input.conditionConfig,
   actions: input.actions,  // Support multi-action integrations
   lookups: input.lookups   // Support lookup configurations
 });
@@ -546,6 +563,83 @@ export const updateOutboundIntegrationRaw = async (id: string, payload: any): Pr
 
 export const testOutboundSchedule = async (id: string, payload: { script: string; deliveryMode: string; eventType?: string; payload?: any }) =>
   request(`/outbound-integrations/${id}/test-schedule`, {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+
+export interface SubjectPreviewResult {
+  subject: {
+    subjectType?: string | null;
+    action?: string | null;
+    eventType?: string | null;
+    data?: Record<string, unknown> | null;
+    warnings?: string[];
+  } | null;
+  extractedKeys: string[];
+  warnings: string[];
+}
+
+export interface CancellationPreviewResult {
+  subject: SubjectPreviewResult['subject'];
+  wouldCancel: Array<{
+    id: string;
+    integrationName?: string | null;
+    scheduledFor?: string;
+    status?: string;
+    matchedOn?: string;
+  }>;
+  matchedOn: string[];
+  warnings: string[];
+}
+
+export interface ConditionPreviewResult {
+  subject: SubjectPreviewResult['subject'];
+  action?: string | null;
+  wouldAffect: Array<{
+    id: string;
+    integrationName?: string | null;
+    status?: string;
+    createdAt?: string;
+    matchedOn?: string;
+    eventType?: string;
+  }>;
+  matchedOn: string[];
+  warnings: string[];
+}
+
+export const previewSubjectExtraction = async (payload: {
+  eventType?: string;
+  resourceType?: string | null;
+  subjectExtraction?: SubjectExtraction | null;
+  samplePayload?: unknown;
+}): Promise<SubjectPreviewResult> =>
+  request('/outbound-integrations/preview-subject', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+
+export const previewLifecycleCancellation = async (payload: {
+  integrationId?: string;
+  eventType: string;
+  resourceType?: string | null;
+  subjectExtraction?: SubjectExtraction | null;
+  lifecycleRules?: LifecycleRule[];
+  samplePayload?: unknown;
+}): Promise<CancellationPreviewResult> =>
+  request('/outbound-integrations/preview-cancellation', {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  });
+
+export const previewConditionRelease = async (payload: {
+  integrationId?: string;
+  eventType: string;
+  resourceType?: string | null;
+  subjectExtraction?: SubjectExtraction | null;
+  conditionConfig?: ConditionConfig | null;
+  samplePayload?: unknown;
+}): Promise<ConditionPreviewResult> =>
+  request('/outbound-integrations/preview-condition', {
     method: 'POST',
     body: JSON.stringify(payload)
   });

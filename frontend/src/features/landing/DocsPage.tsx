@@ -9,6 +9,7 @@ import './landing.css';
 
 // Import markdown files as raw strings via Vite
 import outboundDelivery from './docs/outbound-delivery.md?raw';
+import outboundLifecycle from './docs/outbound-lifecycle.md?raw';
 import inboundProxy from './docs/inbound-proxy.md?raw';
 import scheduledAutomation from './docs/scheduled-automation.md?raw';
 import dataTransformation from './docs/data-transformation.md?raw';
@@ -27,6 +28,7 @@ import alertCenter from './docs/alert-center.md?raw';
 
 const docs = [
   { slug: 'outbound-delivery',   title: 'Outbound Event Delivery', content: outboundDelivery },
+  { slug: 'outbound-lifecycle',  title: 'Outbound Lifecycle & Gated Delivery', content: outboundLifecycle },
   { slug: 'inbound-proxy',       title: 'Inbound API Proxy',       content: inboundProxy },
   { slug: 'scheduled-automation',title: 'Scheduled Automation',    content: scheduledAutomation },
   { slug: 'data-transformation', title: 'Data Transformation',     content: dataTransformation },

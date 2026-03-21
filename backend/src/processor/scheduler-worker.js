@@ -384,7 +384,10 @@ function startSchedulerWorker() {
                   originalPayload: scheduled.originalPayload || scheduled.payload,
                   targetUrl: scheduled.targetUrl,
                   httpMethod: scheduled.httpMethod,
-                  cancellationInfo: scheduled.cancellationInfo,
+                  subject: scheduled.subject || null,
+                  subjectExtraction: scheduled.subjectExtraction || null,
+                  lifecycleRules: scheduled.lifecycleRules || [],
+                  cancelOnEvents: scheduled.cancelOnEvents || [],
                   recurringConfig: {
                     ...scheduled.recurringConfig,
                     occurrenceNumber: scheduled.recurringConfig.occurrenceNumber + 1,

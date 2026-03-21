@@ -8,5 +8,13 @@ export const getFormInitialValues = (uiConfig: any) => ({
   outgoingAuthType: 'NONE',
   enableSigning: false,
   signingSecret: null,
-  signingSecrets: []
+  signingSecrets: [],
+  deliveryMode: 'IMMEDIATE',
+  subjectExtractionMode: 'PATHS',
+  subjectExtractionScript: '',
+  subjectExtractionPaths: [{ key: '', paths: '' }],
+  lifecycleRules: [],
+  conditionPayloadStrategy: 'ORIGINAL_EVENT',
+  conditionExpiresAfterHours: null,
+  conditionRules: []
 });

@@ -1,17 +1,18 @@
 # Scheduled Automation
 
-Scheduled jobs let you run integrations on a time-based trigger — no external cron service required. Jobs are defined with a JavaScript scheduling script that returns either a one-time timestamp or a full recurring configuration.
+Scheduled delivery lets an outbound integration transform an event now and execute it later. This is separate from scheduled batch jobs: these rows are created by normal event processing and then picked up by the scheduler worker.
 
 ---
 
 ## How It Works
 
-1. You write a **scheduling script** that computes when the job should run.
-2. The scheduler evaluates the script and determines the next execution time.
-3. At the scheduled time, the **integration is triggered** exactly as if an event arrived.
-4. For recurring jobs, the scheduler calculates the **next occurrence** after each run.
-5. The series ends when `maxOccurrences` is reached or the `endDate` passes.
-6. Every execution is fully traced and observable.
+1. A matching outbound event arrives.
+2. The integration transformation runs immediately.
+3. A **scheduling script** computes one timestamp (`DELAYED`) or a recurring plan (`RECURRING`).
+4. The resulting row is written to `scheduled_integrations`.
+5. At the scheduled time, the scheduler worker delivers it.
+6. For recurring rows, the next occurrence is created automatically.
+7. Every execution is fully traced and observable.
 
 ---
 
@@ -101,17 +102,44 @@ console.error("something went wrong")
 
 ---
 
-## Cancellation Support
+## Lifecycle Invalidation
 
-Scheduled appointments can be cancelled before they run. The system extracts patient and appointment identifiers from the event payload automatically, checking these field names in order:
+Delayed and recurring rows can be invalidated by follow-up events using generic `lifecycleRules`.
 
-**Patient ID fields checked:**
-`patientRid`, `patient_rid`, `patientId`, `patient_id`, `ridPatient`, `rid_patient`
+Example:
 
-**Scheduled date/time fields checked:**
-`scheduledDateTime`, `scheduled_date_time`, `appointmentDateTime`, `appointment_date_time`, `scheduledDate`, `appointment_date`
+```json
+{
+  "resourceType": "APPOINTMENT",
+  "subjectExtraction": {
+    "mode": "PATHS",
+    "paths": {
+      "appointment_id": "appt.apptRID",
+      "booking_ref": "appt.bookingNumber"
+    }
+  },
+  "lifecycleRules": [
+    {
+      "eventTypes": ["APPOINTMENT_CANCELLATION"],
+      "action": "CANCEL_PENDING",
+      "matchKeys": ["appointment_id", "booking_ref"]
+    },
+    {
+      "eventTypes": ["APPOINTMENT_RESCHEDULED"],
+      "action": "RESCHEDULE_PENDING",
+      "matchKeys": ["appointment_id", "booking_ref"]
+    }
+  ]
+}
+```
 
-If a matching scheduled job is found, it is cancelled atomically.
+### What happens
+
+- `CANCEL_PENDING` cancels matching pending scheduled rows
+- `RESCHEDULE_PENDING` cancels matching pending scheduled rows and then allows the current event to schedule fresh rows through the normal processing path
+- matching is scoped to the same integration config that created the scheduled rows
+
+Use the preview endpoints in the UI to dry-run extracted subject keys and scheduled-row impact before saving.
 
 ---
 
@@ -137,6 +165,8 @@ Every scheduled execution produces a full execution trace — same as any other 
 - `triggerType: SCHEDULE` in all logs
 
 Scheduled jobs appear in the execution logs with `direction: SCHEDULED`, making it easy to filter and inspect them separately.
+
+Rows also retain `subject`, `subjectExtraction`, and `lifecycleRules` metadata so future invalidating events can be matched without hardcoded domain fields.
 
 ---
 

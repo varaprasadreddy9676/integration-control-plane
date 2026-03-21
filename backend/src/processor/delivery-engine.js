@@ -1261,10 +1261,14 @@ async function deliverToIntegration(
   let errorMessage;
   const transformStart = Date.now();
   try {
-    transformed = await applyTransform(integration, evt.payload, {
-      eventType: evt.event_type,
-      orgId,
-    });
+    if (Object.prototype.hasOwnProperty.call(options, 'preparedPayload')) {
+      transformed = options.preparedPayload;
+    } else {
+      transformed = await applyTransform(integration, evt.payload, {
+        eventType: evt.event_type,
+        orgId,
+      });
+    }
     const transformedIsNull = transformed === null;
     // Log transformation (success or skipped)
     await executionLogger

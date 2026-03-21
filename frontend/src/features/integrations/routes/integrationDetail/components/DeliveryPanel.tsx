@@ -6,7 +6,7 @@ import { RateLimitSection } from '../../../components/detail/RateLimitSection';
 import { spacingToNumber } from '../../../../../design-system/utils';
 
 interface DeliveryPanelProps {
-  deliveryModeValue?: 'IMMEDIATE' | 'DELAYED' | 'RECURRING';
+  deliveryModeValue?: 'IMMEDIATE' | 'DELAYED' | 'RECURRING' | 'WAIT_FOR_CONDITION' | 'WAIT_FOR_EVENT';
   uiConfig: any;
   schedulingScriptValidation: { status: 'idle' | 'success' | 'error'; message?: string };
   isValidatingScript: boolean;

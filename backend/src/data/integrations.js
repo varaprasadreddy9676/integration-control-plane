@@ -3,6 +3,13 @@ const { log, logError } = require('../logger');
 const mongodb = require('../mongodb');
 const { generateSigningSecret } = require('../services/integration-signing');
 const { normalizeRequestPolicy, normalizeRateLimit } = require('../services/request-policy');
+const { validateLifecycleConfig, buildLifecycleProfile, findLifecycleRule } = require('../services/lifecycle-config');
+const {
+  validateConditionConfig,
+  buildConditionProfile,
+  normalizeConditionConfig,
+  normalizeDeliveryMode,
+} = require('../services/condition-config');
 const {
   useMongo,
   normalizeOrgId,
@@ -64,14 +71,36 @@ async function listIntegrations(orgId) {
   return fallbackDisabledError('listIntegrations:fallback');
 }
 
-async function listIntegrationsForDelivery(orgId, eventType = null) {
+function filterInheritedIntegrationsForEntity(integrations, normalizedOrgId) {
+  return integrations.filter((integration) => {
+    if (integration.scope === 'ENTITY_ONLY') {
+      return false;
+    }
+
+    if (integration.excludedEntityRids && integration.excludedEntityRids.length > 0) {
+      if (integration.excludedEntityRids.includes(normalizedOrgId)) {
+        log('debug', 'Integration excluded for this entity', {
+          scope: 'listIntegrationsForDelivery:EXCLUDED',
+          integrationId: integration.id,
+          __KEEP_integrationName__: integration.name,
+          orgId: normalizedOrgId,
+          excludedEntityRids: integration.excludedEntityRids,
+        });
+        return false;
+      }
+    }
+
+    return true;
+  });
+}
+
+async function listScopedIntegrations(orgId) {
   const normalizedOrgId = normalizeOrgId(orgId);
   if (!normalizedOrgId) return [];
 
   log('debug', 'Starting integration matching', {
     scope: 'listIntegrationsForDelivery:START',
     orgId: normalizedOrgId,
-    eventType,
   });
 
   const parentRid = await getParentRidForEntity(normalizedOrgId);
@@ -97,29 +126,7 @@ async function listIntegrationsForDelivery(orgId, eventType = null) {
 
   if (parentRid && parentRid !== normalizedOrgId) {
     const parentHooks = await listIntegrations(parentRid);
-    // Default to inheriting parent integrations; only skip when explicitly marked ENTITY_ONLY or excluded
-    const inheritableParentHooks = parentHooks.filter((wh) => {
-      // Skip if integration is ENTITY_ONLY
-      if (wh.scope === 'ENTITY_ONLY') {
-        return false;
-      }
-
-      // Skip if current entity is in exclusion list
-      if (wh.excludedEntityRids && wh.excludedEntityRids.length > 0) {
-        if (wh.excludedEntityRids.includes(normalizedOrgId)) {
-          log('debug', 'Integration excluded for this entity', {
-            scope: 'listIntegrationsForDelivery:EXCLUDED',
-            integrationId: wh.id,
-            __KEEP_integrationName__: wh.name,
-            orgId: normalizedOrgId,
-            excludedEntityRids: wh.excludedEntityRids,
-          });
-          return false;
-        }
-      }
-
-      return true;
-    });
+    const inheritableParentHooks = filterInheritedIntegrationsForEntity(parentHooks, normalizedOrgId);
     const allHooks = [...inheritableParentHooks, ...direct];
 
     log('debug', 'Combined parent and direct hooks', {
@@ -128,33 +135,15 @@ async function listIntegrationsForDelivery(orgId, eventType = null) {
       allHooksCount: allHooks.length,
     });
 
-    // Filter by event type if provided - Only OUTBOUND integrations for delivery
-    if (eventType) {
-      const filtered = allHooks.filter(
-        (wh) =>
-          wh.isActive &&
-          (wh.direction === 'OUTBOUND' || !wh.direction) && // Include configs without direction for backward compatibility
-          (wh.type === eventType || wh.type === '*')
-      );
-      log('debug', 'Filtered by event type and active status', {
-        scope: 'listIntegrationsForDelivery:FILTERED',
-        eventType,
-        beforeFilter: allHooks.length,
-        afterFilter: filtered.length,
-        filtered: filtered.map((w) => ({
-          id: w.id,
-          name: w.name,
-          type: w.type,
-          direction: w.direction,
-          isActive: w.isActive,
-        })),
-      });
-      return filtered;
-    }
-    return allHooks.filter((wh) => wh.isActive && (wh.direction === 'OUTBOUND' || !wh.direction));
+    return allHooks;
   }
 
-  // Filter by event type if provided - Only OUTBOUND integrations for delivery
+  return direct;
+}
+
+async function listIntegrationsForDelivery(orgId, eventType = null) {
+  const direct = await listScopedIntegrations(orgId);
+
   if (eventType) {
     const filtered = direct.filter(
       (wh) =>
@@ -185,6 +174,81 @@ async function listIntegrationsForDelivery(orgId, eventType = null) {
     afterFilter: active.length,
   });
   return active;
+}
+
+async function listIntegrationsForProcessing(orgId, eventType = null) {
+  const scoped = await listScopedIntegrations(orgId);
+  const active = scoped.filter((integration) => integration.isActive && (integration.direction === 'OUTBOUND' || !integration.direction));
+
+  if (!eventType) {
+    return active;
+  }
+
+  const directMatches = active.filter((integration) => integration.type === eventType || integration.type === '*');
+  const directMatchIds = new Set(directMatches.map((integration) => integration.id));
+  const rescheduleMatches = active.filter((integration) => {
+    if (directMatchIds.has(integration.id)) {
+      return false;
+    }
+
+    if (normalizeDeliveryMode(integration.deliveryMode) !== 'DELAYED' && normalizeDeliveryMode(integration.deliveryMode) !== 'RECURRING') {
+      return false;
+    }
+
+    const lifecycleRule = findLifecycleRule(integration.lifecycleRules, eventType);
+    return lifecycleRule?.action === 'RESCHEDULE_PENDING';
+  });
+
+  const matches = [...directMatches, ...rescheduleMatches];
+
+  log('debug', 'Resolved integrations for event processing', {
+    scope: 'listIntegrationsForProcessing',
+    orgId: normalizeOrgId(orgId),
+    eventType,
+    directMatchCount: directMatches.length,
+    rescheduleMatchCount: rescheduleMatches.length,
+    totalCount: matches.length,
+  });
+
+  return matches;
+}
+
+async function listInvalidationProfiles(orgId, eventType) {
+  const scoped = await listScopedIntegrations(orgId);
+  if (!eventType) return [];
+
+  const profiles = scoped
+    .filter((integration) => integration.isActive && (integration.direction === 'OUTBOUND' || !integration.direction))
+    .map((integration) => buildLifecycleProfile(integration, eventType))
+    .filter(Boolean);
+
+  log('debug', 'Resolved invalidation profiles', {
+    scope: 'listInvalidationProfiles',
+    orgId: normalizeOrgId(orgId),
+    eventType,
+    profileCount: profiles.length,
+  });
+
+  return profiles;
+}
+
+async function listConditionProfiles(orgId, eventType) {
+  const scoped = await listScopedIntegrations(orgId);
+  if (!eventType) return [];
+
+  const profiles = scoped
+    .filter((integration) => integration.isActive && (integration.direction === 'OUTBOUND' || !integration.direction))
+    .map((integration) => buildConditionProfile(integration, eventType))
+    .filter(Boolean);
+
+  log('debug', 'Resolved condition profiles', {
+    scope: 'listConditionProfiles',
+    orgId: normalizeOrgId(orgId),
+    eventType,
+    profileCount: profiles.length,
+  });
+
+  return profiles;
 }
 
 async function getParentRidForEntity(orgId) {
@@ -273,6 +337,30 @@ async function addIntegration(orgId, payload) {
       // Each integration gets a unique secret (per-endpoint, not shared)
       // Following Standard Integrations specification
       const signingSecret = generateSigningSecret();
+      const lifecycleValidation = validateLifecycleConfig({
+        resourceType: payload.resourceType,
+        subjectExtraction: payload.subjectExtraction,
+        subjectMapping: payload.subjectMapping,
+        lifecycleRules: payload.lifecycleRules,
+      });
+      const conditionValidation = validateConditionConfig({
+        deliveryMode: payload.deliveryMode,
+        resourceType: payload.resourceType,
+        subjectExtraction: payload.subjectExtraction,
+        subjectMapping: payload.subjectMapping,
+        conditionConfig: payload.conditionConfig,
+      });
+
+      if (!lifecycleValidation.valid) {
+        const error = new Error(lifecycleValidation.error);
+        error.code = 'VALIDATION_ERROR';
+        throw error;
+      }
+      if (!conditionValidation.valid) {
+        const error = new Error(conditionValidation.error);
+        error.code = 'VALIDATION_ERROR';
+        throw error;
+      }
 
       const integration = {
         name: payload.name,
@@ -307,6 +395,14 @@ async function addIntegration(orgId, payload) {
         transformMode: payload.transformationMode || 'SIMPLE',
         transformConfig: payload.transformation || null,
         actions: payload.actions || null, // Store actions array for multi-action integrations
+        resourceType: payload.resourceType || null,
+        subjectExtraction: lifecycleValidation.normalizedSubjectExtraction || conditionValidation.normalizedSubjectExtraction,
+        lifecycleRules: lifecycleValidation.normalizedLifecycleRules,
+        conditionConfig: conditionValidation.normalizedConditionConfig,
+        cancelOnEvents:
+          lifecycleValidation.normalizedLifecycleRules.length > 0
+            ? lifecycleValidation.derivedCancelOnEvents
+            : payload.cancelOnEvents || [],
         isInherited: payload.isInherited || false,
         sourceEntityName: payload.sourceEntityName || null,
         version,
@@ -321,7 +417,7 @@ async function addIntegration(orgId, payload) {
         enableSigning: false, // Signing disabled by default (opt-in)
         signatureVersion: 'v1', // Signature scheme version
         // Scheduling configuration (MVP for delayed/recurring integrations)
-        deliveryMode: payload.deliveryMode || 'IMMEDIATE', // Default to immediate for backward compatibility
+        deliveryMode: normalizeDeliveryMode(payload.deliveryMode || 'IMMEDIATE'), // Default to immediate for backward compatibility
         schedulingConfig: payload.schedulingConfig || null, // { script, timezone, description }
         metadata: {
           ...payload.metadata,
@@ -349,6 +445,9 @@ async function addIntegration(orgId, payload) {
 
       return mapIntegrationFromMongo(integration);
     } catch (err) {
+      if (err.code === 'VALIDATION_ERROR') {
+        throw err;
+      }
       logError(err, { scope: 'addIntegration', orgId: normalizedOrgId });
     }
   }
@@ -380,6 +479,74 @@ async function updateIntegration(orgId, id, patch) {
         updateDoc.requestPolicy = normalizeRequestPolicy(updateDoc.requestPolicy, updateDoc.rateLimits);
       }
 
+      const existing = await getIntegration(id);
+      const mergedLifecycleConfig = {
+        resourceType:
+          Object.prototype.hasOwnProperty.call(updateDoc, 'resourceType') ? updateDoc.resourceType : existing?.resourceType,
+        subjectExtraction:
+          Object.prototype.hasOwnProperty.call(updateDoc, 'subjectExtraction')
+            ? updateDoc.subjectExtraction
+            : existing?.subjectExtraction,
+        subjectMapping:
+          Object.prototype.hasOwnProperty.call(updateDoc, 'subjectMapping') ? updateDoc.subjectMapping : null,
+        lifecycleRules:
+          Object.prototype.hasOwnProperty.call(updateDoc, 'lifecycleRules') ? updateDoc.lifecycleRules : existing?.lifecycleRules,
+      };
+      const mergedConditionConfig = {
+        deliveryMode:
+          Object.prototype.hasOwnProperty.call(updateDoc, 'deliveryMode') ? updateDoc.deliveryMode : existing?.deliveryMode,
+        resourceType:
+          Object.prototype.hasOwnProperty.call(updateDoc, 'resourceType') ? updateDoc.resourceType : existing?.resourceType,
+        subjectExtraction:
+          Object.prototype.hasOwnProperty.call(updateDoc, 'subjectExtraction')
+            ? updateDoc.subjectExtraction
+            : existing?.subjectExtraction,
+        subjectMapping:
+          Object.prototype.hasOwnProperty.call(updateDoc, 'subjectMapping') ? updateDoc.subjectMapping : null,
+        conditionConfig:
+          Object.prototype.hasOwnProperty.call(updateDoc, 'conditionConfig') ? updateDoc.conditionConfig : existing?.conditionConfig,
+      };
+
+      const lifecycleValidation = validateLifecycleConfig(mergedLifecycleConfig);
+      const conditionValidation = validateConditionConfig(mergedConditionConfig);
+      if (!lifecycleValidation.valid) {
+        const error = new Error(lifecycleValidation.error);
+        error.code = 'VALIDATION_ERROR';
+        throw error;
+      }
+      if (!conditionValidation.valid) {
+        const error = new Error(conditionValidation.error);
+        error.code = 'VALIDATION_ERROR';
+        throw error;
+      }
+
+      if (
+        Object.prototype.hasOwnProperty.call(updateDoc, 'deliveryMode') ||
+        Object.prototype.hasOwnProperty.call(updateDoc, 'resourceType') ||
+        Object.prototype.hasOwnProperty.call(updateDoc, 'subjectExtraction') ||
+        Object.prototype.hasOwnProperty.call(updateDoc, 'subjectMapping') ||
+        Object.prototype.hasOwnProperty.call(updateDoc, 'lifecycleRules') ||
+        Object.prototype.hasOwnProperty.call(updateDoc, 'conditionConfig')
+      ) {
+        updateDoc.resourceType = mergedLifecycleConfig.resourceType || null;
+        updateDoc.subjectExtraction =
+          lifecycleValidation.normalizedSubjectExtraction || conditionValidation.normalizedSubjectExtraction;
+        updateDoc.subjectMapping = undefined;
+        updateDoc.lifecycleRules = lifecycleValidation.normalizedLifecycleRules;
+        updateDoc.conditionConfig = conditionValidation.normalizedConditionConfig;
+        updateDoc.deliveryMode = normalizeDeliveryMode(mergedConditionConfig.deliveryMode || updateDoc.deliveryMode);
+        updateDoc.cancelOnEvents =
+          lifecycleValidation.normalizedLifecycleRules.length > 0
+            ? lifecycleValidation.derivedCancelOnEvents
+            : updateDoc.cancelOnEvents || existing?.cancelOnEvents || [];
+      }
+
+      const unsetDoc = {};
+      if (Object.prototype.hasOwnProperty.call(updateDoc, 'subjectMapping')) {
+        delete updateDoc.subjectMapping;
+        unsetDoc.subjectMapping = '';
+      }
+
       // Debug: Log what we're saving
       log('debug', 'Updating integration', {
         operation: 'updateIntegration',
@@ -393,12 +560,17 @@ async function updateIntegration(orgId, id, patch) {
       // Don't stringify objects - MongoDB stores them natively
       // Just pass them through as-is
 
+      const updateOperation = { $set: updateDoc };
+      if (Object.keys(unsetDoc).length > 0) {
+        updateOperation.$unset = unsetDoc;
+      }
+
       await db.collection('integration_configs').updateOne(
         {
           _id: mongodb.toObjectId(id),
           ...integrationOrgQuery(normalizedOrgId),
         },
-        { $set: updateDoc }
+        updateOperation
       );
 
       const updated = await getIntegration(id);
@@ -413,6 +585,9 @@ async function updateIntegration(orgId, id, patch) {
 
       return updated && updated.orgId === normalizedOrgId ? updated : undefined;
     } catch (err) {
+      if (err.code === 'VALIDATION_ERROR') {
+        throw err;
+      }
       logError(err, { scope: 'updateIntegration', id });
     }
   }
@@ -635,6 +810,9 @@ module.exports = {
   getAllowedParentRids,
   listIntegrations,
   listIntegrationsForDelivery,
+  listIntegrationsForProcessing,
+  listInvalidationProfiles,
+  listConditionProfiles,
   getParentRidForEntity,
   getIntegration,
   addIntegration,

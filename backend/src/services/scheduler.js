@@ -208,53 +208,6 @@ function validateRecurringConfig(config) {
 }
 
 /**
- * Extract cancellation info from event payload
- * Looks for patientRid and scheduledDateTime fields
- * @param {Object} event - Event payload
- * @param {string} eventType - Event type
- * @returns {Object|null} Cancellation info or null
- */
-function extractCancellationInfo(event, _eventType) {
-  const cancellationInfo = {};
-
-  // Extract patientRid (check common field names)
-  const patientRidFields = ['patientRid', 'patient_rid', 'patientId', 'patient_id', 'ridPatient', 'rid_patient'];
-  for (const field of patientRidFields) {
-    if (event[field]) {
-      cancellationInfo.patientRid = event[field];
-      break;
-    }
-  }
-
-  // Extract scheduledDateTime (check common field names)
-  const datetimeFields = [
-    'scheduledDateTime',
-    'scheduled_date_time',
-    'appointmentDateTime',
-    'appointment_date_time',
-    'scheduledDate',
-    'scheduled_date',
-    'appointmentDate',
-    'appointment_date',
-    'scheduledTime',
-    'scheduled_time',
-  ];
-  for (const field of datetimeFields) {
-    if (event[field]) {
-      cancellationInfo.scheduledDateTime = event[field];
-      break;
-    }
-  }
-
-  // Only return if we have at least patientRid
-  if (cancellationInfo.patientRid) {
-    return cancellationInfo;
-  }
-
-  return null;
-}
-
-/**
  * Calculate next occurrence for recurring integration
  * @param {Object} recurringConfig - Recurring configuration
  * @param {number} currentOccurrence - Current occurrence number (1 = first, 2 = second, etc.)
@@ -280,7 +233,6 @@ function calculateNextOccurrence(recurringConfig, currentOccurrence) {
 
 module.exports = {
   executeSchedulingScript,
-  extractCancellationInfo,
   calculateNextOccurrence,
   validateRecurringConfig,
 };

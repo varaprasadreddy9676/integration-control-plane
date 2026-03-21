@@ -9,6 +9,7 @@ Complete system design and technical architecture for Integration Gateway.
 - [Data Flow](#data-flow)
 - [Worker Architecture](#worker-architecture)
 - [Integration Types](#integration-types)
+- [Outbound Lifecycle And Gated Delivery](#outbound-lifecycle-and-gated-delivery)
 - [Database Schema](#database-schema)
 - [Security Architecture](#security-architecture)
 - [API Design](#api-design)
@@ -222,6 +223,12 @@ Integration Gateway is a bi-directional integration platform for multi-tenant Sa
 - Timezone-aware execution
 - Next occurrence calculation for recurring jobs
 
+**Lifecycle And Condition Services** (`lifecycle-config.js`, `condition-config.js`)
+- Generic `subjectExtraction` in `PATHS` or `SCRIPT` mode
+- Config-driven invalidation for delayed and recurring rows
+- Config-driven hold/release rules for approval-style outbound delivery
+- Shared validation for `matchKeys`, duplicate event types, and delivery-mode-specific constraints
+
 **Validation Service** (`validation/`)
 - Request body validation (JSON Schema)
 - URL validation (whitelist/blacklist)
@@ -254,22 +261,27 @@ Integration Gateway is a bi-directional integration platform for multi-tenant Sa
 2. Read events from checkpoint (last processed ID)
 3. Filter by: maxEventAgeDays, allowedParentRids
 4. Deduplicate (5-minute window using in-memory cache)
-5. Match active outbound integrations (respecting entity hierarchy)
-6. For each matched integration:
+5. Evaluate lifecycle invalidation profiles for delayed/recurring integrations
+6. Evaluate condition profiles for held delivery release/discard rules
+7. Match active outbound integrations (respecting entity hierarchy)
+8. For each matched integration:
    a. Apply transformation (SIMPLE or SCRIPT mode)
-   b. Build authentication headers
-   c. Send HTTP request with timeout (30s default)
-   d. Record delivery log
-   e. Handle retry logic (exponential backoff)
-   f. Auto-disable on consecutive failures (circuit breaker)
-7. Update checkpoint (last processed ID)
-8. Repeat
+   b. For `WAIT_FOR_CONDITION`: store held payload and subject metadata
+   c. For `DELAYED` / `RECURRING`: create scheduled rows
+   d. For `IMMEDIATE`: build auth headers and send HTTP request
+   e. Record delivery log / execution trace
+   f. Handle retry logic (exponential backoff)
+   g. Auto-disable on consecutive failures (circuit breaker)
+9. Update checkpoint (last processed ID)
+10. Repeat
 ```
 
 **Key Features**:
 - Exactly-once processing (checkpoint-based)
 - Batch processing (5 events per cycle)
 - Multi-action support (sequential delivery with configurable delay)
+- Generic subject extraction for lifecycle and hold/release correlation
+- Condition-based hold/release for approval-style workflows
 - Circuit breaker (auto-disable after N consecutive failures)
 - Graceful shutdown
 
@@ -282,11 +294,11 @@ Integration Gateway is a bi-directional integration platform for multi-tenant Sa
 1. Poll scheduled_integrations collection every 60 seconds
 2. Find deliveries where scheduledFor <= now AND status = PENDING
 3. For each scheduled delivery:
-   a. Apply transformation
+   a. Use the stored transformed payload / metadata
    b. Send HTTP request
    c. Record delivery log
    d. Handle retry logic
-   e. For RECURRING: Create next occurrence
+   e. For RECURRING: Create next occurrence with lifecycle metadata preserved
 4. Mark as COMPLETED or FAILED
 5. Repeat
 ```
@@ -370,6 +382,7 @@ Integration Gateway is a bi-directional integration platform for multi-tenant Sa
 - `delivery_logs` - Complete delivery attempt history
 - `execution_logs` - Step-by-step execution traces (DLQ viewer)
 - `scheduled_integrations` - Pending scheduled deliveries
+- `held_outbound_deliveries` - Held payloads waiting for release/discard events
 - `dlq` (alias: `failed_deliveries`) - Dead letter queue
 - `rate_limits` - Per-org rate limiting state
 - `processed_events` - Event deduplication cache
@@ -414,6 +427,10 @@ Integration Gateway is a bi-directional integration platform for multi-tenant Sa
 // scheduled_integrations
 { scheduledFor: 1, status: 1 }
 { orgId: 1, status: 1 }
+
+// held_outbound_deliveries
+{ orgId: 1, status: 1, createdAt: -1 }
+{ integrationConfigId: 1, status: 1, createdAt: -1 }
 
 // rate_limits
 { integrationConfigId: 1, orgId: 1 }
@@ -721,7 +738,7 @@ The system supports three distinct integration patterns:
 - **Async**: Fire-and-forget with retry logic
 - **Triggered by**: MySQL notification_queue events
 - **Delivery**: Worker polls and delivers
-- **Scheduling**: IMMEDIATE, DELAYED, or RECURRING
+- **Delivery modes**: IMMEDIATE, DELAYED, RECURRING, WAIT_FOR_CONDITION
 
 **Configuration Schema**:
 ```typescript
@@ -743,9 +760,12 @@ The system supports three distinct integration patterns:
   outgoingAuthType: 'NONE' | 'API_KEY' | 'BEARER' | 'BASIC' | 'OAUTH2' | 'CUSTOM_HEADERS',
   outgoingAuthConfig: {...},
 
-  // Scheduling (optional)
-  schedulingMode: 'IMMEDIATE' | 'DELAYED' | 'RECURRING',
+  // Delivery timing / gating
+  deliveryMode: 'IMMEDIATE' | 'DELAYED' | 'RECURRING' | 'WAIT_FOR_CONDITION',
   schedulingConfig: {...},
+  subjectExtraction: {...},
+  lifecycleRules: [...],
+  conditionConfig: {...},
 
   // Multi-action (optional)
   actions: Action[],
@@ -971,6 +991,64 @@ Schedule next execution (for CRON)
 
 ---
 
+## Outbound Lifecycle And Gated Delivery
+
+The outbound engine now supports two generic rule-driven models in addition to plain immediate delivery.
+
+### Lifecycle invalidation for delayed and recurring rows
+
+Delayed and recurring integrations can define:
+
+- `resourceType`
+- `subjectExtraction`
+- `lifecycleRules`
+
+At scheduling time, the platform stores:
+
+- `subject`
+- `subjectExtraction`
+- `lifecycleRules`
+
+When a follow-up event arrives, `event-handler.js` evaluates invalidation profiles before the normal integration lookup. Matching is based on configured `matchKeys` and is scoped to the owning integration.
+
+Implemented invalidating actions:
+
+- `CANCEL_PENDING`
+- `RESCHEDULE_PENDING`
+
+`RESCHEDULE_PENDING` cancels old pending rows and then lets the current event continue through the normal scheduling path so new rows can be created from the updated payload.
+
+### Condition-based hold and release
+
+Integrations using `deliveryMode: WAIT_FOR_CONDITION` transform the payload immediately but do not send it yet.
+
+Instead, the platform stores:
+
+- transformed payload
+- original payload
+- `subject`
+- `subjectExtraction`
+- `conditionConfig`
+
+Later events are checked against:
+
+- `conditionConfig.releaseRules`
+- `conditionConfig.discardRules`
+
+If the configured `matchKeys` match, the held row is released and delivered or discarded without delivery.
+
+`WAIT_FOR_EVENT` is normalized internally to `WAIT_FOR_CONDITION`.
+
+### Preview support
+
+The backend exposes dry-run endpoints for the UI:
+
+- `POST /api/v1/outbound-integrations/preview-subject`
+- `POST /api/v1/outbound-integrations/preview-cancellation`
+- `POST /api/v1/outbound-integrations/preview-condition`
+
+---
+
 ## Database Schema
 
 ### Key Collections
@@ -1101,8 +1179,36 @@ Schedule next execution (for CRON)
   payload: {...},
   targetUrl: string,
   httpMethod: string,
-  cancellationInfo: {...},
+  subject: {
+    subjectType: string,
+    data: {...}
+  },
+  subjectExtraction: {...},
+  lifecycleRules: [...],
   recurringConfig: {...},
+  createdAt: ISODate,
+  updatedAt: ISODate
+}
+```
+
+**held_outbound_deliveries**
+```javascript
+{
+  _id: ObjectId,
+  integrationConfigId: ObjectId,
+  integrationName: string,
+  orgId: number,
+  eventType: string,
+  status: 'HELD' | 'RELEASED' | 'DISCARDED',
+  heldPayload: {...},
+  originalPayload: {...},
+  subject: {
+    subjectType: string,
+    data: {...}
+  },
+  subjectExtraction: {...},
+  conditionConfig: {...},
+  expiresAt: ISODate | null,
   createdAt: ISODate,
   updatedAt: ISODate
 }

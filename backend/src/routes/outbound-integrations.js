@@ -13,6 +13,20 @@ const { executeSchedulingScript, validateRecurringConfig } = require('../service
 const { generateMaskedCurlCommand } = require('../utils/curl-generator');
 const { auditIntegration } = require('../middleware/audit');
 const { filterIntegrationScope, assertIntegrationInScope, assertViewAllowed, assertPortalNotReadOnly } = require('../middleware/portal-scope');
+const {
+  INVALIDATING_ACTIONS,
+  findLifecycleRule,
+  normalizeSubjectExtraction,
+  validateLifecycleConfig,
+} = require('../services/lifecycle-config');
+const {
+  ALLOWED_CONDITION_ACTIONS,
+  findConditionRule,
+  normalizeConditionConfig,
+  normalizeDeliveryMode,
+  validateConditionConfig,
+} = require('../services/condition-config');
+const { normalizeEventSubject } = require('../processor/event-normalizer');
 
 const router = express.Router();
 
@@ -545,6 +559,245 @@ router.post(
 );
 
 router.post(
+  '/preview-subject',
+  asyncHandler(async (req, res) => {
+    const { eventType, resourceType, subjectExtraction, samplePayload } = req.body || {};
+    const payload = samplePayload && typeof samplePayload === 'object' ? samplePayload : {};
+
+    const validation = validateLifecycleConfig({
+      resourceType,
+      subjectExtraction,
+      lifecycleRules: [],
+    });
+
+    if (!validation.valid) {
+      return res.status(400).json({
+        error: validation.error,
+        code: 'VALIDATION_ERROR',
+      });
+    }
+
+    const subject = await normalizeEventSubject(eventType || 'PREVIEW_EVENT', payload, {
+      subjectType: resourceType || null,
+      subjectExtraction: validation.normalizedSubjectExtraction,
+    });
+
+    return res.json({
+      subject,
+      extractedKeys: Object.keys(subject?.data || {}),
+      warnings: subject?.warnings || [],
+    });
+  })
+);
+
+router.post(
+  '/preview-cancellation',
+  asyncHandler(async (req, res) => {
+    const {
+      eventType,
+      integrationId,
+      resourceType,
+      subjectExtraction,
+      lifecycleRules,
+      samplePayload,
+    } = req.body || {};
+
+    if (!eventType || typeof eventType !== 'string') {
+      return res.status(400).json({
+        error: 'eventType is required',
+        code: 'VALIDATION_ERROR',
+      });
+    }
+
+    const validation = validateLifecycleConfig({
+      resourceType,
+      subjectExtraction,
+      lifecycleRules,
+    });
+
+    if (!validation.valid) {
+      return res.status(400).json({
+        error: validation.error,
+        code: 'VALIDATION_ERROR',
+      });
+    }
+
+    const lifecycleRule = findLifecycleRule(validation.normalizedLifecycleRules, eventType);
+    if (!lifecycleRule) {
+      return res.status(400).json({
+        error: `No lifecycle rule configured for ${eventType}`,
+        code: 'VALIDATION_ERROR',
+      });
+    }
+
+    const subject = await normalizeEventSubject(eventType, samplePayload || {}, {
+      subjectType: resourceType || null,
+      subjectExtraction: validation.normalizedSubjectExtraction,
+    });
+
+    if (!subject?.data) {
+      return res.json({
+        subject,
+        wouldCancel: [],
+        matchedOn: [],
+        warnings: ['No subject keys were extracted from the sample payload'],
+      });
+    }
+
+    if (!INVALIDATING_ACTIONS.includes(lifecycleRule.action)) {
+      return res.json({
+        subject,
+        wouldCancel: [],
+        matchedOn: [],
+        warnings: [`Lifecycle action ${lifecycleRule.action} does not cancel pending rows`],
+      });
+    }
+
+    if (!integrationId) {
+      return res.json({
+        subject,
+        wouldCancel: [],
+        matchedOn: [],
+        warnings: ['Save the integration before previewing scheduled-row impact'],
+      });
+    }
+
+    const integration = await data.getIntegration(integrationId);
+    if (!integration || integration.orgId !== req.orgId) {
+      return res.status(404).json({ error: 'Integration not found', code: 'NOT_FOUND' });
+    }
+
+    const matches = await data.findScheduledIntegrationsByMatch(req.orgId, {
+      eventType,
+      integrationConfigId: integrationId,
+      subject,
+      lifecycleRule,
+      subjectExtraction: normalizeSubjectExtraction(validation.normalizedSubjectExtraction),
+    });
+
+    return res.json({
+      subject,
+      wouldCancel: matches.map((match) => ({
+        id: match.scheduledId,
+        integrationName: match.integrationName,
+        scheduledFor: match.scheduledFor,
+        status: match.status,
+        matchedOn: match.matchedOn,
+      })),
+      matchedOn: Array.from(new Set(matches.map((match) => match.matchedOn))),
+      warnings: subject.warnings || [],
+    });
+  })
+);
+
+router.post(
+  '/preview-condition',
+  asyncHandler(async (req, res) => {
+    const {
+      eventType,
+      integrationId,
+      resourceType,
+      subjectExtraction,
+      conditionConfig,
+      samplePayload,
+    } = req.body || {};
+
+    if (!eventType || typeof eventType !== 'string') {
+      return res.status(400).json({
+        error: 'eventType is required',
+        code: 'VALIDATION_ERROR',
+      });
+    }
+
+    const validation = validateConditionConfig({
+      deliveryMode: 'WAIT_FOR_CONDITION',
+      resourceType,
+      subjectExtraction,
+      conditionConfig,
+    });
+
+    if (!validation.valid) {
+      return res.status(400).json({
+        error: validation.error,
+        code: 'VALIDATION_ERROR',
+      });
+    }
+
+    const conditionRule = findConditionRule(validation.normalizedConditionConfig, eventType);
+    if (!conditionRule) {
+      return res.status(400).json({
+        error: `No condition rule configured for ${eventType}`,
+        code: 'VALIDATION_ERROR',
+      });
+    }
+
+    const subject = await normalizeEventSubject(eventType, samplePayload || {}, {
+      subjectType: resourceType || null,
+      subjectExtraction: validation.normalizedSubjectExtraction,
+    });
+
+    if (!subject?.data) {
+      return res.json({
+        subject,
+        action: conditionRule.action,
+        wouldAffect: [],
+        matchedOn: [],
+        warnings: ['No subject keys were extracted from the sample payload'],
+      });
+    }
+
+    if (!ALLOWED_CONDITION_ACTIONS.includes(conditionRule.action)) {
+      return res.json({
+        subject,
+        action: conditionRule.action,
+        wouldAffect: [],
+        matchedOn: [],
+        warnings: [`Condition action ${conditionRule.action} is not supported`],
+      });
+    }
+
+    if (!integrationId) {
+      return res.json({
+        subject,
+        action: conditionRule.action,
+        wouldAffect: [],
+        matchedOn: [],
+        warnings: ['Save the integration before previewing held delivery impact'],
+      });
+    }
+
+    const integration = await data.getIntegration(integrationId);
+    if (!integration || integration.orgId !== req.orgId) {
+      return res.status(404).json({ error: 'Integration not found', code: 'NOT_FOUND' });
+    }
+
+    const matches = await data.findHeldOutboundDeliveriesByMatch(req.orgId, {
+      eventType,
+      integrationConfigId: integrationId,
+      subject,
+      conditionRule,
+      conditionConfig: normalizeConditionConfig(validation.normalizedConditionConfig),
+      subjectExtraction: normalizeSubjectExtraction(validation.normalizedSubjectExtraction),
+    });
+
+    return res.json({
+      subject,
+      action: conditionRule.action,
+      wouldAffect: matches.map((match) => ({
+        id: match.heldId,
+        integrationName: match.integrationName,
+        status: match.status,
+        createdAt: match.createdAt,
+        matchedOn: match.matchedOn,
+        eventType: match.eventType,
+      })),
+      matchedOn: Array.from(new Set(matches.map((match) => match.matchedOn))),
+      warnings: subject.warnings || [],
+    });
+  })
+);
+
+router.post(
   '/:id/test',
   asyncHandler(async (req, res) => {
     const integration = await data.getIntegration(req.params.id);
@@ -864,12 +1117,12 @@ router.post(
     }
 
     // Use request body values if provided, otherwise fall back to saved integration config
-    const deliveryMode = requestDeliveryMode || integration?.deliveryMode;
+    const deliveryMode = normalizeDeliveryMode(requestDeliveryMode || integration?.deliveryMode);
     const script = requestScript || integration?.schedulingConfig?.script;
     const eventType = requestEventType || integration?.eventType;
 
     // Check if we have a valid delivery mode
-    if (!deliveryMode || deliveryMode === 'IMMEDIATE') {
+    if (!deliveryMode || deliveryMode === 'IMMEDIATE' || deliveryMode === 'WAIT_FOR_CONDITION') {
       return res.status(400).json({
         error: 'Integration is not configured for scheduling',
         code: 'NOT_SCHEDULED',
