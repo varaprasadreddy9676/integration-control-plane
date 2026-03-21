@@ -1,7 +1,8 @@
 # Frontend Dockerfile for Integration Gateway - Multi-stage build
 
-# Stage 1: Build the application
-FROM node:20-alpine AS builder
+# Stage 1: Build the application on the native build platform so multi-arch
+# image builds do not run npm under emulation.
+FROM --platform=$BUILDPLATFORM node:20-alpine AS builder
 
 WORKDIR /app
 
