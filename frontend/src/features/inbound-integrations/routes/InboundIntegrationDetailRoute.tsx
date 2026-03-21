@@ -746,7 +746,8 @@ return {
       setIsSaving(true);
 
       // Validate form with custom logic
-      const values = await validateForm();
+      await validateForm();
+      const values = form.getFieldsValue(true);
 
       // Build payload based on action type
       let payload: any = {

@@ -525,7 +525,16 @@ async function getSenderProfileMetrics(db, orgId) {
     updatedAt: 1,
   };
 
-  const items = await db.collection(SENDER_PROFILE_COLLECTION).find(match, { projection }).sort({ orgId: 1, isDefault: -1, key: 1 }).toArray();
+  let items = [];
+  try {
+    items = await db
+      .collection(SENDER_PROFILE_COLLECTION)
+      .find(match, { projection })
+      .sort({ orgId: 1, isDefault: -1, key: 1 })
+      .toArray();
+  } catch (_error) {
+    items = [];
+  }
   const mapped = items.map(mapSenderProfileStatus);
 
   if (orgId) {

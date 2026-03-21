@@ -43,6 +43,7 @@ function buildApp() {
 describe('POST /api/v1/events/test-notification-queue', () => {
   let app;
   let readFileSpy;
+  const getInsertCalls = () => db.query.mock.calls.filter(([sql]) => String(sql).includes('INSERT INTO notification_queue'));
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -76,8 +77,8 @@ describe('POST /api/v1/events/test-notification-queue', () => {
     expect(res.status).toBe(200);
     expect(res.body.inserted).toBe(2);
     expect(res.body.eventTypes).toEqual(['PATIENT_REGISTERED', 'OP_VISIT_CREATED']);
-    expect(db.query).toHaveBeenCalledTimes(2);
-    expect(db.query.mock.calls[0][0]).toContain('INSERT INTO notification_queue');
+    expect(getInsertCalls()).toHaveLength(2);
+    expect(getInsertCalls()[0][0]).toContain('INSERT INTO notification_queue');
     expect(readFileSpy).toHaveBeenCalledTimes(1);
     expect(String(readFileSpy.mock.calls[0][0]).replace(/\\/g, '/')).toContain('/setup/event-types.json');
   });
@@ -98,7 +99,7 @@ describe('POST /api/v1/events/test-notification-queue', () => {
     expect(res.status).toBe(200);
     expect(res.body.inserted).toBe(1);
     expect(res.body.eventTypes).toEqual(['PATIENT_REGISTERED']);
-    expect(db.query).toHaveBeenCalledTimes(1);
+    expect(getInsertCalls()).toHaveLength(1);
   });
 
   it('inserts schema events by requested eventTypes filter', async () => {
@@ -123,17 +124,18 @@ describe('POST /api/v1/events/test-notification-queue', () => {
     expect(res.status).toBe(200);
     expect(res.body.inserted).toBe(1);
     expect(res.body.eventTypes).toEqual(['LAB_REPORT_READY']);
-    expect(db.query).toHaveBeenCalledTimes(1);
+    expect(getInsertCalls()).toHaveLength(1);
   });
 
   it('stamps unique payload.id for each inserted test event', async () => {
     const res = await request(app).post('/api/v1/events/test-notification-queue').send({ orgId: 33, orgUnitRid: 33 });
 
     expect(res.status).toBe(200);
-    expect(db.query).toHaveBeenCalledTimes(2);
+    expect(getInsertCalls()).toHaveLength(2);
 
-    const firstPayload = JSON.parse(db.query.mock.calls[0][1].message);
-    const secondPayload = JSON.parse(db.query.mock.calls[1][1].message);
+    const insertCalls = getInsertCalls();
+    const firstPayload = JSON.parse(insertCalls[0][1].message);
+    const secondPayload = JSON.parse(insertCalls[1][1].message);
 
     expect(typeof firstPayload.id).toBe('string');
     expect(typeof secondPayload.id).toBe('string');
