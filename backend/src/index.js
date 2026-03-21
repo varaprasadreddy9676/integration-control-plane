@@ -79,6 +79,11 @@ let shutdownState = {
   startedAt: null,
 };
 
+function captureRawJsonBody(req, _res, buf, encoding) {
+  if (!buf) return;
+  req.rawBody = buf.length > 0 ? buf.toString(encoding || 'utf8') : '';
+}
+
 function normalizeHealthStatus(status) {
   const normalized = String(status || '').toLowerCase();
   if (normalized === 'ok') return 'healthy';
@@ -256,11 +261,18 @@ async function bootstrap() {
       origin: true,
       credentials: true,
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'X-API-Key', 'Authorization'],
+      allowedHeaders: [
+        'Content-Type',
+        'X-API-Key',
+        'Authorization',
+        'X-Integration-Signature',
+        'X-Integration-Timestamp',
+        'X-Integration-ID',
+      ],
       exposedHeaders: ['X-Request-Id', 'X-Total-Count'],
     })
   );
-  app.use(express.json({ limit: '1mb' }));
+  app.use(express.json({ limit: '1mb', verify: captureRawJsonBody }));
   app.use(requestIdMiddleware); // Add request ID first for tracking
   app.use(requestLogger);
   app.use(rateLimit); // Rate limiting before auth

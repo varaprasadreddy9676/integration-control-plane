@@ -212,6 +212,77 @@ function verifySignature(secret, messageId, timestamp, payload, signature, toler
   }
 }
 
+function getHeaderValue(headers, headerName) {
+  if (!headers || !headerName) return undefined;
+  const direct = headers[headerName];
+  if (direct !== undefined) return direct;
+  const lower = headers[String(headerName).toLowerCase()];
+  if (lower !== undefined) return lower;
+  const exact = headers[String(headerName).toUpperCase()];
+  if (exact !== undefined) return exact;
+
+  const match = Object.entries(headers).find(([key]) => String(key).toLowerCase() === String(headerName).toLowerCase());
+  return match ? match[1] : undefined;
+}
+
+function normalizeVerificationSecrets(authConfig = {}) {
+  const rawSecrets = [
+    ...(Array.isArray(authConfig.secrets) ? authConfig.secrets : []),
+    ...(Array.isArray(authConfig.signingSecrets) ? authConfig.signingSecrets : []),
+    authConfig.secret,
+    authConfig.signingSecret,
+  ];
+
+  return rawSecrets.map((secret) => String(secret || '').trim()).filter(Boolean);
+}
+
+function verifySignedRequest(authConfig = {}, headers = {}, rawBody = '') {
+  try {
+    const secrets = normalizeVerificationSecrets(authConfig);
+    if (secrets.length === 0) {
+      log('warn', 'Signed request verification skipped: no secrets configured');
+      return false;
+    }
+
+    const signatureHeader = authConfig.signatureHeader || HEADER_SIGNATURE;
+    const timestampHeader = authConfig.timestampHeader || HEADER_TIMESTAMP;
+    const messageIdHeader = authConfig.messageIdHeader || HEADER_ID;
+    const toleranceSeconds = Number(authConfig.toleranceSeconds ?? 300);
+
+    const signatureValue = getHeaderValue(headers, signatureHeader);
+    const timestampValue = getHeaderValue(headers, timestampHeader);
+    const messageIdValue = getHeaderValue(headers, messageIdHeader);
+
+    if (!signatureValue || !timestampValue || !messageIdValue) {
+      return false;
+    }
+
+    const timestamp = Number(timestampValue);
+    if (!Number.isFinite(timestamp)) {
+      return false;
+    }
+
+    const rawPayload = typeof rawBody === 'string' ? rawBody : String(rawBody ?? '');
+    const signatures = String(signatureValue)
+      .split(/\s+/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+
+    if (signatures.length === 0) {
+      return false;
+    }
+
+    return secrets.some((secret) =>
+      signatures.some((signature) =>
+        verifySignature(secret, String(messageIdValue), timestamp, rawPayload, signature, toleranceSeconds)
+      )
+    );
+  } catch (error) {
+    log('error', 'Signed request verification failed', { error: error.message });
+    return false;
+  }
+}
+
 /**
  * Generate verification code examples for receivers
  * Helps customers implement signature verification correctly
@@ -411,6 +482,7 @@ module.exports = {
   signPayload,
   generateSignatureHeaders,
   verifySignature,
+  verifySignedRequest,
   generateVerificationExamples,
   // Export constants for use in other modules
   SIGNATURE_VERSION,

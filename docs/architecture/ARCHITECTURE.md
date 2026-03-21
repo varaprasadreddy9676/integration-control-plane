@@ -161,7 +161,7 @@ Integration Gateway is a bi-directional integration platform for multi-tenant Sa
 - `/inbound-integrations` - Inbound proxy CRUD
 - `/scheduled-jobs` - Scheduled batch jobs CRUD, execution, logs, test datasource
 - `/integrations/:type` - Runtime proxy execution (method must match configured integration method)
-- `/public/integrations/:type` - Public runtime endpoint with per-integration inbound auth
+- `/public/integrations/:type` - Public runtime endpoint with per-integration inbound auth, including HMAC-verified webhook-style callers
 - `/system-logs` - Rotated app/access log reading and process tail
 - `/system-status` - Runtime health, process lifecycle, worker status, adapter health
 - `/logs` - Delivery logs (list, detail, export)

@@ -27,6 +27,7 @@ const {
   evaluateInboundRequestPolicy,
   validateRequestPolicy,
 } = require('../services/request-policy');
+const { verifySignedRequest } = require('../services/integration-signing');
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -231,6 +232,25 @@ function validateCommunicationAction(action) {
 function validateInboundPayload(payload) {
   if (!payload?.name || !payload?.type) {
     return 'Missing required fields: name, type';
+  }
+
+  const inboundAuthType = String(payload.inboundAuthType || 'NONE').toUpperCase();
+  const inboundAuthConfig = payload.inboundAuthConfig || {};
+  if (inboundAuthType === 'HMAC') {
+    const hasSecret =
+      (typeof inboundAuthConfig.secret === 'string' && inboundAuthConfig.secret.trim())
+      || (Array.isArray(inboundAuthConfig.secrets) && inboundAuthConfig.secrets.some((secret) => String(secret || '').trim()));
+
+    if (!hasSecret) {
+      return 'inboundAuthConfig.secret is required for HMAC auth';
+    }
+
+    if (
+      inboundAuthConfig.toleranceSeconds !== undefined
+      && (!Number.isFinite(Number(inboundAuthConfig.toleranceSeconds)) || Number(inboundAuthConfig.toleranceSeconds) < 0)
+    ) {
+      return 'inboundAuthConfig.toleranceSeconds must be a non-negative number when provided';
+    }
   }
 
   if (payload.maxInboundFileSizeMb !== undefined) {
@@ -1053,7 +1073,12 @@ const handleInboundRuntime = async (req, res) => {
 
     // 2. Validate inbound authentication (if configured)
     if (config.inboundAuthType && config.inboundAuthType !== 'NONE') {
-      const isAuthorized = validateInboundAuth(config, req.headers);
+      const rawBody = typeof req.rawBody === 'string'
+        ? req.rawBody
+        : typeof req.body === 'string'
+          ? req.body
+          : JSON.stringify(req.body || {});
+      const isAuthorized = validateInboundAuth({ ...config, __rawBody: rawBody }, req.headers);
       if (!isAuthorized) {
         await executionLogger
           .addStep('inbound_auth', {
@@ -2262,8 +2287,9 @@ function validateInboundAuth(integration, headers) {
   }
 
   const authConfig = integration.inboundAuthConfig || {};
+  const authType = String(integration.inboundAuthType || '').toUpperCase();
 
-  switch (integration.inboundAuthType) {
+  switch (authType) {
     case 'API_KEY': {
       const headerName = authConfig.headerName || 'x-api-key';
       const expectedKey = authConfig.value || authConfig.key;
@@ -2294,6 +2320,11 @@ function validateInboundAuth(integration, headers) {
         log('error', 'Failed to decode Basic auth', { error: error.message });
         return false;
       }
+    }
+
+    case 'HMAC': {
+      const rawBody = typeof integration.__rawBody === 'string' ? integration.__rawBody : '';
+      return verifySignedRequest(authConfig, headers, rawBody);
     }
 
     default:

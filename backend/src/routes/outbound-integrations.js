@@ -6,7 +6,7 @@ const { validateTargetUrl } = require('../utils/url-check');
 const config = require('../config');
 const { buildAuthHeaders } = require('../processor/auth-helper');
 const asyncHandler = require('../utils/async-handler');
-const { generateSigningSecret } = require('../services/integration-signing');
+const { generateSigningSecret, generateSignatureHeaders } = require('../services/integration-signing');
 const { validateLookupConfigs } = require('../services/lookup-validator');
 const { fetch, AbortController } = require('../utils/runtime');
 const { executeSchedulingScript, validateRecurringConfig } = require('../services/scheduler');
@@ -866,6 +866,15 @@ router.post(
           const headers = await buildAuthHeaders(integration, httpMethod, targetUrl);
           headers['Content-Type'] = 'application/json';
 
+          if (integration.enableSigning && integration.signingSecrets && integration.signingSecrets.length > 0) {
+            const messageId = `test_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+            const timestamp = Math.floor(Date.now() / 1000);
+            Object.assign(
+              headers,
+              generateSignatureHeaders(integration.signingSecrets, messageId, timestamp, JSON.stringify(transformed))
+            );
+          }
+
           const resp = await fetch(targetUrl, {
             method: httpMethod,
             headers,
@@ -992,6 +1001,15 @@ router.post(
       const httpMethod = integration.httpMethod || 'POST';
       const headers = await buildAuthHeaders(integration, httpMethod, integration.targetUrl);
       headers['Content-Type'] = 'application/json';
+
+      if (integration.enableSigning && integration.signingSecrets && integration.signingSecrets.length > 0) {
+        const messageId = `test_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+        const timestamp = Math.floor(Date.now() / 1000);
+        Object.assign(
+          headers,
+          generateSignatureHeaders(integration.signingSecrets, messageId, timestamp, JSON.stringify(transformed))
+        );
+      }
 
       // Make the actual HTTP request
       const resp = await fetch(integration.targetUrl, {

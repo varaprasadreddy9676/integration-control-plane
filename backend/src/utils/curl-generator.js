@@ -19,7 +19,7 @@ const config = require('../config');
 function generateCurlCommand(integration, options = {}) {
   const baseUrl = options.baseUrl || `http://localhost:${config.port}`;
   const apiPrefix = config.api.basePrefix || '/api/v1';
-  const runtimePath = !integration.inboundAuthType || integration.inboundAuthType === 'NONE'
+  const runtimePath = !integration.inboundAuthType || integration.inboundAuthType === 'NONE' || integration.inboundAuthType === 'HMAC'
     ? 'public/integrations'
     : 'integrations';
   const endpoint = `${baseUrl}${apiPrefix}/${runtimePath}/${integration.type}`;
@@ -90,6 +90,16 @@ function buildInboundAuthHeaders(integration) {
       break;
     }
 
+    case 'HMAC': {
+      const messageIdHeader = authConfig.messageIdHeader || 'X-Integration-ID';
+      const timestampHeader = authConfig.timestampHeader || 'X-Integration-Timestamp';
+      const signatureHeader = authConfig.signatureHeader || 'X-Integration-Signature';
+      headers.push({ name: messageIdHeader, value: '<MESSAGE_ID>' });
+      headers.push({ name: timestampHeader, value: '<UNIX_TIMESTAMP>' });
+      headers.push({ name: signatureHeader, value: '<V1_HMAC_SIGNATURE>' });
+      break;
+    }
+
     default:
       break;
   }
@@ -130,6 +140,10 @@ function maskAuthConfig(authConfig, authType) {
     case 'BASIC':
       if (masked.username) masked.username = '<username>';
       if (masked.password) masked.password = '<password>';
+      break;
+    case 'HMAC':
+      if (masked.secret) masked.secret = '<hmac-secret>';
+      if (Array.isArray(masked.secrets)) masked.secrets = masked.secrets.map(() => '<hmac-secret>');
       break;
     default:
       break;

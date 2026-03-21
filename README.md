@@ -48,11 +48,13 @@ While there are other webhook services (like Svix) or API Gateways (like Kong), 
   - Hold/release condition rules with explicit `matchKeys` for approval/gating flows.
   - Preview endpoints for extracted subject, scheduled-row impact, and held-row impact.
   - Signing secret rotation/removal endpoints.
+  - Signing is fail-closed: if signature headers cannot be generated, the outbound request is not sent unsigned.
   - Target URL validation supports both HTTP and HTTPS, with optional HTTPS-only enforcement and separate private-network blocking.
 - Inbound/runtime integrations (`/api/v1/integrations`)
   - Runtime trigger endpoints (`GET/POST/PUT /api/v1/integrations/:type`).
   - Public runtime trigger endpoints (`GET/POST/PUT /api/v1/public/integrations/:type`) with per-integration inbound auth.
-  - Inbound auth checks (`NONE`, `API_KEY`, `BEARER`, `BASIC`).
+  - Inbound auth checks (`NONE`, `API_KEY`, `BEARER`, `BASIC`, `HMAC`).
+  - Native inbound HMAC verification validates the raw request body plus timestamp replay window and is designed for public webhook-style callers.
   - Request policy controls:
     - source IP allowlist (`allowedIpCidrs`)
     - browser origin allowlist (`allowedBrowserOrigins`)

@@ -99,12 +99,12 @@ A DLQ entry is created when delivery permanently fails after all retries. It sto
 If `enableSigning` is turned on, each request gets three additional headers:
 
 ```
-X-Integration-Signature: sha256=<base64_hmac>
-X-Message-ID: <uuid>
-X-Timestamp: <unix_seconds>
+X-Integration-Signature: v1,<base64_hmac>
+X-Integration-ID: <uuid>
+X-Integration-Timestamp: <unix_seconds>
 ```
 
-The signature is HMAC-SHA256 over the JSON-serialized payload. Multiple signing secrets are supported for key rotation — the recipient can verify against any active secret.
+The signature is HMAC-SHA256 over `${messageId}.${timestamp}.${rawPayload}`. Multiple signing secrets are supported for key rotation, and if signing is enabled but headers cannot be generated, the request is failed instead of being sent unsigned.
 
 ---
 

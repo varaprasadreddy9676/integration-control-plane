@@ -54,6 +54,13 @@ export const AuthenticationFields = ({
     return baseLabel;
   };
 
+  const authOptions = (() => {
+    const options = Array.isArray(uiConfig?.authTypes) ? [...uiConfig.authTypes] : [];
+    if (mode !== 'inbound') return options;
+    if (options.some((option: any) => option?.value === 'HMAC')) return options;
+    return [...options, { value: 'HMAC', label: 'HMAC Signature' }];
+  })();
+
   return (
     <Row gutter={[spacingToNumber(spacing[4]), 0]}>
       <Col xs={24}>
@@ -63,7 +70,7 @@ export const AuthenticationFields = ({
           rules={[{ required: true }]}
         >
           <Select
-            options={uiConfig?.authTypes || []}
+            options={authOptions}
             size="large"
           />
         </Form.Item>
@@ -128,6 +135,57 @@ export const AuthenticationFields = ({
             <Input.Password placeholder="Enter bearer token" size="large" />
           </Form.Item>
         </Col>
+      )}
+
+      {selectedAuthType === 'HMAC' && (
+        <>
+          <Col xs={24}>
+            <Form.Item
+              name={[...fieldPrefix, 'secret']}
+              label="HMAC Secret"
+              rules={[{ required: true, message: 'HMAC secret is required' }]}
+            >
+              <Input.Password placeholder="Enter shared signing secret" size="large" />
+            </Form.Item>
+          </Col>
+          <Col xs={24} md={8}>
+            <Form.Item name={[...fieldPrefix, 'signatureHeader']} label="Signature Header">
+              <Input placeholder="X-Integration-Signature" size="large" />
+            </Form.Item>
+          </Col>
+          <Col xs={24} md={8}>
+            <Form.Item name={[...fieldPrefix, 'timestampHeader']} label="Timestamp Header">
+              <Input placeholder="X-Integration-Timestamp" size="large" />
+            </Form.Item>
+          </Col>
+          <Col xs={24} md={8}>
+            <Form.Item name={[...fieldPrefix, 'messageIdHeader']} label="Message ID Header">
+              <Input placeholder="X-Integration-ID" size="large" />
+            </Form.Item>
+          </Col>
+          <Col xs={24} md={12}>
+            <Form.Item
+              name={[...fieldPrefix, 'toleranceSeconds']}
+              label="Replay Tolerance (seconds)"
+              tooltip="Reject requests whose timestamp is older than this window"
+              initialValue={300}
+              rules={[
+                {
+                  validator: (_, value) => {
+                    if (value === undefined || value === null || value === '') return Promise.resolve();
+                    const numericValue = Number(value);
+                    if (Number.isFinite(numericValue) && numericValue >= 0) {
+                      return Promise.resolve();
+                    }
+                    return Promise.reject(new Error('Tolerance must be a non-negative number'));
+                  }
+                }
+              ]}
+            >
+              <Input type="number" min={0} placeholder="300" size="large" />
+            </Form.Item>
+          </Col>
+        </>
       )}
 
       {/* OAUTH1 fields - For NetSuite, Twitter API, etc. */}

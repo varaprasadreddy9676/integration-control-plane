@@ -1,7 +1,7 @@
 /**
  * Shared types for integration forms
  */
-export type AuthType = 'NONE' | 'API_KEY' | 'BASIC' | 'BEARER' | 'OAUTH1' | 'OAUTH2' | 'CUSTOM' | 'CUSTOM_HEADERS';
+export type AuthType = 'NONE' | 'API_KEY' | 'BASIC' | 'BEARER' | 'HMAC' | 'OAUTH1' | 'OAUTH2' | 'CUSTOM' | 'CUSTOM_HEADERS';
 
 export type TransformationMode = 'SIMPLE' | 'SCRIPT';
 

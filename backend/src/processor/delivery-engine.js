@@ -593,12 +593,14 @@ async function deliverSingleAction(
           secretCount: integration.signingSecrets.length,
         });
       } catch (signError) {
-        log('warn', `${pollCount > 0 ? `[POLL #${pollCount}] ` : ''}Failed to generate integration signature`, {
+        log('error', `${pollCount > 0 ? `[POLL #${pollCount}] ` : ''}Failed to generate integration signature`, {
           error: signError.message,
           integrationId: integration.id,
           actionName,
         });
-        // Continue delivery even if signing fails (graceful degradation)
+        const error = new Error(`Signing is enabled but signature generation failed: ${signError.message}`);
+        error.code = 'SIGNING_FAILED';
+        throw error;
       }
     }
 
@@ -828,9 +830,12 @@ async function deliverSingleAction(
     // Network/connection errors should be retried (timeout, DNS, connection refused, etc.)
     const maxRetries = integration.retryCount || 3;
     // attemptCount > maxRetries means we've exceeded the limit
-    const finalStatus = isTest ? 'FAILED' : attemptCount > maxRetries ? 'ABANDONED' : 'RETRYING';
+    const isSigningFailure = err.code === 'SIGNING_FAILED';
+    const finalStatus = isTest || isSigningFailure ? 'FAILED' : attemptCount > maxRetries ? 'ABANDONED' : 'RETRYING';
     const finalErrorMessage = isTest
       ? `${catchErrorMessage} - Test event (no retry)`
+      : isSigningFailure
+        ? `${catchErrorMessage} - Signing configuration error (no retry)`
       : attemptCount > maxRetries
         ? `${catchErrorMessage} - Max retries (${maxRetries}) reached`
         : catchErrorMessage;
@@ -881,7 +886,9 @@ async function deliverSingleAction(
 
     if (finalStatus === 'FAILED' || finalStatus === 'ABANDONED') {
       const errorCode =
-        err.code === 'ETIMEDOUT' || err.code === 'ECONNABORTED'
+        err.code === 'SIGNING_FAILED'
+          ? 'SIGNING_FAILED'
+          : err.code === 'ETIMEDOUT' || err.code === 'ECONNABORTED'
           ? 'TIMEOUT'
           : err.code === 'ECONNREFUSED' || err.code === 'ENOTFOUND'
             ? 'NETWORK_ERROR'
@@ -1475,12 +1482,14 @@ async function deliverToIntegration(
           secretCount: integration.signingSecrets.length,
         });
       } catch (signError) {
-        log('warn', `${prefix}Failed to generate integration signature`, {
+        log('error', `${prefix}Failed to generate integration signature`, {
           error: signError.message,
           integrationId: integration.id,
           __KEEP_integrationName__: integration.name,
         });
-        // Continue delivery even if signing fails (graceful degradation)
+        const error = new Error(`Signing is enabled but signature generation failed: ${signError.message}`);
+        error.code = 'SIGNING_FAILED';
+        throw error;
       }
     }
 
@@ -1716,9 +1725,12 @@ async function deliverToIntegration(
     const attemptCount = (evt.attempt_count || 0) + 1;
     const maxRetries = integration.retryCount || 3;
     // isTest is already defined earlier in the try block
-    const finalStatus = isTest ? 'FAILED' : attemptCount > maxRetries ? 'ABANDONED' : 'RETRYING';
+    const isSigningFailure = err.code === 'SIGNING_FAILED';
+    const finalStatus = isTest || isSigningFailure ? 'FAILED' : attemptCount > maxRetries ? 'ABANDONED' : 'RETRYING';
     const finalErrorMessage = isTest
       ? `${catchErrorMessage} - Test event (no retry)`
+      : isSigningFailure
+        ? `${catchErrorMessage} - Signing configuration error (no retry)`
       : attemptCount > maxRetries
         ? `${catchErrorMessage} - Max retries (${maxRetries}) reached`
         : catchErrorMessage;

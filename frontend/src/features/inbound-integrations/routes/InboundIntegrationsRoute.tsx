@@ -183,7 +183,9 @@ export const InboundIntegrationsRoute = ({ hideHeader = false, isActive = true }
     const apiKey = options?.apiKey?.trim();
     const inboundKey = options?.inboundKey?.trim();
     const inferredParams = inferCurlQueryParams(integration);
-    const usesPublicRuntime = !integration.inboundAuthType || integration.inboundAuthType === 'NONE';
+    const usesPublicRuntime = !integration.inboundAuthType
+      || integration.inboundAuthType === 'NONE'
+      || integration.inboundAuthType === 'HMAC';
 
     const queryEntries: Array<[string, string]> = [['orgId', String(orgId ?? 84)]];
     if (httpMethod === 'GET') {
@@ -217,6 +219,13 @@ export const InboundIntegrationsRoute = ({ hideHeader = false, isActive = true }
       headers.push(`-H "Authorization: Bearer <INBOUND_TOKEN>"`);
     } else if (integration.inboundAuthType === 'BASIC') {
       headers.push(`-H "Authorization: Basic <BASE64_USER_PASS>"`);
+    } else if (integration.inboundAuthType === 'HMAC') {
+      const messageIdHeader = integration.inboundAuthConfig?.messageIdHeader || 'X-Integration-ID';
+      const timestampHeader = integration.inboundAuthConfig?.timestampHeader || 'X-Integration-Timestamp';
+      const signatureHeader = integration.inboundAuthConfig?.signatureHeader || 'X-Integration-Signature';
+      headers.push(`-H "${messageIdHeader}: <MESSAGE_ID>"`);
+      headers.push(`-H "${timestampHeader}: <UNIX_TIMESTAMP>"`);
+      headers.push(`-H "${signatureHeader}: <V1_HMAC_SIGNATURE>"`);
     }
 
     const communicationAction = integration.actions?.find((a: any) => a.kind === 'COMMUNICATION');
@@ -749,11 +758,11 @@ export const InboundIntegrationsRoute = ({ hideHeader = false, isActive = true }
       >
         <Space direction="vertical" size="small" style={{ width: '100%' }}>
           <Text type="secondary">
-            {(!curlIntegration?.inboundAuthType || curlIntegration?.inboundAuthType === 'NONE')
+            {(!curlIntegration?.inboundAuthType || curlIntegration?.inboundAuthType === 'NONE' || curlIntegration?.inboundAuthType === 'HMAC')
               ? 'This endpoint is public; no gateway API key is required.'
               : 'Provide the gateway API key to include it in the curl command.'}
           </Text>
-          {(curlIntegration?.inboundAuthType && curlIntegration?.inboundAuthType !== 'NONE') && (
+          {(curlIntegration?.inboundAuthType && curlIntegration?.inboundAuthType !== 'NONE' && curlIntegration?.inboundAuthType !== 'HMAC') && (
             <Input.Password
               placeholder="Gateway API Key (X-API-Key)"
               value={curlApiKey}

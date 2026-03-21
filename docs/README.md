@@ -22,7 +22,7 @@ Use this index to find the right guide quickly.
 - `docs/guides/FEATURE-PERMISSIONS-GUIDE.md` - Feature-level permissions
 - `docs/guides/PERMISSIONS-SUMMARY.md` - Permission matrix
 - `docs/guides/AUDIT-SEARCH-GUIDE.md` - Audit and search usage
-- `docs/guides/WEBHOOK-SECURITY.md` - Outbound signing plus inbound request-policy controls (IP allowlist, browser origins, rate limits)
+- `docs/guides/WEBHOOK-SECURITY.md` - Outbound signing, inbound HMAC verification, request policy, SSRF protection
 
 ## Features
 
@@ -34,7 +34,8 @@ Use this index to find the right guide quickly.
 - `docs/guides/LOOKUP-TABLES.md` - Lookup table creation, XLSX import/export, script usage
 - `docs/guides/OUTBOUND-LIFECYCLE.md` - Generic subject extraction, delayed lifecycle rules, and WAIT_FOR_CONDITION hold/release flows
 - `docs/guides/VERSIONING.md` - Semantic versioning, diff view, rollback, templates
-- `docs/guides/WEBHOOK-SECURITY.md` - HMAC signing, request policy, SSRF protection, auth types
+- `docs/guides/WEBHOOK-SECURITY.md` - Outbound HMAC signing, inbound HMAC auth, request policy, SSRF protection, auth types
+- `docs/video-production/RECORDING-PLAN.md` - 10 product-demo recording plans with matching Remotion overlay scripts
 
 ## Backend Reference
 

@@ -95,6 +95,9 @@ jest.mock('../../src/utils/timeout', () => ({
 jest.mock('../../src/services/communication/adapter-registry', () => ({}));
 
 const { deliverToIntegration } = require('../../src/processor/delivery-engine');
+const { fetch: mockFetch } = require('../../src/utils/runtime');
+const { generateSignatureHeaders } = require('../../src/services/integration-signing');
+const { checkRateLimit } = require('../../src/middleware/rate-limiter');
 
 describe('delivery-engine', () => {
   beforeEach(() => {
@@ -139,6 +142,49 @@ describe('delivery-engine', () => {
         id: 'exec-log-1',
         status: 'RETRYING',
         responseStatus: 429,
+      })
+    );
+  });
+
+  it('fails closed when signing is enabled but signature generation throws', async () => {
+    checkRateLimit.mockResolvedValue({
+      allowed: true,
+      remaining: 10,
+      resetAt: new Date().toISOString(),
+      retryAfter: 0,
+    });
+    generateSignatureHeaders.mockImplementation(() => {
+      throw new Error('broken-secret');
+    });
+
+    const integration = {
+      id: 'integration-1',
+      name: 'Signed Integration',
+      orgId: 812,
+      targetUrl: 'https://example.com/hook',
+      httpMethod: 'POST',
+      retryCount: 3,
+      enableSigning: true,
+      signingSecrets: ['whsec_test_secret'],
+    };
+
+    const evt = {
+      id: 'evt-2',
+      event_type: 'ORDER_CREATED',
+      payload: { orderId: 'o1' },
+      attempt_count: 0,
+      orgId: 812,
+    };
+
+    const result = await deliverToIntegration(integration, evt, false, 0, null, 'trace-2', true);
+
+    expect(result).toEqual({ status: 'FAILED', logId: 'exec-log-1', logIds: null });
+    expect(mockFetch).not.toHaveBeenCalled();
+    expect(mockRecordLog).toHaveBeenCalledWith(
+      812,
+      expect.objectContaining({
+        status: 'FAILED',
+        errorMessage: expect.stringContaining('Signing configuration error'),
       })
     );
   });

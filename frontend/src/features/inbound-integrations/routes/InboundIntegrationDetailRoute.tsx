@@ -92,7 +92,9 @@ export const InboundIntegrationDetailRoute = () => {
     const base = apiBase.replace(/\/$/, '');
     const typedType = typeof formType === 'string' ? formType.trim() : '';
     const typeSegment = typedType ? encodeURIComponent(typedType) : '<type>';
-    const runtimePath = !inboundAuthTypeValue || inboundAuthTypeValue === 'NONE' ? 'public/integrations' : 'integrations';
+    const runtimePath = !inboundAuthTypeValue || inboundAuthTypeValue === 'NONE' || inboundAuthTypeValue === 'HMAC'
+      ? 'public/integrations'
+      : 'integrations';
     return `${base}/${runtimePath}/${typeSegment}?orgId=<orgId>`;
   }, [formType, inboundAuthTypeValue]);
 
@@ -353,6 +355,7 @@ return {
     if (!auth || auth === 'NONE') return { label: 'Low', color: 'orange', tip: 'No authentication — any caller can invoke this endpoint' };
     if (auth === 'API_KEY')       return { label: 'Medium', color: 'blue', tip: 'API key required' };
     if (auth === 'BASIC')         return { label: 'Medium', color: 'blue', tip: 'Basic auth required' };
+    if (auth === 'HMAC')          return { label: 'High', color: 'green', tip: 'Signed requests with replay protection required' };
     return { label: 'High', color: 'green', tip: 'Strong authentication configured' };
   };
 
@@ -486,12 +489,18 @@ return {
       });
     }
     const queryString = new URLSearchParams(queryEntries).toString();
-    const url = `${base}/public/integrations/${encodeURIComponent(integrationConfig.type)}?${queryString}`;
+    const usesPublicRuntime = !integrationConfig.inboundAuthType
+      || integrationConfig.inboundAuthType === 'NONE'
+      || integrationConfig.inboundAuthType === 'HMAC';
+    const runtimePath = usesPublicRuntime ? 'public/integrations' : 'integrations';
+    const url = `${base}/${runtimePath}/${encodeURIComponent(integrationConfig.type)}?${queryString}`;
 
     if (integrationConfig.inboundAuthType === 'API_KEY') {
       const headerName = (integrationConfig.inboundAuthConfig?.headerName || 'x-api-key').toLowerCase();
       const value = inboundKey || apiKey || '<INBOUND_API_KEY>';
       headers.push(`-H "${headerName}: ${value}"`);
+    } else if (!usesPublicRuntime) {
+      headers.push(`-H "X-API-Key: ${apiKey || '<API_KEY>'}"`);
     }
 
     if (httpMethod !== 'GET') {
@@ -502,6 +511,13 @@ return {
       headers.push(`-H "Authorization: Bearer <INBOUND_TOKEN>"`);
     } else if (integrationConfig.inboundAuthType === 'BASIC') {
       headers.push(`-H "Authorization: Basic <BASE64_USER_PASS>"`);
+    } else if (integrationConfig.inboundAuthType === 'HMAC') {
+      const messageIdHeader = integrationConfig.inboundAuthConfig?.messageIdHeader || 'X-Integration-ID';
+      const timestampHeader = integrationConfig.inboundAuthConfig?.timestampHeader || 'X-Integration-Timestamp';
+      const signatureHeader = integrationConfig.inboundAuthConfig?.signatureHeader || 'X-Integration-Signature';
+      headers.push(`-H "${messageIdHeader}: <MESSAGE_ID>"`);
+      headers.push(`-H "${timestampHeader}: <UNIX_TIMESTAMP>"`);
+      headers.push(`-H "${signatureHeader}: <V1_HMAC_SIGNATURE>"`);
     }
 
     const communicationAction = integrationConfig.actions?.find((a: any) => a.kind === 'COMMUNICATION');

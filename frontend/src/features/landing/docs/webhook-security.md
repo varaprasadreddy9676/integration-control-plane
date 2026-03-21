@@ -28,6 +28,8 @@ Headers added:
 | `X-Integration-Timestamp` | Unix timestamp (seconds) |
 | `X-Integration-ID` | Unique per-delivery message ID |
 
+If signing is enabled and the gateway cannot generate those headers, the request is failed immediately. It is not sent unsigned.
+
 ### Receiver Verification
 
 - reject stale requests
@@ -40,6 +42,30 @@ Rotation remains two-step:
 
 1. rotate and keep both secrets active
 2. remove old secret after receiver update
+
+---
+
+## Inbound HMAC Verification
+
+Inbound integrations can also use `HMAC` as a native authentication type.
+
+Use this when the caller can sign webhook requests but should not need the gateway's admin API key.
+
+How it works:
+- the integration runs on `/api/v1/public/integrations/:type`
+- the gateway reads the raw request body
+- it verifies `HMAC-SHA256(secret, "${messageId}.${timestamp}.${rawBody}")`
+- it rejects stale timestamps outside the configured replay window
+
+Default inbound HMAC headers:
+
+| Header | Default |
+|--------|---------|
+| Signature | `X-Integration-Signature` |
+| Timestamp | `X-Integration-Timestamp` |
+| Message ID | `X-Integration-ID` |
+
+Replay tolerance defaults to `300` seconds and can be configured per integration.
 
 ---
 
@@ -95,6 +121,16 @@ Outbound authentication:
 
 Inbound authentication is configured separately per inbound integration and can be used together with request policy controls.
 
+Inbound types:
+
+| Type | Description |
+|------|-------------|
+| `NONE` | No integration-specific auth |
+| `API_KEY` | Header-based shared secret |
+| `BASIC` | HTTP Basic |
+| `BEARER` | Bearer token |
+| `HMAC` | Raw-body signature verification with replay protection |
+
 ---
 
 ## SSRF Protection
@@ -119,10 +155,12 @@ Both `http://` and `https://` targets are supported. HTTPS is still recommended,
 For robust webhook/API security:
 
 1. outbound: HMAC signing
-2. inbound: request policy
+2. inbound: auth + request policy
+   - use `HMAC` for signed webhook senders
+   - use `API_KEY`, `BASIC`, or `BEARER` when the caller supports shared credentials
+3. request policy
    - IP allowlist where possible
    - origin allowlist only for browser traffic
    - rate limiting on public routes
-3. add auth on top where the upstream supports it
 
 This gives both transport verification and request admission control.

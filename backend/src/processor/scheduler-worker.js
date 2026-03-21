@@ -784,10 +784,13 @@ async function deliverScheduledAction(
         signatureHeaders = generateSignatureHeaders(integration.signingSecrets, messageId, timestamp, payloadString);
         Object.assign(headers, signatureHeaders);
       } catch (signError) {
-        log('warn', `${prefix}Failed to generate integration signature`, {
+        log('error', `${prefix}Failed to generate integration signature`, {
           error: signError.message,
           scheduledId: scheduled.id,
         });
+        const error = new Error(`Signing is enabled but signature generation failed: ${signError.message}`);
+        error.code = 'SIGNING_FAILED';
+        throw error;
       }
     }
 
@@ -906,7 +909,12 @@ async function deliverScheduledAction(
       requestHeaders: headers,
     });
 
-    return { status: 'FAILED', responseStatus: 500, errorMessage, shouldRetry: true };
+    return {
+      status: 'FAILED',
+      responseStatus: 500,
+      errorMessage,
+      shouldRetry: err.code === 'SIGNING_FAILED' ? false : true,
+    };
   }
 }
 
@@ -1216,10 +1224,13 @@ async function deliverScheduledIntegration(scheduled, integration, pollCount = 0
           scheduledId: scheduled.id,
         });
       } catch (signError) {
-        log('warn', `${prefix}Failed to generate integration signature`, {
+        log('error', `${prefix}Failed to generate integration signature`, {
           error: signError.message,
           scheduledId: scheduled.id,
         });
+        const error = new Error(`Signing is enabled but signature generation failed: ${signError.message}`);
+        error.code = 'SIGNING_FAILED';
+        throw error;
       }
     }
 
@@ -1379,7 +1390,7 @@ async function deliverScheduledIntegration(scheduled, integration, pollCount = 0
     });
 
     const maxRetries = integration.retryCount || 3;
-    if (attemptCount < maxRetries) {
+    if (err.code !== 'SIGNING_FAILED' && attemptCount < maxRetries) {
       const delaySeconds = computeRetryDelaySeconds(attemptCount);
 
       // Update status to retrying (don't create DLQ yet)

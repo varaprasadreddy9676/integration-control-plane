@@ -125,7 +125,12 @@ jest.mock('../../src/utils/url-check', () => ({
 }));
 
 jest.mock('../../src/services/integration-signing', () => ({
-  generateSigningSecret: jest.fn().mockReturnValue('mock-signing-secret')
+  generateSigningSecret: jest.fn().mockReturnValue('mock-signing-secret'),
+  generateSignatureHeaders: jest.fn().mockReturnValue({
+    'X-Integration-Signature': 'v1,mock-signature',
+    'X-Integration-Timestamp': '1710000000',
+    'X-Integration-ID': 'msg_test',
+  }),
 }));
 
 jest.mock('../../src/services/lookup-validator', () => ({
@@ -320,6 +325,35 @@ describe('Outbound Integrations Routes', () => {
       expect(applyTransform).toHaveBeenCalledTimes(2);
       expect(applyTransform.mock.calls[0][0].transformationMode).toBe('SCRIPT');
       expect(applyTransform.mock.calls[1][0].transformationMode).toBe('SCRIPT');
+    });
+
+    it('includes signing headers on single-action test deliveries when signing is enabled', async () => {
+      mockCollection.findOne.mockResolvedValueOnce({
+        ...mockIntegrationDoc,
+        enableSigning: true,
+        signingSecrets: ['secret-abc'],
+      });
+
+      fetch.mockResolvedValue({
+        status: 200,
+        text: async () => 'ok',
+      });
+
+      const res = await request(app)
+        .post('/api/v1/outbound-integrations/integration-id-123/test')
+        .send({ payload: { hello: 'world' } });
+
+      expect(res.status).toBe(200);
+      expect(fetch).toHaveBeenCalledWith(
+        'https://example.com/webhook',
+        expect.objectContaining({
+          headers: expect.objectContaining({
+            'X-Integration-Signature': 'v1,mock-signature',
+            'X-Integration-Timestamp': '1710000000',
+            'X-Integration-ID': 'msg_test',
+          }),
+        })
+      );
     });
   });
 

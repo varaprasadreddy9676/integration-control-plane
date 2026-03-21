@@ -115,7 +115,7 @@ export const LogDetailRoute = () => {
     let httpMethod: string;
 
     if (direction === 'INBOUND') {
-      const usesPublicRuntime = !config?.inboundAuthType || config?.inboundAuthType === 'NONE';
+      const usesPublicRuntime = !config?.inboundAuthType || config?.inboundAuthType === 'NONE' || config?.inboundAuthType === 'HMAC';
       const requestUrl = typeof requestSnapshot?.url === 'string' && requestSnapshot.url.trim()
         ? requestSnapshot.url.trim()
         : `/api/v1/${usesPublicRuntime ? 'public/integrations' : 'integrations'}/${config?.type || 'integration'}?orgId=${orgId}`;
@@ -143,7 +143,7 @@ export const LogDetailRoute = () => {
     let curl = `curl --location '${targetUrl}'`;
 
     if (direction === 'INBOUND') {
-      const usesPublicRuntime = !config?.inboundAuthType || config?.inboundAuthType === 'NONE';
+      const usesPublicRuntime = !config?.inboundAuthType || config?.inboundAuthType === 'NONE' || config?.inboundAuthType === 'HMAC';
       if (!usesPublicRuntime) {
         const gatewayApiKey = import.meta.env.VITE_API_KEY || 'YOUR_API_KEY';
         curl += ` \\\n  --header 'X-API-Key: ${gatewayApiKey}'`;
@@ -153,6 +153,13 @@ export const LogDetailRoute = () => {
         curl += ` \\\n  --header 'Authorization: Bearer <INBOUND_TOKEN>'`;
       } else if (config?.inboundAuthType === 'BASIC') {
         curl += ` \\\n  --header 'Authorization: Basic <BASE64_USER_PASS>'`;
+      } else if (config?.inboundAuthType === 'HMAC') {
+        const messageIdHeader = config?.inboundAuthConfig?.messageIdHeader || 'X-Integration-ID';
+        const timestampHeader = config?.inboundAuthConfig?.timestampHeader || 'X-Integration-Timestamp';
+        const signatureHeader = config?.inboundAuthConfig?.signatureHeader || 'X-Integration-Signature';
+        curl += ` \\\n  --header '${messageIdHeader}: <MESSAGE_ID>'`;
+        curl += ` \\\n  --header '${timestampHeader}: <UNIX_TIMESTAMP>'`;
+        curl += ` \\\n  --header '${signatureHeader}: <V1_HMAC_SIGNATURE>'`;
       } else if (config?.inboundAuthType === 'API_KEY' && config?.inboundAuthConfig?.headerName) {
         const headerName = String(config.inboundAuthConfig.headerName);
         if (headerName.toLowerCase() !== 'x-api-key') {

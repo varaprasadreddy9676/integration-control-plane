@@ -1,13 +1,14 @@
 # Webhook Security Guide
 
-The platform provides multiple layers of outbound and inbound security: HMAC-SHA256 payload signing, SSRF protection, incoming request-policy controls, outgoing authentication options, and replay attack prevention. This guide covers each mechanism.
+The platform provides multiple layers of outbound and inbound security: outbound HMAC-SHA256 payload signing, native inbound HMAC verification, SSRF protection, incoming request-policy controls, outgoing authentication options, and replay attack prevention. This guide covers each mechanism.
 
 ## Table of Contents
 
 - [HMAC Payload Signing](#hmac-payload-signing)
+- [Inbound HMAC Verification](#inbound-hmac-verification)
 - [Signing Secret Rotation](#signing-secret-rotation)
 - [Verifying Signatures (Receiver-Side)](#verifying-signatures-receiver-side)
-- [Outgoing Authentication Types](#outgoing-authentication-types)
+- [Authentication Types](#authentication-types)
 - [Inbound Request Policy](#inbound-request-policy)
 - [SSRF Protection](#ssrf-protection)
 - [Replay Attack Prevention](#replay-attack-prevention)
@@ -39,6 +40,8 @@ Three headers are added to the outbound HTTP request:
 | `X-Integration-Timestamp` | Unix timestamp (seconds) | When the request was made |
 | `X-Integration-ID` | Unique message ID | Per-delivery identifier |
 
+If signing is enabled and the gateway cannot generate signature headers, the delivery is failed immediately. It is not sent unsigned.
+
 ### Enabling signing
 
 **Via UI:** Integration detail → Security tab → Enable Signing → a signing secret is generated automatically.
@@ -55,6 +58,57 @@ Content-Type: application/json
 ```
 
 The signing secret is generated server-side. It is shown once in the UI immediately after creation — **save it immediately**. It is never returned in GET responses.
+
+---
+
+## Inbound HMAC Verification
+
+Inbound integrations can now require HMAC signatures as a native `inboundAuthType`.
+
+Use this when a third-party webhook sender or partner system can sign requests but should not need the gateway's admin API key.
+
+### Runtime path
+
+Inbound HMAC integrations use the public runtime endpoint:
+
+```text
+POST /api/v1/public/integrations/:type?orgId=...
+```
+
+The request is still protected by the per-integration HMAC verification step. No gateway `X-API-Key` is required for this runtime path.
+
+### Example config
+
+```json
+{
+  "inboundAuthType": "HMAC",
+  "inboundAuthConfig": {
+    "secret": "whsec_<base64>",
+    "signatureHeader": "X-Integration-Signature",
+    "timestampHeader": "X-Integration-Timestamp",
+    "messageIdHeader": "X-Integration-ID",
+    "toleranceSeconds": 300
+  }
+}
+```
+
+Defaults:
+- `signatureHeader`: `X-Integration-Signature`
+- `timestampHeader`: `X-Integration-Timestamp`
+- `messageIdHeader`: `X-Integration-ID`
+- `toleranceSeconds`: `300`
+
+### Verification behavior
+
+For inbound HMAC auth, the gateway:
+
+1. preserves the raw request body before JSON parsing changes it
+2. extracts message ID, timestamp, and signature from configured headers
+3. verifies `HMAC-SHA256(secret, "${messageId}.${timestamp}.${rawBody}")`
+4. rejects stale requests outside the replay window
+5. supports multiple signatures in the header so rotated sender secrets can still be verified
+
+If verification fails, the request is rejected with `401 AUTHENTICATION_FAILED` before any transformation or upstream call.
 
 ---
 
@@ -151,9 +205,9 @@ function verifyWebhookSignature(req, signingSecret) {
 
 ---
 
-## Outgoing Authentication Types
+## Authentication Types
 
-Each integration configures how the gateway authenticates to the target endpoint:
+Outbound integrations configure how the gateway authenticates to the target endpoint:
 
 | Auth Type | Description |
 |-----------|-------------|
@@ -165,6 +219,16 @@ Each integration configures how the gateway authenticates to the target endpoint
 | `OAUTH1` | OAuth 1.0a signed requests (for NetSuite, legacy APIs) |
 | `CUSTOM` | Custom token endpoint with configurable request body |
 | `CUSTOM_HEADERS` | Arbitrary set of key-value headers added to every request |
+
+Inbound integrations support:
+
+| Auth Type | Description |
+|-----------|-------------|
+| `NONE` | No integration-specific auth |
+| `API_KEY` | Header-based shared secret |
+| `BEARER` | Bearer token check |
+| `BASIC` | HTTP Basic Auth |
+| `HMAC` | Raw-body signature verification with replay protection |
 
 ### OAuth2 (client credentials)
 
@@ -237,6 +301,11 @@ Behavior:
 - policy denials are written to app/system logs for operator visibility
 - the same policy model is reusable across inbound integrations
 
+Request policy and inbound authentication are independent:
+- use `HMAC` when the caller can cryptographically sign the request
+- use `API_KEY`, `BEARER`, or `BASIC` when the caller supports shared credentials
+- combine any of the above with IP allowlists and rate limiting when needed
+
 ---
 
 ## SSRF Protection
@@ -284,6 +353,9 @@ if (age > 300) {
 ```
 POST   /api/v1/outbound-integrations/:id/signing/rotate    Rotate signing secret (zero-downtime)
 POST   /api/v1/outbound-integrations/:id/signing/remove    Remove old secrets after rotation complete
+GET    /api/v1/public/integrations/:type                   Public inbound runtime with optional HMAC/auth checks
+POST   /api/v1/public/integrations/:type                   Public inbound runtime with optional HMAC/auth checks
+PUT    /api/v1/public/integrations/:type                   Public inbound runtime with optional HMAC/auth checks
 ```
 
 Both endpoints require `INTEGRATION_EDITOR` role or above and are recorded in the audit log.
