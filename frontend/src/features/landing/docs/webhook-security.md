@@ -110,7 +110,7 @@ Blocked targets include:
 | Link-local | `169.254.x.x`, `fe80::/10` |
 | Localhost names | `localhost` |
 
-HTTPS enforcement remains the production default.
+Both `http://` and `https://` targets are supported. HTTPS is still recommended, and admins can re-enable strict HTTPS-only enforcement through system config if required.
 
 ---
 

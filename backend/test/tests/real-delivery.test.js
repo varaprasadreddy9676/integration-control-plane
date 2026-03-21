@@ -396,6 +396,14 @@ liveDescribe('Real Webhook Delivery - Transformations', () => {
 
 liveDescribe('Real Webhook Delivery - URL Validation', () => {
 
+  test('Default validation allows HTTP and still blocks non-HTTP protocols', () => {
+    expect(validateTargetUrl('http://example.com/webhook')).toEqual({ valid: true });
+
+    const ftpResult = validateTargetUrl('ftp://example.com/webhook');
+    expect(ftpResult.valid).toBe(false);
+    expect(ftpResult.reason).toContain('Only HTTP and HTTPS URLs are allowed');
+  });
+
   test('HTTPS enforcement - blocks HTTP URLs when enforceHttps=true', () => {
     const config = {
       enforceHttps: true,

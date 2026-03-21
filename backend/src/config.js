@@ -55,7 +55,7 @@ const defaultConfig = {
     }
   },
   security: {
-    enforceHttps: true,
+    enforceHttps: false,
     blockPrivateNetworks: true,
     apiKey: process.env.API_KEY || 'mdcs_dev_key_1f4a',
     jwtSecret: process.env.JWT_SECRET || 'change_me_dev_jwt_secret',

@@ -46,7 +46,10 @@ function isPrivateIp(ip) {
   return privateBlocks.some((block) => isInRange(ip, block.cidr));
 }
 
-function validateTargetUrl(targetUrl, { enforceHttps = true, blockPrivateNetworks = true } = {}) {
+function validateTargetUrl(
+  targetUrl,
+  { enforceHttps = false, blockPrivateNetworks = true, allowedProtocols = ['http:', 'https:'] } = {}
+) {
   if (!targetUrl) {
     return { valid: false, reason: 'URL required' };
   }
@@ -55,6 +58,10 @@ function validateTargetUrl(targetUrl, { enforceHttps = true, blockPrivateNetwork
     parsed = new URL(targetUrl);
   } catch (_err) {
     return { valid: false, reason: 'Invalid URL format' };
+  }
+
+  if (!allowedProtocols.includes(parsed.protocol)) {
+    return { valid: false, reason: 'Only HTTP and HTTPS URLs are allowed' };
   }
 
   if (enforceHttps && parsed.protocol !== 'https:') {
